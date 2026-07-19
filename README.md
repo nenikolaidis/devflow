@@ -89,8 +89,6 @@ Users can:
 
 ---
 
-# Setup Guide
-
 ## Requirements
 
 You need:
