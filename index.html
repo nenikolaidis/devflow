@@ -322,6 +322,7 @@ let currentUser = null;
 let currentRole = null;
 let ticketsUnsub = null, allowlistUnsub = null, requestsUnsub = null, ownRequestUnsub = null;
 let allowlistCache = [];
+let requestsCache = [];
 let currentTab = 'board';
 
 const board = document.getElementById('board');
@@ -479,7 +480,10 @@ function switchTab(tab){
   document.getElementById('dashboardView').classList.toggle('hidden', tab !== 'dashboard');
   document.getElementById('teamView').classList.toggle('hidden', tab !== 'team');
   if(tab === 'dashboard') renderDashboard();
-  if(tab === 'team' && currentRole === 'admin') renderAllowlist();
+  if(tab === 'team' && currentRole === 'admin'){
+    renderAllowlist();
+    renderRequests(requestsCache);
+  }
 }
 document.getElementById('navBoard').addEventListener('click', () => switchTab('board'));
 document.getElementById('navDashboard').addEventListener('click', () => switchTab('dashboard'));
@@ -891,7 +895,8 @@ document.getElementById('addAllowBtn').addEventListener('click', async () => {
 
 function attachRequestsListener(){
   requestsUnsub = db.collection('accessRequests').onSnapshot(snap => {
-    if(currentTab === 'team') renderRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    requestsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if(currentTab === 'team') renderRequests(requestsCache);
   }, err => showToast('Requests sync error: ' + err.message));
 }
 
