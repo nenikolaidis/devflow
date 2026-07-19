@@ -28,14 +28,29 @@ service cloud.firestore {
       allow create: if isApproved();
       allow update: if isApproved();
       allow delete: if isAdminOrPM();
+
+      // Comments: any approved user can read and post. No edit/delete
+      // to keep a simple, honest activity trail.
+      match /comments/{commentId} {
+        allow read, create: if isApproved();
+      }
     }
 
     // Allow list: a user can always read their own entry (so the app can
-    // tell them "pending approval"). Only admins can read the full list
-    // or add/remove people.
+    // tell them "pending approval"). Only admins can read the full list,
+    // add people, remove people, or change roles.
     match /allowlist/{email} {
       allow read: if isSignedIn() && myEmail() == email;
       allow read, write: if isAdmin();
+    }
+
+    // Access requests: a signed-in user can create/read only their own
+    // request (used to power "Request access" on the pending screen).
+    // Admins can read and delete any request (delete = approve or deny,
+    // both happen from the Team tab).
+    match /accessRequests/{email} {
+      allow create, read: if isSignedIn() && myEmail() == email;
+      allow read, delete: if isAdmin();
     }
   }
 }

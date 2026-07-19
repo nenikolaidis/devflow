@@ -34,64 +34,47 @@
     --radius: 6px;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0;
-    background: var(--bg);
-    color: var(--text-primary);
-    font-family: var(--font-sans);
-    font-size:14px;
-    line-height:1.5;
-  }
+  body{ margin:0; background: var(--bg); color: var(--text-primary); font-family: var(--font-sans); font-size:14px; line-height:1.5; }
   ::selection{ background: var(--accent-dim); }
   ::-webkit-scrollbar{ height:8px; width:8px; }
   ::-webkit-scrollbar-thumb{ background: var(--border-strong); border-radius:4px; }
   ::-webkit-scrollbar-track{ background: transparent; }
 
-  .topbar{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:18px 24px; border-bottom:1px solid var(--border);
-    flex-wrap:wrap; gap:12px;
-  }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:14px 24px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:12px; }
   .brand{ display:flex; align-items:baseline; gap:10px; }
   .brand-mark{ font-family:var(--font-mono); font-weight:700; font-size:18px; letter-spacing:-0.5px; color:var(--accent); }
   .brand-tag{ font-size:12px; color:var(--text-muted); font-family:var(--font-mono); }
   .topbar-actions{ display:flex; align-items:center; gap:10px; }
 
+  .nav{ display:flex; gap:4px; padding:0 24px; border-bottom:1px solid var(--border); }
+  .nav button{ border:none; background:none; padding:12px 14px; font-size:13px; font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent; border-radius:0; }
+  .nav button:hover{ color:var(--text-primary); background:none; }
+  .nav button.active{ color:var(--accent); border-bottom-color:var(--accent); }
+
   select, input[type=text], input[type=email], input[type=password], input[type=date], textarea{
-    background:var(--surface); color:var(--text-primary);
-    border:1px solid var(--border); border-radius:var(--radius);
-    padding:8px 10px; font-family:var(--font-sans); font-size:13px;
-    outline:none;
+    background:var(--surface); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius);
+    padding:8px 10px; font-family:var(--font-sans); font-size:13px; outline:none;
   }
   select:focus, input:focus, textarea:focus{ border-color:var(--border-strong); }
   textarea{ resize:vertical; font-family:var(--font-sans); }
 
-  button{
-    font-family:var(--font-sans); cursor:pointer; border-radius:var(--radius);
-    font-size:13px; font-weight:500; border:1px solid var(--border);
-    background:var(--surface); color:var(--text-primary); padding:8px 14px;
-    transition: background .12s ease, border-color .12s ease;
-  }
+  button{ font-family:var(--font-sans); cursor:pointer; border-radius:var(--radius); font-size:13px; font-weight:500; border:1px solid var(--border); background:var(--surface); color:var(--text-primary); padding:8px 14px; transition: background .12s ease, border-color .12s ease; }
   button:hover{ background:var(--surface-hover); border-color:var(--border-strong); }
   button.primary{ background:var(--accent); color:#241905; border-color:var(--accent); font-weight:600; }
   button.primary:hover{ background:#f0ae4d; }
   button.ghost{ background:transparent; border-color:transparent; padding:6px 8px; }
   button.ghost:hover{ background:var(--surface); }
   button.danger{ color:var(--red); }
+  button.small{ padding:5px 10px; font-size:12px; }
   button:disabled{ opacity:.35; cursor:not-allowed; }
+  a.link{ color:var(--accent); font-size:12px; cursor:pointer; text-decoration:none; }
+  a.link:hover{ text-decoration:underline; }
 
-  .filterbar{
-    display:flex; gap:10px; padding:14px 24px; flex-wrap:wrap;
-    border-bottom:1px solid var(--border); align-items:center;
-  }
+  .filterbar{ display:flex; gap:10px; padding:14px 24px; flex-wrap:wrap; border-bottom:1px solid var(--border); align-items:center; }
   .filterbar input[type=text]{ min-width:220px; flex:1; }
 
   .board{ display:flex; gap:14px; padding:20px 24px; overflow-x:auto; align-items:flex-start; }
-  .column{
-    background:var(--bg-raised); border:1px solid var(--border); border-radius:10px;
-    min-width:250px; max-width:250px; flex-shrink:0;
-    display:flex; flex-direction:column; max-height:calc(100vh - 210px);
-  }
+  .column{ background:var(--bg-raised); border:1px solid var(--border); border-radius:10px; min-width:250px; max-width:250px; flex-shrink:0; display:flex; flex-direction:column; max-height:calc(100vh - 260px); }
   .column-head{ padding:12px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
   .column-title{ font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-secondary); }
   .column-count{ font-family:var(--font-mono); font-size:11px; color:var(--text-muted); background:var(--surface); padding:2px 7px; border-radius:10px; }
@@ -115,9 +98,11 @@
   .p-high{ background:var(--accent-dim); color:var(--accent); }
   .p-medium{ background:var(--blue-dim); color:var(--blue); }
   .p-low{ background:var(--teal-dim); color:var(--teal); }
+  .role-pill{ font-size:10px; padding:2px 8px; border-radius:20px; font-family:var(--font-mono); background:var(--surface-hover); border:1px solid var(--border); color:var(--text-secondary); }
 
   .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:flex-start; justify-content:center; padding:5vh 20px; z-index:50; overflow-y:auto; }
-  .modal{ background:var(--bg-raised); border:1px solid var(--border-strong); border-radius:12px; width:100%; max-width:520px; padding:22px; margin-bottom:5vh; }
+  .modal{ background:var(--bg-raised); border:1px solid var(--border-strong); border-radius:12px; width:100%; max-width:540px; padding:22px; margin-bottom:5vh; }
+  .modal.narrow{ max-width:400px; }
   .modal-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
   .modal-head h2{ margin:0; font-size:16px; font-weight:600; }
   .field{ margin-bottom:14px; }
@@ -137,11 +122,19 @@
   .status-track button{ font-size:11px; padding:6px 10px; }
   .status-track button.active{ background:var(--accent); color:#241905; border-color:var(--accent); font-weight:600; }
 
+  .comments{ border-top:1px solid var(--border); padding-top:14px; margin-top:4px; }
+  .comments h4{ margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); }
+  .comment{ background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:8px; }
+  .comment-head{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom:4px; font-family:var(--font-mono); }
+  .comment-body{ font-size:13px; color:var(--text-primary); white-space:pre-wrap; }
+  .comment-empty{ font-size:12px; color:var(--text-muted); margin-bottom:10px; }
+  .comment-add{ display:flex; gap:8px; margin-top:8px; }
+  .comment-add textarea{ flex:1; }
+
   .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--border-strong); padding:10px 18px; border-radius:8px; font-size:13px; z-index:100; opacity:0; transition:opacity .2s ease; pointer-events:none; }
   .toast.show{ opacity:1; }
   .role-badge{ font-family:var(--font-mono); font-size:10px; color:var(--text-muted); align-self:center; }
 
-  /* Auth screen */
   .auth-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
   .auth-card{ background:var(--bg-raised); border:1px solid var(--border); border-radius:12px; padding:32px; width:100%; max-width:360px; }
   .auth-card h1{ font-family:var(--font-mono); font-size:20px; color:var(--accent); margin:0 0 4px; }
@@ -151,22 +144,42 @@
   .auth-tabs button.active{ background:var(--accent); color:#241905; border-color:var(--accent); font-weight:600; }
   .auth-error{ color:var(--red); font-size:12px; margin:-6px 0 14px; min-height:14px; }
   .auth-status{ color:var(--text-muted); font-size:12px; text-align:center; margin-top:14px; }
+  .auth-forgot{ text-align:right; margin:-8px 0 14px; }
   .pending-box{ text-align:center; }
   .pending-box i{ font-style:normal; }
 
-  /* Admin panel */
-  .admin-panel{ padding:0 24px 24px; }
-  .admin-panel h3{ font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); margin:0 0 12px; }
-  .allow-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; font-size:13px; }
-  .allow-row .em{ flex:1; font-family:var(--font-mono); font-size:12px; }
+  .dash-grid{ padding:22px 24px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:14px; }
+  .stat-card{ background:var(--bg-raised); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .stat-num{ font-family:var(--font-mono); font-size:26px; font-weight:700; color:var(--accent); }
+  .stat-num.teal{ color:var(--teal); }
+  .stat-num.red{ color:var(--red); }
+  .stat-label{ font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
+  .dash-panels{ padding:0 24px 24px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .panel{ background:var(--bg-raised); border:1px solid var(--border); border-radius:10px; padding:18px; }
+  .panel h3{ font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); margin:0 0 14px; }
+  .bar-row{ margin-bottom:10px; }
+  .bar-row-top{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; }
+  .bar-track{ height:7px; border-radius:4px; background:var(--surface); overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:4px; }
+  .owner-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .owner-table th{ text-align:left; color:var(--text-muted); font-weight:500; padding:4px 6px; border-bottom:1px solid var(--border); }
+  .owner-table td{ padding:6px; border-bottom:1px solid var(--border); }
+  .dash-empty{ color:var(--text-muted); font-size:13px; padding:30px; text-align:center; }
+
+  .team-view{ padding:22px 24px; max-width:760px; }
+  .team-view h3{ font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); margin:26px 0 12px; }
+  .team-view h3:first-child{ margin-top:0; }
+  .request-row, .allow-row{ display:flex; gap:10px; align-items:center; background:var(--bg-raised); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .request-row .em, .allow-row .em{ flex:1; font-family:var(--font-mono); font-size:12px; }
+  .request-row select, .allow-row select{ font-size:12px; padding:5px 8px; }
   .add-allow{ display:flex; gap:8px; margin-top:10px; }
   .add-allow input{ flex:1; }
+  .empty-note{ color:var(--text-muted); font-size:12px; padding:6px 2px 14px; }
+
   .hidden{ display:none !important; }
 
-  @media (max-width:640px){
-    .row2{ grid-template-columns:1fr; }
-    .detail-meta{ grid-template-columns:1fr; }
-  }
+  @media (max-width:900px){ .dash-panels{ grid-template-columns:1fr; } }
+  @media (max-width:640px){ .row2{ grid-template-columns:1fr; } .detail-meta{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -180,14 +193,9 @@
       <button id="tabLogin" class="active">Log in</button>
       <button id="tabSignup">Sign up</button>
     </div>
-    <div class="field">
-      <label>Email</label>
-      <input type="email" id="authEmail" placeholder="you@company.com">
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="authPassword" placeholder="At least 6 characters">
-    </div>
+    <div class="field"><label>Email</label><input type="email" id="authEmail" placeholder="you@company.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="At least 6 characters"></div>
+    <div class="auth-forgot"><a class="link" id="forgotLink">Forgot password?</a></div>
     <div class="auth-error" id="authError"></div>
     <button class="primary" id="authSubmit" style="width:100%;">Log in</button>
     <div class="auth-status" id="authStatus"></div>
@@ -199,11 +207,9 @@
   <div class="auth-card pending-box">
     <h1>devflow</h1>
     <p class="sub" style="margin-bottom:18px;">Account created</p>
-    <p style="font-size:13px; color:var(--text-secondary);">
-      Your account isn't approved for this board yet. Ask an admin to add
-      <i id="pendingEmail" style="color:var(--accent);"></i> to the allow list, then reload this page.
-    </p>
-    <button id="signOutPending" style="margin-top:16px;">Sign out</button>
+    <p style="font-size:13px; color:var(--text-secondary);" id="pendingMsg"></p>
+    <button class="primary" id="requestAccessBtn" style="margin-top:16px; width:100%;">Request access</button>
+    <button id="signOutPending" style="margin-top:10px; width:100%;">Sign out</button>
   </div>
 </div>
 
@@ -216,35 +222,54 @@
     </div>
     <div class="topbar-actions">
       <span class="role-badge" id="whoami"></span>
-      <button class="primary" id="newTicketBtn">+ New ticket</button>
-      <button class="ghost" id="signOutBtn">Sign out</button>
+      <button class="ghost" id="accountBtn">Account</button>
     </div>
   </div>
 
-  <div class="filterbar">
-    <input type="text" id="searchInput" placeholder="Search tickets by title or ID...">
-    <select id="priorityFilter">
-      <option value="">All priorities</option>
-      <option value="critical">Critical</option>
-      <option value="high">High</option>
-      <option value="medium">Medium</option>
-      <option value="low">Low</option>
-    </select>
-    <select id="labelFilter">
-      <option value="">All labels</option>
-      <option value="bug">bug</option>
-      <option value="feature">feature</option>
-      <option value="security">security</option>
-      <option value="maintenance">maintenance</option>
-      <option value="documentation">documentation</option>
-      <option value="testing">testing</option>
-    </select>
+  <div class="nav">
+    <button id="navBoard" class="active">Board</button>
+    <button id="navDashboard">Dashboard</button>
+    <button id="navTeam" class="hidden">Team</button>
   </div>
 
-  <div class="board" id="board"></div>
+  <!-- BOARD VIEW -->
+  <div id="boardView">
+    <div class="filterbar">
+      <input type="text" id="searchInput" placeholder="Search tickets by title or ID...">
+      <select id="priorityFilter">
+        <option value="">All priorities</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <select id="labelFilter">
+        <option value="">All labels</option>
+        <option value="bug">bug</option>
+        <option value="feature">feature</option>
+        <option value="security">security</option>
+        <option value="maintenance">maintenance</option>
+        <option value="documentation">documentation</option>
+        <option value="testing">testing</option>
+      </select>
+      <button class="primary" id="newTicketBtn" style="margin-left:auto;">+ New ticket</button>
+    </div>
+    <div class="board" id="board"></div>
+  </div>
 
-  <div class="admin-panel hidden" id="adminPanel">
-    <h3>Team access (admins only)</h3>
+  <!-- DASHBOARD VIEW -->
+  <div id="dashboardView" class="hidden">
+    <div class="dash-grid" id="dashStats"></div>
+    <div class="dash-panels" id="dashPanels"></div>
+  </div>
+
+  <!-- TEAM VIEW (admin only) -->
+  <div id="teamView" class="team-view hidden">
+    <h3>Pending requests</h3>
+    <div id="requestList"></div>
+    <div class="empty-note hidden" id="noRequests">No pending requests.</div>
+
+    <h3>Team members</h3>
     <div id="allowList"></div>
     <div class="add-allow">
       <input type="email" id="newAllowEmail" placeholder="teammate@company.com">
@@ -262,7 +287,7 @@
 
 <script>
 /* =========================================================
-   1. FIREBASE CONFIG — replace with your own project's config
+   FIREBASE CONFIG — replace with your own project's config
    Firebase console → Project settings → General → Your apps → SDK setup
 ========================================================= */
 const firebaseConfig = {
@@ -274,12 +299,9 @@ const firebaseConfig = {
   appId: "1:942324710281:web:cceebc5f5375b2198f3f58",
   measurementId: "G-X8F5EWNXC6"
 };
-
-
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-
 /* ========================================================= */
 
 const STATUSES = [
@@ -290,25 +312,42 @@ const STATUSES = [
   { key: 'testing', label: 'Testing' },
   { key: 'done', label: 'Done' }
 ];
+const PRIORITIES = ['critical','high','medium','low'];
+const PRIORITY_COLOR = { critical:'var(--red)', high:'var(--accent)', medium:'var(--blue)', low:'var(--teal)' };
 const ALL_LABELS = ['bug','feature','security','maintenance','documentation','testing'];
 
 let tickets = [];
 let filters = { search: '', priority: '', label: '' };
 let currentUser = null;
 let currentRole = null;
-let ticketsUnsub = null;
-let allowlistUnsub = null;
+let ticketsUnsub = null, allowlistUnsub = null, requestsUnsub = null, ownRequestUnsub = null;
+let allowlistCache = [];
+let currentTab = 'board';
 
 const board = document.getElementById('board');
 const toastEl = document.getElementById('toast');
-
 function showToast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add('show');
   setTimeout(()=> toastEl.classList.remove('show'), 2200);
 }
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+function formatDate(d){
+  if(!d) return '—';
+  const dt = (d.toDate) ? d.toDate() : new Date(d);
+  return dt.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+}
+function formatDateTime(d){
+  if(!d) return '';
+  const dt = (d.toDate) ? d.toDate() : new Date(d);
+  return dt.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' ' + dt.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+}
 
-/* ---------------- AUTH UI ---------------- */
+/* ---------------- AUTH UI (login / signup) ---------------- */
 let authMode = 'login';
 const tabLogin = document.getElementById('tabLogin');
 const tabSignup = document.getElementById('tabSignup');
@@ -317,16 +356,12 @@ const authError = document.getElementById('authError');
 const authStatus = document.getElementById('authStatus');
 
 tabLogin.addEventListener('click', () => {
-  authMode = 'login';
-  tabLogin.classList.add('active'); tabSignup.classList.remove('active');
-  authSubmit.textContent = 'Log in';
-  authError.textContent = '';
+  authMode = 'login'; tabLogin.classList.add('active'); tabSignup.classList.remove('active');
+  authSubmit.textContent = 'Log in'; authError.textContent = '';
 });
 tabSignup.addEventListener('click', () => {
-  authMode = 'signup';
-  tabSignup.classList.add('active'); tabLogin.classList.remove('active');
-  authSubmit.textContent = 'Create account';
-  authError.textContent = '';
+  authMode = 'signup'; tabSignup.classList.add('active'); tabLogin.classList.remove('active');
+  authSubmit.textContent = 'Create account'; authError.textContent = '';
 });
 
 authSubmit.addEventListener('click', async () => {
@@ -334,19 +369,21 @@ authSubmit.addEventListener('click', async () => {
   const password = document.getElementById('authPassword').value;
   authError.textContent = '';
   if(!email || !password){ authError.textContent = 'Enter an email and password.'; return; }
-  authSubmit.disabled = true;
-  authStatus.textContent = 'Working…';
+  authSubmit.disabled = true; authStatus.textContent = 'Working…';
   try{
-    if(authMode === 'login'){
-      await auth.signInWithEmailAndPassword(email, password);
-    }else{
-      await auth.createUserWithEmailAndPassword(email, password);
-    }
-  }catch(e){
-    authError.textContent = friendlyAuthError(e);
-  }
-  authSubmit.disabled = false;
-  authStatus.textContent = '';
+    if(authMode === 'login') await auth.signInWithEmailAndPassword(email, password);
+    else await auth.createUserWithEmailAndPassword(email, password);
+  }catch(e){ authError.textContent = friendlyAuthError(e); }
+  authSubmit.disabled = false; authStatus.textContent = '';
+});
+
+document.getElementById('forgotLink').addEventListener('click', async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  if(!email){ authError.textContent = 'Enter your email above first, then click "Forgot password?"'; return; }
+  try{
+    await auth.sendPasswordResetEmail(email);
+    showToast('Password reset email sent to ' + email);
+  }catch(e){ authError.textContent = friendlyAuthError(e); }
 });
 
 function friendlyAuthError(e){
@@ -356,15 +393,42 @@ function friendlyAuthError(e){
   if(code.includes('user-not-found')) return 'No account with that email. Try signing up.';
   if(code.includes('weak-password')) return 'Password should be at least 6 characters.';
   if(code.includes('invalid-email')) return 'That email address looks invalid.';
+  if(code.includes('requires-recent-login')) return 'Please sign out and log back in, then try again.';
+  if(code.includes('too-many-requests')) return 'Too many attempts. Try again shortly.';
   return e.message || 'Something went wrong.';
 }
 
 document.getElementById('signOutPending').addEventListener('click', () => auth.signOut());
-document.getElementById('signOutBtn').addEventListener('click', () => auth.signOut());
+
+/* ---------------- ACCESS REQUEST (pending screen) ---------------- */
+document.getElementById('requestAccessBtn').addEventListener('click', async () => {
+  const email = (currentUser.email || '').toLowerCase();
+  try{
+    await db.collection('accessRequests').doc(email).set({
+      email, requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('Access requested — an admin has been notified.');
+  }catch(e){ showToast('Could not send request: ' + e.message); }
+});
+
+function watchOwnRequest(email){
+  if(ownRequestUnsub) ownRequestUnsub();
+  ownRequestUnsub = db.collection('accessRequests').doc(email).onSnapshot(doc => {
+    const btn = document.getElementById('requestAccessBtn');
+    const msg = document.getElementById('pendingMsg');
+    if(doc.exists){
+      btn.disabled = true; btn.textContent = 'Request sent';
+      msg.textContent = `Your access request for ${email} is waiting on an admin. Ask them to approve you in the Team tab, then reload this page.`;
+    }else{
+      btn.disabled = false; btn.textContent = 'Request access';
+      msg.textContent = `Your account isn't approved for this board yet. Click below to notify an admin, or ask them directly to add ${email}.`;
+    }
+  });
+}
 
 /* ---------------- AUTH STATE / ALLOWLIST GATE ---------------- */
 auth.onAuthStateChanged(async (user) => {
-  detachListeners();
+  detachAllListeners();
   if(!user){
     currentUser = null; currentRole = null;
     showScreen('auth');
@@ -372,18 +436,20 @@ auth.onAuthStateChanged(async (user) => {
   }
   currentUser = user;
   const email = (user.email || '').toLowerCase();
-
   try{
     const doc = await db.collection('allowlist').doc(email).get();
     if(doc.exists){
       currentRole = doc.data().role || 'developer';
       showScreen('app');
       document.getElementById('whoami').textContent = `${email} · ${currentRole}`;
-      document.getElementById('adminPanel').classList.toggle('hidden', currentRole !== 'admin');
+      const isAdmin = currentRole === 'admin';
+      document.getElementById('navTeam').classList.toggle('hidden', !isAdmin);
+      switchTab('board');
       attachTicketsListener();
-      if(currentRole === 'admin') attachAllowlistListener();
+      attachAllowlistListener();
+      if(isAdmin) attachRequestsListener();
     }else{
-      document.getElementById('pendingEmail').textContent = email;
+      watchOwnRequest(email);
       showScreen('pending');
     }
   }catch(e){
@@ -398,30 +464,86 @@ function showScreen(name){
   document.getElementById('app').classList.toggle('hidden', name !== 'app');
 }
 
-function detachListeners(){
-  if(ticketsUnsub){ ticketsUnsub(); ticketsUnsub = null; }
-  if(allowlistUnsub){ allowlistUnsub(); allowlistUnsub = null; }
+function detachAllListeners(){
+  [ticketsUnsub, allowlistUnsub, requestsUnsub, ownRequestUnsub].forEach(fn => { if(fn) fn(); });
+  ticketsUnsub = allowlistUnsub = requestsUnsub = ownRequestUnsub = null;
+}
+
+/* ---------------- NAV / TABS ---------------- */
+function switchTab(tab){
+  currentTab = tab;
+  document.getElementById('navBoard').classList.toggle('active', tab === 'board');
+  document.getElementById('navDashboard').classList.toggle('active', tab === 'dashboard');
+  document.getElementById('navTeam').classList.toggle('active', tab === 'team');
+  document.getElementById('boardView').classList.toggle('hidden', tab !== 'board');
+  document.getElementById('dashboardView').classList.toggle('hidden', tab !== 'dashboard');
+  document.getElementById('teamView').classList.toggle('hidden', tab !== 'team');
+  if(tab === 'dashboard') renderDashboard();
+  if(tab === 'team' && currentRole === 'admin') renderAllowlist();
+}
+document.getElementById('navBoard').addEventListener('click', () => switchTab('board'));
+document.getElementById('navDashboard').addEventListener('click', () => switchTab('dashboard'));
+document.getElementById('navTeam').addEventListener('click', () => switchTab('team'));
+
+/* ---------------- ACCOUNT MODAL (change password) ---------------- */
+document.getElementById('accountBtn').addEventListener('click', openAccountModal);
+
+function openAccountModal(){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal narrow">
+      <div class="modal-head"><h2>Account</h2><button class="ghost" id="closeAcc">✕</button></div>
+      <div class="field"><label>Signed in as</label><input type="text" value="${escapeHtml(currentUser.email)} · ${currentRole}" disabled></div>
+      <div class="field"><label>Current password</label><input type="password" id="acc-current"></div>
+      <div class="field"><label>New password</label><input type="password" id="acc-new" placeholder="At least 6 characters"></div>
+      <div class="field"><label>Confirm new password</label><input type="password" id="acc-confirm"></div>
+      <div class="auth-error" id="accError"></div>
+      <div class="modal-actions">
+        <button class="danger" id="accSignOut">Sign out</button>
+        <button class="primary" id="accSave">Update password</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+  overlay.querySelector('#closeAcc').addEventListener('click', close);
+  overlay.querySelector('#accSignOut').addEventListener('click', () => { auth.signOut(); close(); });
+
+  overlay.querySelector('#accSave').addEventListener('click', async () => {
+    const current = overlay.querySelector('#acc-current').value;
+    const next = overlay.querySelector('#acc-new').value;
+    const confirm = overlay.querySelector('#acc-confirm').value;
+    const errEl = overlay.querySelector('#accError');
+    errEl.textContent = '';
+    if(!current || !next){ errEl.textContent = 'Fill in both password fields.'; return; }
+    if(next.length < 6){ errEl.textContent = 'New password should be at least 6 characters.'; return; }
+    if(next !== confirm){ errEl.textContent = 'New passwords do not match.'; return; }
+    try{
+      const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, current);
+      await currentUser.reauthenticateWithCredential(cred);
+      await currentUser.updatePassword(next);
+      showToast('Password updated');
+      close();
+    }catch(e){ errEl.textContent = friendlyAuthError(e); }
+  });
 }
 
 /* ---------------- TICKETS (REAL-TIME) ---------------- */
 function attachTicketsListener(){
-  ticketsUnsub = db.collection('tickets').orderBy('createdAt', 'desc')
-    .onSnapshot(snap => {
-      tickets = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
-      render();
-    }, err => showToast('Sync error: ' + err.message));
+  ticketsUnsub = db.collection('tickets').orderBy('createdAt', 'desc').onSnapshot(snap => {
+    tickets = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+    if(currentTab === 'board') renderBoard();
+    if(currentTab === 'dashboard') renderDashboard();
+  }, err => showToast('Sync error: ' + err.message));
 }
-
 function nextTicketNumber(){
   let max = 0;
-  tickets.forEach(t => {
-    const m = /TASK-(\d+)/.exec(t.id || '');
-    if(m) max = Math.max(max, parseInt(m[1], 10));
-  });
+  tickets.forEach(t => { const m = /TASK-(\d+)/.exec(t.id || ''); if(m) max = Math.max(max, parseInt(m[1], 10)); });
   return max + 1;
 }
 function ticketId(num){ return 'TASK-' + String(num).padStart(3,'0'); }
-
 function initials(name){
   if(!name) return '—';
   const parts = name.trim().split(/\s+/);
@@ -438,34 +560,22 @@ function matchesFilters(t){
   if(filters.label && !(t.labels || []).includes(filters.label)) return false;
   return true;
 }
-function escapeHtml(str){
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
-}
-function formatDate(d){
-  const dt = new Date(d);
-  return dt.toLocaleDateString(undefined, { month:'short', day:'numeric' });
-}
 
-function render(){
+function renderBoard(){
   board.innerHTML = '';
   STATUSES.forEach(status => {
     const col = document.createElement('div');
     col.className = 'column';
     const colTickets = tickets.filter(t => t.status === status.key && matchesFilters(t));
-
     const head = document.createElement('div');
     head.className = 'column-head';
     head.innerHTML = `<span class="column-title">${status.label}</span><span class="column-count">${colTickets.length}</span>`;
     col.appendChild(head);
-
     const body = document.createElement('div');
     body.className = 'column-body';
     if(colTickets.length === 0){
       const empty = document.createElement('div');
-      empty.className = 'column-empty';
-      empty.textContent = 'No tickets';
+      empty.className = 'column-empty'; empty.textContent = 'No tickets';
       body.appendChild(empty);
     }
     colTickets.forEach(t => body.appendChild(renderCard(t)));
@@ -477,95 +587,97 @@ function render(){
 function renderCard(t){
   const card = document.createElement('div');
   card.className = 'card';
-  card.style.borderLeftColor = {
-    critical: 'var(--red)', high: 'var(--accent)', medium: 'var(--blue)', low: 'var(--teal)'
-  }[t.priority] || 'var(--gray-chip)';
+  card.style.borderLeftColor = PRIORITY_COLOR[t.priority] || 'var(--gray-chip)';
   const labelsHtml = (t.labels || []).map(l => `<span class="chip">${l}</span>`).join('');
   const overdue = isOverdue(t.dueDate, t.status);
   card.innerHTML = `
-    <div class="card-top">
-      <span class="card-id">${t.id}</span>
-      <span class="priority-pill p-${t.priority}">${t.priority}</span>
-    </div>
+    <div class="card-top"><span class="card-id">${t.id}</span><span class="priority-pill p-${t.priority}">${t.priority}</span></div>
     <p class="card-title">${escapeHtml(t.title)}</p>
     <div class="card-labels">${labelsHtml}</div>
     <div class="card-foot">
       <span class="avatar" title="Owner: ${escapeHtml(t.owner || 'Unassigned')}">${initials(t.owner)}</span>
       <span class="due ${overdue ? 'overdue' : ''}">${t.dueDate ? formatDate(t.dueDate) : 'No due date'}</span>
-    </div>
-  `;
+    </div>`;
   card.addEventListener('click', () => openDetail(t.firestoreId));
   return card;
 }
 
 /* ---------------- NEW TICKET ---------------- */
-document.getElementById('newTicketBtn').addEventListener('click', openNewTicketModal);
+document.getElementById('newTicketBtn').addEventListener('click', () => openTicketForm(null));
 
-function openNewTicketModal(){
+function ticketFormHtml(t){
+  const labels = (t && t.labels) || [];
+  return `
+    <div class="field"><label>Title</label><input type="text" id="f-title" value="${t ? escapeHtml(t.title) : ''}" placeholder="Fix login page validation error"></div>
+    <div class="field"><label>Description — what, why, expected result</label><textarea id="f-desc" rows="4" placeholder="What needs to be done, why it's needed, expected result...">${t ? escapeHtml(t.description) : ''}</textarea></div>
+    <div class="row2">
+      <div class="field"><label>Priority</label>
+        <select id="f-priority">
+          ${PRIORITIES.map(p => `<option value="${p}" ${t && t.priority===p ? 'selected' : (!t && p==='medium' ? 'selected':'')}>${p[0].toUpperCase()+p.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Due date</label><input type="date" id="f-due" value="${t && t.dueDate ? t.dueDate : ''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Owner</label><input type="text" id="f-owner" value="${t ? escapeHtml(t.owner) : ''}" placeholder="firstname lastname"></div>
+      <div class="field"><label>Reviewer</label><input type="text" id="f-reviewer" value="${t ? escapeHtml(t.reviewer) : ''}" placeholder="firstname lastname"></div>
+    </div>
+    <div class="field"><label>Labels</label>
+      <div class="label-check-group" id="f-labels">
+        ${ALL_LABELS.map(l => `<label class="label-check"><input type="checkbox" value="${l}" ${labels.includes(l) ? 'checked':''}> ${l}</label>`).join('')}
+      </div>
+    </div>`;
+}
+
+function openTicketForm(existing){
+  const isEdit = !!existing;
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal">
-      <div class="modal-head"><h2>New ticket</h2><button class="ghost" id="closeNew">✕</button></div>
-      <div class="field"><label>Title</label><input type="text" id="f-title" placeholder="Fix login page validation error"></div>
-      <div class="field"><label>Description — what, why, expected result</label><textarea id="f-desc" rows="4" placeholder="What needs to be done, why it's needed, expected result..."></textarea></div>
-      <div class="row2">
-        <div class="field"><label>Priority</label>
-          <select id="f-priority">
-            <option value="critical">Critical — system unavailable</option>
-            <option value="high">High — important issue</option>
-            <option value="medium" selected>Medium — normal task</option>
-            <option value="low">Low — improvement</option>
-          </select>
-        </div>
-        <div class="field"><label>Due date</label><input type="date" id="f-due"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Owner</label><input type="text" id="f-owner" placeholder="firstname lastname"></div>
-        <div class="field"><label>Reviewer</label><input type="text" id="f-reviewer" placeholder="firstname lastname"></div>
-      </div>
-      <div class="field"><label>Labels</label>
-        <div class="label-check-group" id="f-labels">
-          ${ALL_LABELS.map(l => `<label class="label-check"><input type="checkbox" value="${l}"> ${l}</label>`).join('')}
-        </div>
-      </div>
-      <div class="modal-actions"><button id="cancelNew">Cancel</button><button class="primary" id="saveNew">Create ticket</button></div>
-    </div>
-  `;
+      <div class="modal-head"><h2>${isEdit ? 'Edit ' + existing.id : 'New ticket'}</h2><button class="ghost" id="closeForm">✕</button></div>
+      ${ticketFormHtml(existing)}
+      <div class="modal-actions"><button id="cancelForm">Cancel</button><button class="primary" id="saveForm">${isEdit ? 'Save changes' : 'Create ticket'}</button></div>
+    </div>`;
   document.body.appendChild(overlay);
   const close = () => overlay.remove();
   overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
-  overlay.querySelector('#closeNew').addEventListener('click', close);
-  overlay.querySelector('#cancelNew').addEventListener('click', close);
+  overlay.querySelector('#closeForm').addEventListener('click', close);
+  overlay.querySelector('#cancelForm').addEventListener('click', close);
 
-  overlay.querySelector('#saveNew').addEventListener('click', async () => {
+  overlay.querySelector('#saveForm').addEventListener('click', async () => {
     const title = overlay.querySelector('#f-title').value.trim();
     if(!title){ showToast('Title is required'); return; }
     const labels = Array.from(overlay.querySelectorAll('#f-labels input:checked')).map(i => i.value);
-    const ticket = {
-      id: ticketId(nextTicketNumber()),
+    const data = {
       title,
       description: overlay.querySelector('#f-desc').value.trim(),
       priority: overlay.querySelector('#f-priority').value,
       dueDate: overlay.querySelector('#f-due').value,
       owner: overlay.querySelector('#f-owner').value.trim(),
       reviewer: overlay.querySelector('#f-reviewer').value.trim(),
-      labels,
-      status: 'backlog',
-      createdBy: currentUser.email,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      labels
     };
     try{
-      await db.collection('tickets').add(ticket);
+      if(isEdit){
+        await db.collection('tickets').doc(existing.firestoreId).update(data);
+        showToast(`${existing.id} updated`);
+      }else{
+        data.id = ticketId(nextTicketNumber());
+        data.status = 'backlog';
+        data.createdBy = currentUser.email;
+        data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        await db.collection('tickets').add(data);
+        showToast(`${data.id} created`);
+      }
       close();
-      showToast(`${ticket.id} created`);
-    }catch(e){
-      showToast('Could not create ticket: ' + e.message);
-    }
+    }catch(e){ showToast('Could not save: ' + e.message); }
   });
 }
 
-/* ---------------- DETAIL / STATUS / DELETE ---------------- */
+/* ---------------- DETAIL / STATUS / DELETE / COMMENTS ---------------- */
+let commentsUnsub = null;
+
 function openDetail(firestoreId){
   const t = tickets.find(x => x.firestoreId === firestoreId);
   if(!t) return;
@@ -588,9 +700,19 @@ function openDetail(firestoreId){
         <div><span>Created by</span>${escapeHtml(t.createdBy) || '—'}</div>
       </div>
       <div class="commit-box"><span>[${t.id}] ${escapeHtml(t.title)}</span><button class="ghost" id="copyCommit">Copy</button></div>
-      <div class="modal-actions"><button class="danger" id="deleteTicket">Delete</button><button id="closeDetail2">Close</button></div>
-    </div>
-  `;
+      <div class="modal-actions" style="margin-top:0;">
+        <button class="danger" id="deleteTicket">Delete</button>
+        <button id="editTicket">Edit</button>
+      </div>
+      <div class="comments">
+        <h4>Comments</h4>
+        <div id="commentList"></div>
+        <div class="comment-add">
+          <textarea id="commentInput" rows="2" placeholder="Add a comment..."></textarea>
+          <button class="primary" id="postComment">Post</button>
+        </div>
+      </div>
+    </div>`;
   document.body.appendChild(overlay);
 
   const track = overlay.querySelector('#statusTrack');
@@ -601,54 +723,158 @@ function openDetail(firestoreId){
     btn.addEventListener('click', async () => {
       try{
         await db.collection('tickets').doc(firestoreId).update({ status: s.key });
-        overlay.remove();
         showToast(`${t.id} moved to ${s.label}`);
       }catch(e){ showToast('Could not update: ' + e.message); }
     });
     track.appendChild(btn);
   });
 
-  const close = () => overlay.remove();
+  const close = () => { if(commentsUnsub){ commentsUnsub(); commentsUnsub = null; } overlay.remove(); };
   overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
   overlay.querySelector('#closeDetail').addEventListener('click', close);
-  overlay.querySelector('#closeDetail2').addEventListener('click', close);
 
   overlay.querySelector('#copyCommit').addEventListener('click', () => {
     const text = `[${t.id}] ${t.title}`;
     navigator.clipboard.writeText(text).then(() => showToast('Commit message copied')).catch(() => showToast(text));
   });
 
+  overlay.querySelector('#editTicket').addEventListener('click', () => { close(); openTicketForm(t); });
+
   const deleteBtn = overlay.querySelector('#deleteTicket');
   if(currentRole !== 'admin' && currentRole !== 'pm') deleteBtn.disabled = true;
   deleteBtn.addEventListener('click', async () => {
+    try{ await db.collection('tickets').doc(firestoreId).delete(); close(); showToast(`${t.id} deleted`); }
+    catch(e){ showToast('Only admins or PMs can delete tickets'); }
+  });
+
+  // comments
+  const commentList = overlay.querySelector('#commentList');
+  commentsUnsub = db.collection('tickets').doc(firestoreId).collection('comments')
+    .orderBy('createdAt', 'asc').onSnapshot(snap => {
+      if(snap.empty){
+        commentList.innerHTML = '<div class="comment-empty">No comments yet.</div>';
+        return;
+      }
+      commentList.innerHTML = snap.docs.map(d => {
+        const c = d.data();
+        return `<div class="comment"><div class="comment-head"><span>${escapeHtml(c.author)}</span><span>${formatDateTime(c.createdAt)}</span></div><div class="comment-body">${escapeHtml(c.text)}</div></div>`;
+      }).join('');
+    }, err => { commentList.innerHTML = '<div class="comment-empty">Could not load comments.</div>'; });
+
+  overlay.querySelector('#postComment').addEventListener('click', async () => {
+    const input = overlay.querySelector('#commentInput');
+    const text = input.value.trim();
+    if(!text) return;
     try{
-      await db.collection('tickets').doc(firestoreId).delete();
-      close();
-      showToast(`${t.id} deleted`);
-    }catch(e){ showToast('Only admins or PMs can delete tickets'); }
+      await db.collection('tickets').doc(firestoreId).collection('comments').add({
+        text, author: currentUser.email, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      input.value = '';
+    }catch(e){ showToast('Could not post comment: ' + e.message); }
   });
 }
 
-/* ---------------- ADMIN: ALLOWLIST MANAGEMENT ---------------- */
+/* ---------------- DASHBOARD ---------------- */
+function renderDashboard(){
+  const statsEl = document.getElementById('dashStats');
+  const panelsEl = document.getElementById('dashPanels');
+
+  if(tickets.length === 0){
+    statsEl.innerHTML = '';
+    panelsEl.innerHTML = '<div class="dash-empty">No tickets yet — create one from the Board tab to see stats here.</div>';
+    return;
+  }
+
+  const total = tickets.length;
+  const done = tickets.filter(t => t.status === 'done').length;
+  const open = total - done;
+  const overdue = tickets.filter(t => isOverdue(t.dueDate, t.status)).length;
+  const completionRate = total ? Math.round((done/total)*100) : 0;
+
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total tickets</div></div>
+    <div class="stat-card"><div class="stat-num">${open}</div><div class="stat-label">Open</div></div>
+    <div class="stat-card"><div class="stat-num red">${overdue}</div><div class="stat-label">Overdue</div></div>
+    <div class="stat-card"><div class="stat-num teal">${completionRate}%</div><div class="stat-label">Completion rate</div></div>
+  `;
+
+  const statusCounts = STATUSES.map(s => ({ label: s.label, count: tickets.filter(t => t.status === s.key).length }));
+  const priorityCounts = PRIORITIES.map(p => ({ label: p, count: tickets.filter(t => t.priority === p).length, color: PRIORITY_COLOR[p] }));
+
+  const ownerMap = {};
+  tickets.forEach(t => {
+    const owner = t.owner || 'Unassigned';
+    if(!ownerMap[owner]) ownerMap[owner] = { total: 0, done: 0 };
+    ownerMap[owner].total++;
+    if(t.status === 'done') ownerMap[owner].done++;
+  });
+  const owners = Object.entries(ownerMap).sort((a,b) => b[1].total - a[1].total).slice(0, 8);
+
+  panelsEl.innerHTML = `
+    <div class="panel">
+      <h3>Tickets by status</h3>
+      ${statusCounts.map(s => `
+        <div class="bar-row">
+          <div class="bar-row-top"><span>${s.label}</span><span>${s.count}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${total ? (s.count/total*100) : 0}%; background:var(--accent);"></div></div>
+        </div>`).join('')}
+    </div>
+    <div class="panel">
+      <h3>Tickets by priority</h3>
+      ${priorityCounts.map(p => `
+        <div class="bar-row">
+          <div class="bar-row-top"><span style="text-transform:capitalize;">${p.label}</span><span>${p.count}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${total ? (p.count/total*100) : 0}%; background:${p.color};"></div></div>
+        </div>`).join('')}
+    </div>
+    <div class="panel" style="grid-column:1 / -1;">
+      <h3>By owner</h3>
+      <table class="owner-table">
+        <tr><th>Owner</th><th>Total</th><th>Done</th><th>Open</th></tr>
+        ${owners.map(([name, v]) => `<tr><td>${escapeHtml(name)}</td><td>${v.total}</td><td>${v.done}</td><td>${v.total - v.done}</td></tr>`).join('')}
+      </table>
+    </div>
+  `;
+}
+
+/* ---------------- TEAM VIEW: allow list + requests ---------------- */
 function attachAllowlistListener(){
   allowlistUnsub = db.collection('allowlist').onSnapshot(snap => {
-    const list = document.getElementById('allowList');
-    list.innerHTML = '';
-    snap.docs.forEach(d => {
-      const row = document.createElement('div');
-      row.className = 'allow-row';
-      row.innerHTML = `<span class="em">${d.id}</span><span class="chip">${d.data().role}</span>`;
-      if(d.id !== currentUser.email.toLowerCase()){
-        const rm = document.createElement('button');
-        rm.className = 'ghost'; rm.textContent = 'Remove';
-        rm.addEventListener('click', async () => {
-          await db.collection('allowlist').doc(d.id).delete();
-        });
-        row.appendChild(rm);
-      }
-      list.appendChild(row);
+    allowlistCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if(currentRole === 'admin' && currentTab === 'team') renderAllowlist();
+  }, err => { if(currentRole === 'admin') showToast('Team sync error: ' + err.message); });
+}
+
+function renderAllowlist(){
+  const list = document.getElementById('allowList');
+  list.innerHTML = '';
+  allowlistCache.forEach(u => {
+    const row = document.createElement('div');
+    row.className = 'allow-row';
+    const isSelf = u.id === currentUser.email.toLowerCase();
+    row.innerHTML = `
+      <span class="em">${u.id}${isSelf ? ' (you)' : ''}</span>
+      <select class="roleSelect" ${isSelf ? 'disabled' : ''}>
+        <option value="developer" ${u.role==='developer'?'selected':''}>Developer</option>
+        <option value="pm" ${u.role==='pm'?'selected':''}>Project manager</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Administrator</option>
+      </select>
+    `;
+    row.querySelector('.roleSelect').addEventListener('change', async (e) => {
+      try{ await db.collection('allowlist').doc(u.id).update({ role: e.target.value }); showToast(`${u.id} is now ${e.target.value}`); }
+      catch(err){ showToast('Could not update role: ' + err.message); }
     });
-  }, err => showToast('Allowlist sync error: ' + err.message));
+    if(!isSelf){
+      const rm = document.createElement('button');
+      rm.className = 'ghost small'; rm.textContent = 'Remove';
+      rm.addEventListener('click', async () => {
+        try{ await db.collection('allowlist').doc(u.id).delete(); showToast(`${u.id} removed`); }
+        catch(err){ showToast('Could not remove: ' + err.message); }
+      });
+      row.appendChild(rm);
+    }
+    list.appendChild(row);
+  });
 }
 
 document.getElementById('addAllowBtn').addEventListener('click', async () => {
@@ -657,15 +883,59 @@ document.getElementById('addAllowBtn').addEventListener('click', async () => {
   if(!email){ showToast('Enter an email'); return; }
   try{
     await db.collection('allowlist').doc(email).set({ role, addedBy: currentUser.email, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection('accessRequests').doc(email).delete().catch(() => {});
     document.getElementById('newAllowEmail').value = '';
     showToast(`${email} added as ${role}`);
   }catch(e){ showToast('Could not add: ' + e.message); }
 });
 
+function attachRequestsListener(){
+  requestsUnsub = db.collection('accessRequests').onSnapshot(snap => {
+    if(currentTab === 'team') renderRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, err => showToast('Requests sync error: ' + err.message));
+}
+
+function renderRequests(requests){
+  const list = document.getElementById('requestList');
+  const noReq = document.getElementById('noRequests');
+  list.innerHTML = '';
+  noReq.classList.toggle('hidden', requests.length !== 0);
+  requests.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'request-row';
+    row.innerHTML = `
+      <span class="em">${r.id}</span>
+      <select class="reqRole">
+        <option value="developer">Developer</option>
+        <option value="pm">Project manager</option>
+        <option value="admin">Administrator</option>
+      </select>
+    `;
+    const approve = document.createElement('button');
+    approve.className = 'primary small'; approve.textContent = 'Approve';
+    approve.addEventListener('click', async () => {
+      const role = row.querySelector('.reqRole').value;
+      try{
+        await db.collection('allowlist').doc(r.id).set({ role, addedBy: currentUser.email, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await db.collection('accessRequests').doc(r.id).delete();
+        showToast(`${r.id} approved as ${role}`);
+      }catch(e){ showToast('Could not approve: ' + e.message); }
+    });
+    const deny = document.createElement('button');
+    deny.className = 'ghost small'; deny.textContent = 'Deny';
+    deny.addEventListener('click', async () => {
+      try{ await db.collection('accessRequests').doc(r.id).delete(); showToast(`${r.id} denied`); }
+      catch(e){ showToast('Could not deny: ' + e.message); }
+    });
+    row.appendChild(approve); row.appendChild(deny);
+    list.appendChild(row);
+  });
+}
+
 /* ---------------- FILTERS ---------------- */
-document.getElementById('searchInput').addEventListener('input', e => { filters.search = e.target.value; render(); });
-document.getElementById('priorityFilter').addEventListener('change', e => { filters.priority = e.target.value; render(); });
-document.getElementById('labelFilter').addEventListener('change', e => { filters.label = e.target.value; render(); });
+document.getElementById('searchInput').addEventListener('input', e => { filters.search = e.target.value; renderBoard(); });
+document.getElementById('priorityFilter').addEventListener('change', e => { filters.priority = e.target.value; renderBoard(); });
+document.getElementById('labelFilter').addEventListener('change', e => { filters.label = e.target.value; renderBoard(); });
 </script>
 </body>
 </html>
