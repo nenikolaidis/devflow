@@ -70,16 +70,25 @@ Rules only let admins add other people — so you need to add yourself directly,
 
 1. Open your GitHub Pages URL.
 2. Sign up with your own email (the one you added to `allowlist`) — you'll land straight in the board.
-3. Have a teammate sign up with their email — they'll see a "pending approval" screen.
-4. As an admin, use the **Team access** panel at the bottom of the board to add their email (pick their role: Developer / PM / Administrator).
-5. They reload the page and they're in. From then on, everyone sees ticket changes in real time.
+3. Have a teammate sign up with their email — they'll see a "pending approval" screen, where they can click **Request access**.
+4. As an admin, open the **Team** tab — you'll see their request under "Pending requests." Pick a role and click **Approve** (or **Deny**).
+5. They reload the page and they're in. From then on, everyone sees ticket changes, comments, and status moves in real time.
 
 ---
+
+## What's included
+
+- **Board** — the kanban workflow from before (Backlog → Todo → In progress → Code review → Testing → Done), with search and filters.
+- **Dashboard** — total/open/overdue ticket counts, completion rate, breakdowns by status and priority, and a per-owner table.
+- **Team tab** (admins only) — approve or deny access requests, add people directly, change anyone's role, or remove them.
+- **Ticket edits** — any approved user can now edit a ticket's details after creation, not just move its status.
+- **Comments** — a lightweight discussion thread on each ticket.
+- **Account menu** — change your password in-app (needs your current password), or use "Forgot password?" on the login screen to get a reset email.
 
 ## Notes
 
 - **Costs**: Firebase's free "Spark" plan comfortably covers a small team's ticket board — no credit card required.
-- **Roles**: Administrator and Project manager can delete tickets; everyone approved can create, view, and move tickets, matching the access rules in your process doc.
-- **Changing someone's role**: remove them from the allow list and re-add with the new role.
+- **Roles**: Administrator and Project manager can delete tickets; everyone approved can create, view, edit, comment on, and move tickets, matching the access rules in your process doc.
+- **If you already deployed the earlier version**: re-publish the updated `firestore.rules` (it now also covers `accessRequests` and ticket `comments`), then replace `index.html` with the new one — your existing tickets and allow list carry over untouched.
 - **Losing admin access**: you can always fix roles directly in the Firestore console under the `allowlist` collection.
 - **This is not the same as a real Jira/GitHub Issues setup** — there's no audit log, webhooks, or Git integration. It's a lightweight tool matching your documented process.
