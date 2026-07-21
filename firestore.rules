@@ -29,19 +29,29 @@ service cloud.firestore {
       allow update: if isApproved();
       allow delete: if isAdminOrPM();
 
-      // Comments: any approved user can read and post. No edit/delete
-      // to keep a simple, honest activity trail.
+      // Comments: any approved user can read and post.
+      // A comment can be deleted by its author, or by an admin/PM.
       match /comments/{commentId} {
+        allow read, create: if isApproved();
+        allow delete: if isApproved() &&
+          (resource.data.author.lower() == myEmail() || isAdminOrPM());
+      }
+
+      // Activity log: an append-only audit trail. Any approved user can
+      // read and add entries; nobody can edit or delete one, by design.
+      match /activity/{entryId} {
         allow read, create: if isApproved();
       }
     }
 
     // Allow list: a user can always read their own entry (so the app can
-    // tell them "pending approval"). Only admins can read the full list,
-    // add people, remove people, or change roles.
+    // tell them "pending approval"). Any approved user can read the full
+    // roster (needed for the assignee dropdown). Only admins can add
+    // people, remove people, or change roles.
     match /allowlist/{email} {
       allow read: if isSignedIn() && myEmail() == email;
-      allow read, write: if isAdmin();
+      allow read: if isApproved();
+      allow write: if isAdmin();
     }
 
     // Access requests: a signed-in user can create/read only their own
@@ -51,6 +61,15 @@ service cloud.firestore {
     match /accessRequests/{email} {
       allow create, read: if isSignedIn() && myEmail() == email;
       allow read, delete: if isAdmin();
+    }
+
+    // Profiles: any approved teammate can view anyone's profile (name,
+    // username, bio, time zone, last active — used for avatars, the
+    // assignee dropdown, and the Team/Profile views). You can only ever
+    // write your own profile document.
+    match /profiles/{email} {
+      allow read: if isApproved();
+      allow write: if isSignedIn() && myEmail() == email;
     }
   }
 }
