@@ -1,17 +1,17 @@
 # Devflow — setup guide
- 
+
 This turns the board into a real multi-user app: your team logs in with
 email + password, and only people you approve can see or edit tickets.
 Changes sync to everyone instantly.
- 
+
 It has two parts:
 1. **Firebase** (free) — handles login and stores the tickets in real time.
 2. **GitHub Pages** (free) — hosts the app so your team can open it in a browser.
 
 Total setup time: about 10–15 minutes, one time only.
- 
+
 ## Project structure
- 
+
 ```
 devflow/
 ├── index.html          ← markup only
@@ -32,43 +32,43 @@ devflow/
     ├── dashboard.js      ← stats view
     └── team.js           ← allow list + access request management
 ```
- 
+
 Keep this exact folder structure when you upload to GitHub — the files
 reference each other by relative path (e.g. `js/app.js` imports
 `./tickets.js`), so nothing should be flattened into one folder.
- 
+
 ---
- 
+
 ## 1. Create a Firebase project
- 
+
 1. Go to [console.firebase.google.com](https://console.firebase.google.com) and sign in with any Google account.
 2. Click **Add project**, give it a name (e.g. `devflow-board`), and finish the wizard (you can disable Google Analytics, it's not needed).
 
 ## 2. Turn on email/password login
- 
+
 1. In the left sidebar: **Build → Authentication → Get started**.
 2. Under **Sign-in method**, click **Email/Password**, enable it, and save.
 
 ## 3. Create the database
- 
+
 1. Left sidebar: **Build → Firestore Database → Create database**.
 2. Choose **Production mode**, pick any region close to your team, and click **Enable**.
 3. Go to the **Rules** tab and replace the contents with everything in `firestore.rules` (included alongside this guide). Click **Publish**.
 
 ## 4. Add yourself as the first admin
- 
+
 Rules only let admins add other people — so you need to add yourself directly, once:
- 
+
 1. In Firestore, click **Start collection**, name it `allowlist`.
 2. For the **document ID**, enter your own email address, all lowercase (e.g. `you@company.com`).
 3. Add a field: name `role`, type `string`, value `admin`. Save.
 
 ## 5. Get your web app config
- 
+
 1. Left sidebar: click the gear icon → **Project settings**.
 2. Under **Your apps**, click the `</>` (web) icon to register a new web app. Any nickname is fine — you don't need Firebase Hosting.
 3. Firebase shows a `firebaseConfig` object like:
-```js
+   ```js
    const firebaseConfig = {
      apiKey: "AIza...",
      authDomain: "devflow-board.firebaseapp.com",
@@ -77,11 +77,11 @@ Rules only let admins add other people — so you need to add yourself directly,
      messagingSenderId: "123456789",
      appId: "1:123456789:web:abcdef"
    };
-```
+   ```
 4. Open `js/firebase-init.js`, find the `firebaseConfig` block near the top, and replace the placeholder values with your real ones.
 
 ## 6. Put it on GitHub
- 
+
 1. Create a new GitHub repository (public or private both work).
 2. Upload the **entire `devflow` folder contents** — `index.html`, `firestore.rules`, the `css/` folder, and the `js/` folder — keeping the same structure. On github.com you can drag the whole folder onto the "Add file → Upload files" screen and it will preserve subfolders; with `git`, just `git add .` from inside the folder and push.
 3. Go to **Settings → Pages**.
@@ -89,12 +89,12 @@ Rules only let admins add other people — so you need to add yourself directly,
 5. GitHub gives you a URL like `https://yourusername.github.io/your-repo-name/` — that's your live board.
 
 ## 7. Allow that domain in Firebase
- 
+
 1. Back in Firebase: **Authentication → Settings → Authorized domains**.
 2. Click **Add domain** and add `yourusername.github.io` (no `https://`, no trailing path).
 
 ## 8. Try it
- 
+
 1. Open your GitHub Pages URL.
 2. Sign up with your own email (the one you added to `allowlist`) — you'll land straight in the board.
 3. Have a teammate sign up with their email — they'll see a "pending approval" screen, where they can click **Request access**.
@@ -102,11 +102,11 @@ Rules only let admins add other people — so you need to add yourself directly,
 5. They reload the page and they're in. From then on, everyone sees ticket changes, comments, and status moves in real time.
 
 ---
- 
+
 ## 9. (Optional) Turn on assignment emails
- 
+
 Without this step, everything else works fine — tickets just won't email anyone. This step wires up EmailJS so that whenever someone is assigned as a ticket's **Owner**, they get an email. It's free for up to ~200 emails/month and needs no backend server.
- 
+
 1. Go to [emailjs.com](https://www.emailjs.com) and create a free account.
 2. **Email Services** → **Add New Service** → connect an email account (Gmail, Outlook, or any SMTP). Note the **Service ID** it gives you.
 3. **Email Templates** → **Create New Template**. Set the template up however you like, using these variables (click to insert them, or type them as `{{variable_name}}`):
@@ -123,13 +123,13 @@ Without this step, everything else works fine — tickets just won't email anyon
 7. Re-upload `js/notify.js` to GitHub. Assigning someone to a ticket (via the new-ticket form, the Edit button, or the ✏️ quick-edit on a card) now emails them — as long as their account email looks like a real email address (it always will, since assignees come from your team's actual login emails).
 
 If you skip this step, the app quietly does nothing when a ticket is assigned — no errors, no broken UI, just no email.
- 
+
 ---
- 
+
 ## 10. (Optional) Turn on Discord notifications
- 
+
 This posts to a Discord channel whenever a ticket is **created**, **assigned**, or **deleted**, with an `@here` ping if the ticket is Critical priority. No account or API key needed beyond your own Discord server.
- 
+
 1. In Discord, go to your server → the channel you want notifications in → **Edit Channel** (gear icon) → **Integrations** → **Webhooks** → **New Webhook**.
 2. Give it a name/avatar if you like, then click **Copy Webhook URL**.
 3. Open `js/discord.js` and paste that URL into `DISCORD_WEBHOOK_URL`.
@@ -140,11 +140,11 @@ This posts to a Discord channel whenever a ticket is **created**, **assigned**, 
 - Or accept the small risk for an internal tool — if it's ever abused, delete the webhook in Discord and create a new one (old URL immediately stops working).
 
 If you skip this step, the app quietly does nothing on ticket create/assign/delete — no errors, no broken UI, just no Discord message.
- 
+
 ---
- 
+
 ## What's included
- 
+
 - **Board** — kanban view with **4 stages**: Backlog → In progress → In review → Done. (Simplified from the earlier 6-stage version — old tickets in Todo/Code review/Testing display correctly under their new stage automatically; nothing needs migrating by hand.) Also a sortable **Table** view, both respecting the same filters.
 - **Ticket templates** — starting a new ticket, pick "Bug report," "Feature request," "Security issue," "Maintenance task," or blank; each pre-fills a structured description and sensible default priority/labels, fully editable afterward.
 - **Activity log** — every ticket has a read-only audit trail: created, status moves, (re)assignments, and edits, each with who and when. Nobody — not even admins — can edit or delete an entry; it's meant to be a trustworthy record.
@@ -161,7 +161,7 @@ If you skip this step, the app quietly does nothing on ticket create/assign/dele
 - **Account menu** — change your password in-app, or use "Forgot password?" on the login screen for a reset email.
 
 ## Notes
- 
+
 - **Costs**: Firebase's free "Spark" plan comfortably covers a small team's ticket board — no credit card required.
 - **Roles**: Administrator and Project manager can delete tickets; everyone approved can create, view, edit, comment on, and move tickets, matching the access rules in your process doc.
 - **File structure**: the app was split from one big `index.html` into `css/style.css` plus focused JS modules under `js/` (see "Project structure" above) purely to make it easier to navigate and edit — the app's behavior is unchanged, plus one small bug fix: switching back to the Board tab now always shows the latest tickets, even if changes came in while you were on Dashboard or Team.

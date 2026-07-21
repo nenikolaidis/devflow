@@ -76,6 +76,11 @@ function watchOwnRequest(email){
 /* ---------------- AUTH STATE / ALLOWLIST GATE ---------------- */
 auth.onAuthStateChanged(async (user) => {
   detachAllListeners();
+  // Modals (ticket detail, new/edit ticket, quick edit, profile, account)
+  // are appended directly to document.body, not inside #app — so hiding
+  // #app alone would leave any open modal stuck on screen over the login
+  // form, with buttons still wired to a now-null state.currentUser.
+  document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
   if(!user){
     state.currentUser = null; state.currentRole = null;
     showScreen('auth');

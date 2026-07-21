@@ -599,7 +599,10 @@ export function openDetail(firestoreId){
   if(state.currentRole !== 'admin' && state.currentRole !== 'pm') deleteBtn.disabled = true;
   deleteBtn.addEventListener('click', async () => {
     try{ await db.collection('tickets').doc(firestoreId).delete(); notifyTicketsDeleted([t]); close(); showToast(`${t.id} deleted`); }
-    catch(e){ showToast('Only admins or PMs can delete tickets'); }
+    catch(e){
+      const isPermission = (e.code === 'permission-denied') || /permission/i.test(e.message || '');
+      showToast(isPermission ? 'Only admins or PMs can delete tickets' : 'Could not delete: ' + e.message);
+    }
   });
 
   // comments
