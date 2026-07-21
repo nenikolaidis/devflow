@@ -7,7 +7,7 @@ import { state } from './state.js';
    See SETUP.md for the full walkthrough and a security note about
    this URL being visible in your site's source code.
 ========================================================= */
-const DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1529151262237393048/xDGRd7zml6yL0wkPjrdtZbLMJe4FtiESNe8EnJVeFBk73yPwyOr2qJj6pZ2t8J-W2ycx";
 /* ========================================================= */
 
 const configured = DISCORD_WEBHOOK_URL && !DISCORD_WEBHOOK_URL.startsWith('YOUR_');
