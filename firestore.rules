@@ -36,6 +36,12 @@ service cloud.firestore {
         allow delete: if isApproved() &&
           (resource.data.author.lower() == myEmail() || isAdminOrPM());
       }
+
+      // Activity log: an append-only audit trail. Any approved user can
+      // read and add entries; nobody can edit or delete one, by design.
+      match /activity/{entryId} {
+        allow read, create: if isApproved();
+      }
     }
 
     // Allow list: a user can always read their own entry (so the app can
@@ -55,6 +61,15 @@ service cloud.firestore {
     match /accessRequests/{email} {
       allow create, read: if isSignedIn() && myEmail() == email;
       allow read, delete: if isAdmin();
+    }
+
+    // Profiles: any approved teammate can view anyone's profile (name,
+    // username, bio, time zone, last active — used for avatars, the
+    // assignee dropdown, and the Team/Profile views). You can only ever
+    // write your own profile document.
+    match /profiles/{email} {
+      allow read: if isApproved();
+      allow write: if isSignedIn() && myEmail() == email;
     }
   }
 }
