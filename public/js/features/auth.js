@@ -14,7 +14,7 @@ import * as api from '../data/api.js';
 import { startSync, stopSync, watchOwnRequest } from '../data/sync.js';
 import { MIN_PASSWORD_LENGTH } from '../config.js';
 import { state } from '../core/state.js';
-import { ROLES, ROLE_LABELS } from '../core/constants.js';
+import { WORKSPACE_ROLES, WORKSPACE_ROLE_LABELS } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { friendlyAuthError } from '../core/format.js';
 import { myEmail } from '../core/permissions.js';
@@ -118,12 +118,16 @@ $('requestAccessBtn').addEventListener('click', async () => {
 
 function showPending(email){
   showScreen('pending');
-  stopWatchingRequest = watchOwnRequest(email, requested => {
+  let wasRequested = false;
+  stopWatchingRequest = watchOwnRequest(email, async requested => {
+    // The request disappears when an admin approves or denies it — if approved, go straight in.
+    if(wasRequested && !requested && await api.getRole(email).catch(() => null)){ routeSignedInUser(auth.currentUser); return; }
+    wasRequested = requested;
     $('requestAccessBtn').disabled = requested;
     $('requestAccessBtn').textContent = requested ? 'Request sent' : 'Request access';
     $('pendingMsg').textContent = requested
-      ? `Your access request for ${email} is waiting on an admin. Ask them to approve you in the Team tab, then reload this page.`
-      : `Your account isn't approved for this board yet. Click below to notify an admin, or ask them directly to add ${email}.`;
+      ? `Your access request for ${email} is waiting on an admin. This page opens devflow as soon as they approve you.`
+      : `Your account isn't approved yet. Click below to notify an admin, or ask them directly to add ${email}.`;
   });
 }
 
@@ -140,7 +144,7 @@ auth.onAuthStateChanged(async user => {
   resetSession();
   if(!user){
     state.currentUser = null;
-    state.currentRole = null;
+    state.workspaceRole = null;
     showScreen('auth');
     return;
   }
@@ -160,11 +164,10 @@ async function routeSignedInUser(user){
   try{
     const role = await api.getRole(email);
     if(!role){ showPending(email); return; }
-    state.currentRole = role;
+    state.workspaceRole = role;
     refreshUserBadge();
-    $('navTeam').classList.toggle('hidden', role !== ROLES.ADMIN);
     showScreen('app');
-    startSync({ isAdmin: role === ROLES.ADMIN });
+    startSync({ isAdmin: role === WORKSPACE_ROLES.ADMIN });
     switchTab('board');
     api.ensureOwnProfile();
   }catch(e){
@@ -183,7 +186,7 @@ function openAccountModal(){
     initialFocus: '#acc-current',
     body: html`
       <div class="field"><label for="acc-who">Signed in as</label>
-        <input type="text" id="acc-who" value="${state.currentUser.email} · ${ROLE_LABELS[state.currentRole] || state.currentRole}" disabled></div>
+        <input type="text" id="acc-who" value="${state.currentUser.email} · ${WORKSPACE_ROLE_LABELS[state.workspaceRole] || state.workspaceRole}" disabled></div>
       <div class="field"><label for="acc-current">Current password</label>
         <input type="password" id="acc-current" autocomplete="current-password"></div>
       <div class="field"><label for="acc-new">New password</label>

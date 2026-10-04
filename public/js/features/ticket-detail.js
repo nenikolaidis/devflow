@@ -12,12 +12,14 @@ import { renderMarkdown, checklistProgress, toggleChecklistLine } from '../core/
 import { getSettings } from '../core/settings.js';
 import { icon, statusIcon } from '../core/icons.js';
 import { formatDateTime, safeUrl } from '../core/format.js';
-import { canModerate, isAdmin } from '../core/permissions.js';
+import { can, isAdmin } from '../core/permissions.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { moveBlockedReason, isOverdue, dodMissing } from '../core/workflow.js';
 import { openModal, showToast } from '../core/ui.js';
 import { findTicket, priorityWithLabel, labelList, dueBadge, typeWithLabel, visibleLabels } from './ticket-common.js';
 import { openTicketForm } from './ticket-form.js';
+import { openTemplateEditor } from './manage/templates.js';
+import { typeOf } from '../core/settings.js';
 import { sprintById, sprintLabel } from './sprints.js';
 import { mountComments } from './comments.js';
 import { mountActivityLog } from './activity-log.js';
@@ -26,9 +28,10 @@ import { moveTicket, toggleBlocked, archiveTickets, restoreTicket, deleteTicketP
 export function openDetail(firestoreId){
   const t = findTicket(firestoreId);
   if(!t){ showToast('That ticket no longer exists'); return; }
-  const moderator = canModerate();
+  const moderator = can('archiveTickets');
+  const canEdit = can('editTickets');
   // Archived tickets are read-only for everyone except admins/PMs (who can restore them).
-  const readOnly = t.archived && !moderator;
+  const readOnly = (t.archived && !moderator) || !canEdit;
   const link = safeUrl(t.linkUrl);
   const reviewers = reviewersOf(t);
   const checklist = checklistProgress(t.description);
@@ -39,8 +42,9 @@ export function openDetail(firestoreId){
   const headerActions = t.archived
     ? html`${moderator ? html`<button type="button" data-act="restore">${icon('restore', 14)}Restore</button>` : ''}
            ${isAdmin() ? html`<button type="button" class="danger" data-act="delete">${icon('trash', 14)}Delete</button>` : ''}`
-    : html`<button type="button" data-act="block">${icon('blocked', 14)}${t.blocked ? 'Unblock' : 'Mark blocked'}</button>
-           <button type="button" data-act="edit">${icon('edit', 14)}Edit</button>
+    : html`${canEdit ? html`<button type="button" data-act="block">${icon('blocked', 14)}${t.blocked ? 'Unblock' : 'Mark blocked'}</button>
+           <button type="button" data-act="edit">${icon('edit', 14)}Edit</button>` : ''}
+           ${can('manageContent') ? html`<button type="button" class="ghost" data-act="template" title="Save as template" aria-label="Save as template">${icon('file', 14)}</button>` : ''}
            ${moderator ? html`<button type="button" class="danger" data-act="archive">${icon('archive', 14)}Archive</button>` : ''}`;
 
   const m = openModal({
@@ -109,7 +113,7 @@ export function openDetail(firestoreId){
       </div>`
   });
 
-  unsubscribers.push(mountComments(m.$('#detailComments'), t, { readOnly }));
+  unsubscribers.push(mountComments(m.$('#detailComments'), t, { readOnly: (t.archived && !moderator) || !can('comment') }));
   unsubscribers.push(mountActivityLog(m.$('#detailActivity'), t.firestoreId));
 
   // Comments | Activity switcher
@@ -180,7 +184,12 @@ export function openDetail(firestoreId){
     block: async () => { if(await toggleBlocked(t)) m.close(); },
     archive: async () => { if(await archiveTickets([t])) m.close(); },
     restore: async () => { if(await restoreTicket(t)) m.close(); },
-    delete: async () => { if(await deleteTicketPermanently(t)) m.close(); }
+    delete: async () => { if(await deleteTicketPermanently(t)) m.close(); },
+    template: () => {
+      m.close();
+      openTemplateEditor({ id: null, name: t.title.slice(0, 60), type: typeOf(t), priority: t.priority, labels: t.labels || [],
+        reviewers: reviewersOf(t), description: t.description || '', enabled: true });
+    }
   };
   m.$$('[data-act]').forEach(btn => btn.addEventListener('click', () => actions[btn.dataset.act]()));
 }

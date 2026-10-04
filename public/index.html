@@ -90,11 +90,20 @@
       <span class="brand-tag">by Nearchos Nikolaidis</span>
     </div>
 
+    <div class="menu-wrap project-switcher">
+      <button type="button" class="project-btn" id="projectBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="projectMenu" aria-label="Switch project">
+        <span class="project-key" id="projectKey">—</span>
+        <span class="project-name" id="projectName">No project</span>
+        <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+      </button>
+      <div class="menu project-menu hidden" id="projectMenu" role="menu" aria-label="Projects"></div>
+    </div>
+
     <nav class="tabs" role="tablist" aria-label="Sections">
       <button type="button" role="tab" id="navBoard" class="tab active" aria-selected="true" aria-controls="boardView">Board</button>
       <button type="button" role="tab" id="navMyWork" class="tab" aria-selected="false" aria-controls="myWorkView">My work</button>
       <button type="button" role="tab" id="navDashboard" class="tab" aria-selected="false" aria-controls="dashboardView">Dashboard</button>
-      <button type="button" role="tab" id="navTeam" class="tab hidden" aria-selected="false" aria-controls="teamView">Team</button>
+      <button type="button" role="tab" id="navManage" class="tab hidden" aria-selected="false" aria-controls="manageView">Manage</button>
     </nav>
 
     <div class="topbar-spacer"></div>
@@ -222,71 +231,10 @@
     <div class="dash-panels" id="dashPanels"></div>
   </section>
 
-  <!-- TEAM (admins only) -->
-  <section id="teamView" class="page narrow-page hidden" role="tabpanel" aria-labelledby="navTeam">
-    <div class="page-head"><h1>Team</h1></div>
-
-    <div class="card-section">
-      <h2>Pending requests</h2>
-      <div id="requestList" class="row-list"></div>
-      <div class="empty-note hidden" id="noRequests">No pending requests.</div>
-    </div>
-
-    <div class="card-section">
-      <h2>Team members</h2>
-      <div id="allowList" class="row-list"></div>
-      <div class="add-row">
-        <input type="email" id="newAllowEmail" aria-label="Email to add" placeholder="teammate@company.com">
-        <select id="newAllowRole" aria-label="Role">
-          <option value="developer">Developer</option>
-          <option value="pm">Project manager</option>
-          <option value="admin">Administrator</option>
-        </select>
-        <button type="button" id="addAllowBtn">Add</button>
-      </div>
-    </div>
-
-    <div class="card-section" id="settingsBox">
-      <h2>Board settings</h2>
-      <div class="field">
-        <label for="setWebhook">Discord webhook URL</label>
-        <p class="field-hint">Stored in the database, not in the site's code. Only approved teammates can read it.</p>
-        <div class="add-row flush">
-          <input type="text" id="setWebhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off">
-          <button type="button" id="testWebhookBtn">Send test</button>
-        </div>
-      </div>
-      <div class="field">
-        <label for="setStaleDays">Stale after (days without activity)</label>
-        <p class="field-hint">Applies to tickets In progress or In review.</p>
-        <input type="number" id="setStaleDays" class="narrow-input" min="1" max="365" step="1">
-      </div>
-      <fieldset class="field">
-        <legend>Labels</legend>
-        <p class="field-hint">The topic areas people can tag tickets with. Renaming a label doesn't change tickets that already use the old name.</p>
-        <div id="setLabels" class="settings-list"></div>
-        <button type="button" class="small" id="addLabelBtn">Add label</button>
-      </fieldset>
-      <fieldset class="field">
-        <legend>Definition of Done</legend>
-        <p class="field-hint">Items every ticket must have ticked before it can move to Done — enforced by the database, for everyone. Leave empty to turn it off.</p>
-        <div id="setDod" class="settings-list"></div>
-        <button type="button" class="small" id="addDodBtn">Add item</button>
-      </fieldset>
-      <fieldset class="field">
-        <legend>Work-in-progress limits per column</legend>
-        <p class="field-hint">0 means no limit. Columns over their limit turn red.</p>
-        <div class="wip-inputs" id="setWipLimits"></div>
-      </fieldset>
-      <div class="field">
-        <label class="toggle-row" for="setWeeklySummary">
-          <input type="checkbox" id="setWeeklySummary">
-          <span><strong>Weekly Discord summary</strong>
-            <span class="field-hint">Every Monday morning, post a summary of the week (done, in progress, blocked, overdue, sprint progress) to the Discord channel above. Needs the one-time setup in SETUP.md.</span></span>
-        </label>
-      </div>
-      <div class="modal-actions"><button type="button" class="primary" id="saveSettingsBtn">Save settings</button></div>
-    </div>
+  <!-- MANAGE (admins, and roles with management permissions) -->
+  <section id="manageView" class="manage hidden" role="tabpanel" aria-labelledby="navManage">
+    <nav class="manage-nav" id="manageNav" aria-label="Manage sections"></nav>
+    <div class="manage-content" id="manageContent"></div>
   </section>
   </main>
 </div>

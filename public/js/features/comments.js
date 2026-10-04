@@ -18,7 +18,7 @@ import { html, raw, escapeHtml } from '../core/html.js';
 import { normEmail } from '../core/permissions.js';
 import { notifyMentioned } from '../integrations/discord.js';
 import { formatDateTime } from '../core/format.js';
-import { canModerate, isMe } from '../core/permissions.js';
+import { can, isMe } from '../core/permissions.js';
 import { displayName, avatarHtml, matchPeople } from '../core/people.js';
 import { showToast, confirmDialog, promptDialog } from '../core/ui.js';
 
@@ -176,7 +176,7 @@ async function editComment(fid, id, current){
 }
 
 function commentHtml(id, c, readOnly){
-  const moderator = canModerate();
+  const moderator = can('moderateComments');
   const author = isMe(c.author);
   const canEdit = author && !c.hidden && !readOnly;
   const canDelete = moderator || author;

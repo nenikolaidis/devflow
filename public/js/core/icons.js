@@ -10,8 +10,9 @@
    All return trusted markup for use inside html``. Icons are
    decorative (aria-hidden); give their button an aria-label.
 ========================================================= */
-import { raw } from './html.js';
-import { normalizeStatus, TICKET_TYPES } from './constants.js';
+import { raw, escapeHtml } from './html.js';
+import { normalizeStatus } from './constants.js';
+import { typeInfo } from './settings.js';
 
 const STROKE = {
   plus: '<path d="M8 3v10M3 8h10"/>',
@@ -52,13 +53,26 @@ const STROKE = {
   users: '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5a4.5 4.5 0 0 1 9 0M10.5 3.2a2.5 2.5 0 0 1 0 4.6M12 9.3a4.5 4.5 0 0 1 2.5 4.2"/>',
   inbox: '<path d="M2 9h3.5l1 2h3l1-2H14"/><path d="M3.5 3.5h9L14 9v3.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9Z"/>',
   eye: '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/>',
-  listCheck: '<path d="M7 4h7M7 8h7M7 12h7"/><path d="m2 4 1 1 2-2M2 8.5l1 1 2-2M2 12.5l1 1 2-2"/>'
+  listCheck: '<path d="M7 4h7M7 8h7M7 12h7"/><path d="m2 4 1 1 2-2M2 8.5l1 1 2-2M2 12.5l1 1 2-2"/>',
+  book: '<path d="M2.5 3.5c2-.8 4-.6 5.5.5 1.5-1.1 3.5-1.3 5.5-.5v9c-2-.8-4-.6-5.5.5-1.5-1.1-3.5-1.3-5.5-.5Z"/><path d="M8 4v9"/>',
+  rocket: '<path d="M9.5 2.5c2 .2 3.8 2 4 4L9 11 5 7Z"/><path d="M5 7 3 7.5l-.5 2L5 9M9 11l-.5 2-2 .5L7 11M4.5 11.5l-2 2"/>',
+  layers: '<path d="M8 2.5 14 6 8 9.5 2 6Z"/><path d="m2 9 6 3.5L14 9"/>',
+  palette: '<path d="M8 2a6 6 0 1 0 0 12c1 0 1.5-.6 1.5-1.4 0-1-.9-1.3-.9-2.1 0-.8.7-1.5 1.5-1.5h1.4A2.5 2.5 0 0 0 14 6.5C14 4 11.3 2 8 2Z"/><circle cx="5" cy="7" r=".8"/><circle cx="7.5" cy="4.8" r=".8"/><circle cx="10.5" cy="5.2" r=".8"/>',
+  server: '<rect x="2.5" y="2.5" width="11" height="4.5" rx="1.2"/><rect x="2.5" y="9" width="11" height="4.5" rx="1.2"/><path d="M5 4.8h.01M5 11.2h.01"/>',
+  folder: '<path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1Z"/>',
+  settings: '<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/>',
+  tag: '<path d="M2.5 2.5h5l6 6-5 5-6-6Z"/><circle cx="5.2" cy="5.2" r=".9"/>',
+  file: '<path d="M4 1.8h5.5L12.5 5v8.7a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V2.3a.5.5 0 0 1 .5-.5Z"/><path d="M9.5 1.8V5h3M5.8 8.5h4.4M5.8 11h4.4"/>',
+  key2: '<circle cx="5.5" cy="10.5" r="3"/><path d="m7.6 8.4 5.4-5.4M11 5l1.5 1.5"/>',
+  plug: '<path d="M6 1.8v3M10 1.8v3M4 4.8h8v2.5a4 4 0 0 1-8 0Z"/><path d="M8 11.3v2.9"/>',
+  home: '<path d="M2.5 7.5 8 2.5l5.5 5"/><path d="M4 6.5v7h8v-7"/>',
+  inboxIn: '<path d="M2 9h3.5l1 2h3l1-2H14"/><path d="M3.5 3.5h9L14 9v3.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9Z"/><path d="M8 1.8v5M6 4.8l2 2 2-2"/>'
 };
 
-/** The icon for a ticket type (see TICKET_TYPES), colored by type. */
+/** The icon for a ticket type (from the project's types), colored by type. */
 export function typeIcon(typeKey, size = 16){
-  const info = TICKET_TYPES.find(t => t.key === typeKey) || TICKET_TYPES[0];
-  return raw(`<span class="type-icon" style="color:${info.color}" title="${info.label}">${icon(info.icon, size)}</span>`);
+  const info = typeInfo(typeKey);
+  return raw(`<span class="type-icon" style="color:${info.css}" title="${escapeHtml(info.label)}">${icon(info.icon, size)}</span>`);
 }
 
 /** A named line icon (see STROKE above for the names). */

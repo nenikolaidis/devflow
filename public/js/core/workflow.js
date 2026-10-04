@@ -10,7 +10,7 @@
 import { state } from './state.js';
 import { STATUS, STALE_STATUSES, normalizeStatus, statusLabel, reviewersOf } from './constants.js';
 import { getSettings } from './settings.js';
-import { canModerate, isMe } from './permissions.js';
+import { can, isMe } from './permissions.js';
 import { daysSince } from './format.js';
 
 /**
@@ -18,14 +18,15 @@ import { daysSince } from './format.js';
  * Keep in step with statusMoveAllowed() in firestore.rules.
  */
 export function moveBlockedReason(t, statusKey){
+  if(!can('editTickets')) return 'Your role in this project can\'t move tickets';
   const reviewers = reviewersOf(t);
   if(statusKey === STATUS.IN_REVIEW && reviewers.length === 0){
     return `Add a reviewer to ${t.id} before moving it to In review`;
   }
   if(statusKey === STATUS.DONE){
-    if(!canModerate()){
-      if(!reviewers.some(isMe)) return `Only one of ${t.id}'s reviewers, a PM, or an admin can move it to Done`;
-      if(isMe(t.owner)) return `You own ${t.id}, so another reviewer (or a PM/admin) has to close it`;
+    if(!can('closeTickets')){
+      if(!reviewers.some(isMe)) return `Only one of ${t.id}'s reviewers, or someone whose role can close tickets, can move it to Done`;
+      if(isMe(t.owner)) return `You own ${t.id}, so another reviewer (or a project manager) has to close it`;
     }
     const missing = dodMissing(t);
     if(missing.length) return `Tick the Definition of Done first: ${missing.map(i => i.text).join(', ')}`;

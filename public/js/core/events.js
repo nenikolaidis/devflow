@@ -15,7 +15,13 @@ export const EVENTS = {
   PROFILES_CHANGED: 'profiles-changed',
   SETTINGS_CHANGED: 'settings-changed',
   SPRINTS_CHANGED: 'sprints-changed',
-  NOTIFICATIONS_CHANGED: 'notifications-changed'
+  NOTIFICATIONS_CHANGED: 'notifications-changed',
+  PROJECTS_CHANGED: 'projects-changed',          // list of my projects, or the current one's doc
+  PROJECT_SWITCHED: 'project-switched',          // a different project is now current
+  ROLES_CHANGED: 'roles-changed',
+  TEMPLATES_CHANGED: 'templates-changed',
+  PROJECT_REQUESTS_CHANGED: 'project-requests-changed',
+  WORKSPACE_CHANGED: 'workspace-changed'         // meta/workspace (upgrade status)
 };
 
 const listeners = {};

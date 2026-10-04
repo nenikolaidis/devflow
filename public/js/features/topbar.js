@@ -9,9 +9,9 @@
 import { auth } from '../data/firebase.js';
 import { state } from '../core/state.js';
 import { on, EVENTS } from '../core/events.js';
-import { ROLE_LABELS } from '../core/constants.js';
+import { WORKSPACE_ROLE_LABELS } from '../core/constants.js';
 import { icon } from '../core/icons.js';
-import { myEmail } from '../core/permissions.js';
+import { myEmail, myRoleId, roleName, isAdmin, can } from '../core/permissions.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { toggleTheme, followSystem, onThemeChange, isFollowingSystem } from '../core/theme.js';
 import { openProfileModal } from './profiles.js';
@@ -70,7 +70,16 @@ export function refreshUserBadge(){
   const email = myEmail();
   $('userAvatar').innerHTML = avatarHtml(email, 28).toString();
   $('menuName').textContent = displayName(email);
-  $('whoami').textContent = `${email} · ${ROLE_LABELS[state.currentRole] || state.currentRole || ''}`;
+  // "Workspace admin", or my role in the current project.
+  const role = isAdmin() ? WORKSPACE_ROLE_LABELS.admin : (myRoleId() ? roleName(myRoleId()) : WORKSPACE_ROLE_LABELS.member);
+  $('whoami').textContent = `${email} · ${role}`;
   menuBtn.setAttribute('aria-label', `Account menu for ${displayName(email)}`);
+  // New ticket needs an open project and a role that can edit tickets.
+  const canCreate = !!state.projectId && can('editTickets');
+  $('newTicketBtn').disabled = !canCreate;
+  $('newTicketBtn').title = canCreate ? '' : (state.projectId ? 'Your role in this project can\'t create tickets' : 'Open a project first');
 }
 on(EVENTS.PROFILES_CHANGED, refreshUserBadge);
+on(EVENTS.PROJECTS_CHANGED, refreshUserBadge);
+on(EVENTS.PROJECT_SWITCHED, refreshUserBadge);
+on(EVENTS.ROLES_CHANGED, refreshUserBadge);

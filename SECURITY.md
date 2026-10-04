@@ -30,25 +30,28 @@ allowed.
 
 | Layer | Protects against | Where |
 |---|---|---|
-| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 69 automated tests |
+| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 53 automated tests |
 | **Verified email + allowlist** | Someone registering a teammate's address before they do; strangers signing up and reading data | Rules (`email_verified`, `allowlist`) + `features/auth.js` |
 | **Escaping everywhere** | Cross-site scripting from ticket titles, comments, names, links | `core/html.js` (auto-escaping templates), `core/markdown.js` (escapes before formatting), `safeUrl()` (only `http(s)` links) |
 | **Content-Security-Policy** | Injected scripts, data sent to unknown servers, the app being framed | `firebase.json` headers |
 | **Subresource Integrity** | A compromised CDN serving altered Firebase/EmailJS scripts | `integrity` hashes in `public/index.html` |
 | **Security headers** | Clickjacking, MIME sniffing, leaking URLs, indexing by search engines | `firebase.json` (HSTS, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `noindex`) |
-| **No secrets in the repo** | Credentials leaking from a public repository | Webhook stored in Firestore; deploy and summary keys in GitHub Secrets |
+| **No secrets in the repo** | Credentials leaking from a public repository | Webhooks stored in Firestore per project (masked on screen); deploy and summary keys in GitHub Secrets |
 | **API key restriction + App Check** | Your Firebase project being called from anywhere other than your site | Google Cloud / Firebase console (checklist below) |
 | **CI gate** | A change that breaks the rules or the app reaching production | GitHub Actions run the rules tests and the browser test before every deploy |
 
 ### What the rules enforce
 
 - **Access:** only signed-in users with a **verified** email who are on the **allowlist** can read or write anything (apart from requesting access for themselves).
-- **Tickets:** every field is type- and size-checked; links must be `http(s)`; unknown fields are rejected; `id`, `number`, `createdBy` and `createdAt` never change; new tickets must take their number from a shared counter in the same transaction, so ids can't collide.
-- **Workflow:** *In review* needs at least one reviewer. *Done* can only be set by a PM/admin, or by a listed reviewer who isn't the ticket's owner. If a Definition of Done is configured, every item must be ticked first — for everyone.
-- **Archive and delete:** only admins/PMs archive or restore; only admins permanently delete, and only archived tickets.
-- **Comments, mentions, activity:** posted as yourself only; comments are capped at 5,000 characters; the activity log can never be edited or deleted.
+- **Projects:** you can only see a project — its tickets, comments, sprints, templates and settings — if you're one of its members or a workspace admin. Only admins create, rename or archive projects; project managers can only *request* one. An archived project is read-only for everyone except admins.
+- **Roles and permissions:** every action inside a project is checked against the permissions of *your role in that project* (`can(project, permission)` in the rules), read live from the `roles` collection — so editing a role takes effect immediately. Only workspace admins can change roles or make someone an admin. A member who can manage members can change who's in their project and their roles, but nothing else about the project.
+- **Tickets:** every field is type- and size-checked; links must be `http(s)`; unknown fields are rejected; `id`, `number`, `createdBy` and `createdAt` never change; new tickets must take their number from the project's counter in the same transaction, and their id must start with the project's key, so ids can't collide.
+- **Workflow:** *In review* needs at least one reviewer. *Done* can only be set by someone whose role can close tickets, or by a listed reviewer who isn't the ticket's owner. If the project has a Definition of Done, every item must be ticked first — for everyone, admins included.
+- **Archive and delete:** archiving and restoring need the archive permission; only workspace admins permanently delete, and only archived tickets.
+- **Comments, mentions, activity:** posted as yourself only, and only with the comment permission; comments are capped at 5,000 characters; hiding other people's comments needs the moderation permission; the activity log can never be edited or deleted.
 - **Notifications:** sent as yourself, only to approved teammates; only the recipient can read them or mark them read.
-- **Sprints and settings:** sprints are managed by admins/PMs; roles, the allowlist and board settings by admins only; the Discord webhook must be a Discord URL.
+- **Settings:** each group of project settings needs its own permission — labels, types and templates (*manage content*), Definition of Done, WIP and stale limits (*manage workflow*), Discord and the weekly summary (*manage integrations*). Webhooks must be Discord URLs.
+- **The upgrade:** copying the old board into the first project is only allowed for an admin while that project is marked as migrating; the old single-board data is read-only afterwards.
 - **Profiles:** you can only write your own, and every field is size-limited.
 
 ### What's public, and what isn't
@@ -58,7 +61,8 @@ Firebase web config in `public/js/config.js` (API key, project id) is not a
 secret — every Firebase web app sends it to the browser.
 
 What a visitor who isn't on your team can see: the sign-in page. Nothing
-else — no tickets, names, comments, settings or team list.
+else — no tickets, names, comments, settings or team list. And a teammate
+sees only the projects they've been added to.
 
 ---
 
@@ -69,7 +73,7 @@ click. Replace `<project-id>` with your Firebase project id.
 
 ### 1. Keep secrets out of the repository
 
-- Never commit Discord webhook URLs, service-account keys, `.env` files or real ticket data. The webhook belongs in **Team → Board settings**; keys belong in **GitHub → Settings → Secrets**.
+- Never commit Discord webhook URLs, service-account keys, `.env` files or real ticket data. Webhooks belong in **Manage → Integrations** (per project); keys belong in **GitHub → Settings → Secrets**.
 - If a webhook or key was ever committed, treat it as leaked: delete it (Discord → channel → Integrations → Webhooks, or Google Cloud → the service account → Keys) and create a new one. Removing it from the code doesn't remove it from git history.
 - The EmailJS public key is designed to be public. In EmailJS → **Account → Security**, allow only your site's domain.
 
@@ -133,7 +137,8 @@ Google Cloud console → **Billing → Budgets & alerts** → a $1 budget with e
 
 ## Ongoing habits
 
-- **Review the Team tab regularly.** Removing someone from the allowlist cuts their access immediately, even if they're signed in.
+- **Review Manage → Members regularly.** Removing someone from the workspace cuts their access to every project immediately, even if they're signed in. Give people the least powerful role that lets them do their job — *Viewer* for clients and stakeholders.
+- **Review Manage → Roles after changing it.** A permission added to a role applies to everyone with that role, in every project.
 - **Changing the rules?** Add a test to `tests/firestore.rules.test.js` for the new behaviour — both what's allowed and what's refused.
 - **Upgrading a CDN script** in `public/index.html`: change the version, then regenerate its hash and paste `sha384-<output>` into `integrity`:
 

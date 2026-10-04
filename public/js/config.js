@@ -1,8 +1,8 @@
 /* =========================================================
    config.js — every value you might need to edit lives here.
    Nothing in this file is secret: it all ends up in the browser.
-   (The Discord webhook is NOT here on purpose — admins set it in
-   Team → Board settings, and it's stored in Firestore.)
+   (Discord webhooks are NOT here on purpose — each project's is set in
+   Manage → Integrations and stored in Firestore.)
 ========================================================= */
 
 /* Firebase web app config — Firebase console → Project settings →

@@ -9,7 +9,8 @@
 ========================================================= */
 import * as api from '../data/api.js';
 import { deleteField } from '../data/firebase.js';
-import { ACTIVITY, LIMITS, STATUS, normalizeStatus, statusLabel, reviewersOf, typeInfo, typeOf } from '../core/constants.js';
+import { ACTIVITY, LIMITS, STATUS, normalizeStatus, statusLabel, reviewersOf } from '../core/constants.js';
+import { typeInfo, typeOf } from '../core/settings.js';
 import { moveBlockedReason, wipWarning } from '../core/workflow.js';
 import { showToast, confirmDialog, promptDialog } from '../core/ui.js';
 import { isPermissionError } from '../core/format.js';

@@ -1,10 +1,11 @@
 /* =========================================================
    features/profiles.js — the profile dialog. Your own profile is
    editable (name, username, bio, time zone); a teammate's is read-only
-   and shows their tickets. Opened from the Profile button or the Team tab.
+   and shows their tickets. Opened from the account menu or Manage → Members.
 ========================================================= */
 import { state } from '../core/state.js';
-import { FALLBACK_TIMEZONES, LIMITS, ROLE_LABELS, AVAILABILITY, STATUS, normalizeStatus } from '../core/constants.js';
+import { FALLBACK_TIMEZONES, LIMITS, WORKSPACE_ROLE_LABELS, AVAILABILITY, STATUS, normalizeStatus } from '../core/constants.js';
+import { roleName } from '../core/permissions.js';
 import { html } from '../core/html.js';
 import { formatDateTime } from '../core/format.js';
 import { normEmail, isMe } from '../core/permissions.js';
@@ -27,7 +28,9 @@ export function openProfileModal(targetEmail){
   const email = normEmail(targetEmail || state.currentUser.email);
   const self = isMe(email);
   const p = profileOf(email);
-  const role = (state.allowlist.find(u => u.id === email) || {}).role;
+  const workspaceRole = (state.allowlist.find(u => u.id === email) || {}).role;
+  // Their role in the current project (workspace admins have every permission anyway).
+  const projectRole = state.project && state.project.members ? state.project.members[email] : '';
   const assigned = state.tickets.filter(t => !t.archived && normalizeStatus(t.status) !== STATUS.DONE && normEmail(t.owner) === email);
   const createdCount = state.tickets.filter(t => normEmail(t.createdBy) === email).length;
   const lastActive = p.lastActive ? formatDateTime(p.lastActive) : '—';
@@ -41,7 +44,7 @@ export function openProfileModal(targetEmail){
         <div>
           <div class="profile-name">${p.name || email}</div>
           <div class="profile-sub">${p.title ? `${p.title} · ` : ''}${p.username ? `@${p.username} · ` : ''}${email}</div>
-          <div class="profile-badges"><span class="role-pill">${ROLE_LABELS[role] || role || '—'}</span>${availabilityBadge(email)}</div>
+          <div class="profile-badges">${workspaceRole === 'admin' ? html`<span class="role-pill">${WORKSPACE_ROLE_LABELS.admin}</span>` : ''}${projectRole ? html`<span class="role-pill">${roleName(projectRole)}${state.project ? ` · ${state.project.name}` : ''}</span>` : ''}${availabilityBadge(email)}</div>
         </div>
       </div>
 

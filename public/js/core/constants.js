@@ -5,17 +5,54 @@
    firestore.rules too.
 ========================================================= */
 
-/* ---------------- ROLES ---------------- */
-export const ROLES = {
+/* ---------------- WORKSPACE ROLES ---------------- */
+// allowlist/{email}.role. Workspace admins can do everything in every
+// project; members get the permissions of their role in each project.
+// ('pm' and 'developer' were the workspace roles before projects; the
+// upgrade turns them into 'member' plus a project role.)
+export const WORKSPACE_ROLES = {
   ADMIN: 'admin',
-  PM: 'pm',
-  DEVELOPER: 'developer'
+  MEMBER: 'member'
 };
-export const ROLE_LABELS = {
-  [ROLES.DEVELOPER]: 'Developer',
-  [ROLES.PM]: 'Project manager',
-  [ROLES.ADMIN]: 'Administrator'
+export const WORKSPACE_ROLE_LABELS = {
+  admin: 'Workspace admin',
+  member: 'Member',
+  pm: 'Member',
+  developer: 'Member'
 };
+
+/* ---------------- PROJECT ROLES & PERMISSIONS ---------------- */
+// Every permission a project role can have. Keys are checked by
+// firestore.rules (can(pid, '<key>')) — keep them in sync.
+export const PERMISSIONS = [
+  { key: 'editTickets', label: 'Create and edit tickets, move them along the board', group: 'Tickets' },
+  { key: 'comment', label: 'Comment and @mention', group: 'Tickets' },
+  { key: 'closeTickets', label: 'Close any ticket (without being its reviewer)', group: 'Tickets' },
+  { key: 'archiveTickets', label: 'Archive and restore tickets', group: 'Tickets' },
+  { key: 'moderateComments', label: "Hide or delete other people's comments", group: 'Tickets' },
+  { key: 'manageSprints', label: 'Manage sprints', group: 'Planning' },
+  { key: 'manageContent', label: 'Manage labels, ticket types and templates', group: 'Planning' },
+  { key: 'manageWorkflow', label: 'Manage workflow (Definition of Done, WIP limits, stale days)', group: 'Project' },
+  { key: 'manageMembers', label: 'Manage project members and their roles', group: 'Project' },
+  { key: 'manageIntegrations', label: 'Manage Discord and the weekly summary', group: 'Project' },
+  { key: 'requestProjects', label: 'Request new projects (an admin approves)', group: 'Project' }
+];
+const ALL_PERMISSIONS = PERMISSIONS.map(p => p.key);
+const allow = (...keys) => Object.fromEntries(ALL_PERMISSIONS.map(k => [k, keys.includes(k)]));
+
+// The roles a new workspace starts with. Admins can rename them, change
+// their permissions, and add more in Manage → Roles. Ids never change.
+export const DEFAULT_ROLES = [
+  { id: 'pm', name: 'Project manager', description: 'Runs the project: planning, workflow, members, integrations.', order: 1, permissions: allow(...ALL_PERMISSIONS) },
+  { id: 'techlead', name: 'Tech lead', description: 'Leads delivery: closes and archives tickets, manages sprints and content.', order: 2,
+    permissions: allow('editTickets', 'comment', 'closeTickets', 'archiveTickets', 'moderateComments', 'manageSprints', 'manageContent') },
+  { id: 'developer', name: 'Developer', description: 'Works on tickets.', order: 3, permissions: allow('editTickets', 'comment') },
+  { id: 'qa', name: 'QA / Tester', description: 'Tests and reviews tickets.', order: 4, permissions: allow('editTickets', 'comment') },
+  { id: 'designer', name: 'Designer', description: 'Works on design tickets.', order: 5, permissions: allow('editTickets', 'comment') },
+  { id: 'viewer', name: 'Viewer', description: 'Clients and stakeholders: can read and comment.', order: 6, permissions: allow('comment') }
+];
+// Role given to someone added to a project unless you pick another.
+export const DEFAULT_MEMBER_ROLE = 'developer';
 
 /* ---------------- FIRESTORE PATHS ---------------- */
 export const COLLECTIONS = {
@@ -28,12 +65,19 @@ export const COLLECTIONS = {
   META: 'meta',
   CONFIG: 'config',
   SPRINTS: 'sprints',
-  NOTIFICATIONS: 'notifications' // to = recipient's email
+  NOTIFICATIONS: 'notifications', // to = recipient's email
+  PROJECTS: 'projects',          // tickets, sprints, templates, config live under a project
+  ROLES: 'roles',
+  PROJECT_REQUESTS: 'projectRequests',
+  TEMPLATES: 'templates'
 };
 export const DOCS = {
-  COUNTERS: 'counters',        // meta/counters  → { ticketNumber }
-  SETTINGS: 'settings'         // config/settings → board settings
+  COUNTERS: 'counters',        // projects/{pid}/meta/counters  → { ticketNumber }
+  SETTINGS: 'settings',        // projects/{pid}/config/settings → project settings
+  WORKSPACE: 'workspace'       // meta/workspace → { version, defaultProjectId }
 };
+// Data layout version. 2 = projects. Older workspaces are upgraded in-app.
+export const DATA_VERSION = 2;
 
 /* ---------------- WORKFLOW STAGES ---------------- */
 export const STATUS = {
@@ -101,36 +145,24 @@ export const STATUS_COLOR = {
 };
 
 /* ---------------- TICKET TYPES ---------------- */
-// What kind of work a ticket is. Each type has an icon (core/icons.js) and
-// a color. Keys are stored in Firestore — keep in sync with firestore.rules.
-export const TICKET_TYPES = [
-  { key: 'task', label: 'Task', icon: 'checkSquare', color: 'var(--text-2)' },
-  { key: 'bug', label: 'Bug', icon: 'bug', color: 'var(--red)' },
-  { key: 'feature', label: 'Feature', icon: 'sparkle', color: 'var(--blue)' },
-  { key: 'security', label: 'Security', icon: 'shield', color: 'var(--purple)' },
-  { key: 'maintenance', label: 'Maintenance', icon: 'wrench', color: 'var(--amber)' },
-  { key: 'analysis', label: 'Business analysis', icon: 'chartLine', color: 'var(--teal)' },
-  { key: 'research', label: 'Research', icon: 'flask', color: 'var(--pink)' }
+// What kind of work a ticket is. Each project can edit its types in
+// Manage → Ticket types (stored in the project's settings.types); these
+// are the defaults. Colors are names from LABEL_PALETTE; icons are names
+// from core/icons.js (TYPE_ICON_CHOICES lists the ones offered).
+export const DEFAULT_TYPES = [
+  { key: 'task', label: 'Task', icon: 'checkSquare', color: 'gray' },
+  { key: 'bug', label: 'Bug', icon: 'bug', color: 'red' },
+  { key: 'feature', label: 'Feature', icon: 'sparkle', color: 'blue' },
+  { key: 'security', label: 'Security', icon: 'shield', color: 'purple' },
+  { key: 'maintenance', label: 'Maintenance', icon: 'wrench', color: 'amber' },
+  { key: 'analysis', label: 'Business analysis', icon: 'chartLine', color: 'teal' },
+  { key: 'research', label: 'Research', icon: 'flask', color: 'pink' }
 ];
-export const TYPE_KEYS = TICKET_TYPES.map(t => t.key);
-
-export function typeInfo(key){
-  return TICKET_TYPES.find(t => t.key === key) || TICKET_TYPES[0];
-}
-
-/**
- * A ticket's type. Tickets created before types existed get one from
- * their labels (a "bug" label → Bug), so nothing needs migrating.
- */
-export function typeOf(t){
-  if(t.type && TYPE_KEYS.includes(t.type)) return t.type;
-  const labels = t.labels || [];
-  return ['bug', 'security', 'feature', 'maintenance', 'analysis', 'research'].find(k => labels.includes(k)) || 'task';
-}
+export const TYPE_ICON_CHOICES = ['checkSquare', 'bug', 'sparkle', 'shield', 'wrench', 'chartLine', 'flask', 'book', 'rocket', 'layers', 'palette', 'server', 'users', 'eye'];
 
 /* ---------------- LABELS (topic areas) ---------------- */
-// Admins manage the label list in Team → Board settings (stored in
-// config/settings.labels). Colors are names from LABEL_PALETTE.
+// Managed per project in Manage → Labels (settings.labels).
+// Colors are names from LABEL_PALETTE.
 export const LABEL_PALETTE = {
   gray: 'var(--muted)', red: 'var(--red)', amber: 'var(--amber)', green: 'var(--green)',
   teal: 'var(--teal)', blue: 'var(--blue)', purple: 'var(--purple)', pink: 'var(--pink)'
@@ -179,6 +211,11 @@ export const LIMITS = {
   PROFILE_BIO: 500,
   PROFILE_TITLE: 60,
   LABEL_NAME: 24,
+  TYPE_LABEL: 30,
+  PROJECT_NAME: 60,
+  PROJECT_DESCRIPTION: 500,
+  ROLE_NAME: 40,
+  TEMPLATE_NAME: 60,
   MAX_LABELS: 30,
   DOD_ITEM: 120,
   MAX_DOD_ITEMS: 10,
@@ -219,12 +256,14 @@ export const FALLBACK_TIMEZONES = [
 ];
 
 /* ---------------- TICKET TEMPLATES ---------------- */
-// Starting points for the "New ticket" form. Picking one sets the type,
-// a sensible priority and a description scaffold. Descriptions support
-// simple formatting (core/markdown.js): "## " headings, "- " bullets,
-// "1. " numbered lines and "- [ ] " checklist items.
-export const TICKET_TEMPLATES = [
-  { id: 'blank', name: 'Blank ticket', type: 'task', priority: null, description: '' },
+// The templates a project starts with. Each project edits its own in
+// Manage → Templates (projects/{pid}/templates); until then these are
+// used. Picking one sets the type, a priority, default labels/reviewers
+// and a description scaffold. Descriptions support simple formatting
+// (core/markdown.js): "## " headings, "- " bullets, "1. " numbered lines
+// and "- [ ] " checklist items.
+export const BLANK_TEMPLATE = { id: 'blank', name: 'Blank ticket', type: 'task', priority: '', labels: [], reviewers: [], description: '' };
+export const DEFAULT_TEMPLATES = [
   {
     id: 'task', name: 'Task', type: 'task', priority: 'medium',
     description: '## What needs doing\n\n\n## Done when\n- [ ] \n- [ ] \n'
@@ -255,12 +294,13 @@ export const TICKET_TEMPLATES = [
   }
 ];
 
-/* ---------------- BOARD SETTINGS DEFAULTS ---------------- */
-// Stored in Firestore at config/settings (admins edit them in the Team
-// tab). These defaults apply until an admin saves.
+/* ---------------- PROJECT SETTINGS DEFAULTS ---------------- */
+// Stored per project at projects/{pid}/config/settings (edited in Manage).
+// These defaults apply until someone saves.
 // wipLimits: status key -> max tickets in that column (0 = no limit).
 // labels: [{ name, color }]; dodItems: [{ id, text }] (empty = no Definition of Done).
 export const DEFAULT_SETTINGS = {
+  types: DEFAULT_TYPES,
   discordWebhookUrl: '',
   staleDays: 5,
   wipLimits: { backlog: 0, in_progress: 5, in_review: 3, done: 0 },

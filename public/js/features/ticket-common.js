@@ -3,11 +3,11 @@
    that shows tickets: badges, chips, filtering and sorting.
 ========================================================= */
 import { state } from '../core/state.js';
-import { STATUSES, STATUS, PRIORITIES, TYPE_KEYS, normalizeStatus, typeOf, typeInfo, reviewersOf } from '../core/constants.js';
+import { STATUSES, STATUS, PRIORITIES, normalizeStatus, reviewersOf } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { capitalize, formatDate } from '../core/format.js';
 import { icon, priorityIcon, typeIcon } from '../core/icons.js';
-import { labelColor } from '../core/settings.js';
+import { labelColor, typeOf, typeInfo, typeKeys } from '../core/settings.js';
 import { checklistProgress } from '../core/markdown.js';
 import { isMe } from '../core/permissions.js';
 import { staleDays, isOverdue, isMyReview } from '../core/workflow.js';
@@ -37,12 +37,12 @@ export function typeWithLabel(t){
  * label is shown as the Bug type instead).
  */
 export function visibleLabels(t){
-  return (t.labels || []).filter(l => !TYPE_KEYS.includes(l));
+  return (t.labels || []).filter(l => !typeKeys().includes(l));
 }
 
 /** Labels as small colored dots + names. boxed=true draws a pill outline. */
 export function labelList(labels, { boxed = false } = {}){
-  return (labels || []).filter(l => !TYPE_KEYS.includes(l))
+  return (labels || []).filter(l => !typeKeys().includes(l))
     .map(l => html`<span class="label ${boxed ? 'boxed' : ''}"><span class="label-dot" style="background:${labelColor(l)}"></span>${l}</span>`);
 }
 

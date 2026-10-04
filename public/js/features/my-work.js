@@ -11,10 +11,11 @@ import { STATUS, PRIORITIES, normalizeStatus, statusLabel } from '../core/consta
 import { html } from '../core/html.js';
 import { icon, statusIcon, typeIcon, priorityIcon } from '../core/icons.js';
 import { isMe } from '../core/permissions.js';
-import { typeOf } from '../core/constants.js';
+import { typeOf } from '../core/settings.js';
 import { isMyReview } from '../core/workflow.js';
 import { dueBadge, ticketFlags, checklistBadge } from './ticket-common.js';
 import { openDetail } from './ticket-detail.js';
+import { noProjectHtml } from './board.js';
 
 const panelsEl = document.getElementById('myWorkPanels');
 const subEl = document.getElementById('myWorkSub');
@@ -29,6 +30,7 @@ const byUrgency = (a, b) => (b.blocked ? 1 : 0) - (a.blocked ? 1 : 0)
   || String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999'));
 
 export function renderMyWork(){
+  if(!state.projectId){ subEl.textContent = ''; panelsEl.innerHTML = noProjectHtml().toString(); return; }
   const active = state.tickets.filter(t => !t.archived);
   const isDone = (t) => normalizeStatus(t.status) === STATUS.DONE;
   const assigned = active.filter(t => isMe(t.owner) && !isDone(t)).sort(byUrgency);

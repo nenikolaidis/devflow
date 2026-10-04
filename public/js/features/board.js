@@ -7,11 +7,11 @@
    nav.js calls it whenever tickets, team, profiles or settings change.
 ========================================================= */
 import { state } from '../core/state.js';
-import { STATUS, STATUSES, STATUS_COLOR, TICKET_TYPES, normalizeStatus, typeOf } from '../core/constants.js';
+import { STATUS, STATUSES, STATUS_COLOR, normalizeStatus } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { icon, statusIcon, typeIcon } from '../core/icons.js';
-import { labelNames } from '../core/settings.js';
-import { canModerate } from '../core/permissions.js';
+import { labelNames, activeTypes, typeOf } from '../core/settings.js';
+import { can, isAdmin } from '../core/permissions.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { columnCount, wipLimit } from '../core/workflow.js';
 import { sprintLabel, openSprintManager, activeSprint } from './sprints.js';
@@ -26,16 +26,44 @@ const boardEl = $('board');
 
 /** Repaints the active board view (Kanban or table). */
 export function renderBoardView(){
+  $('boardView').classList.toggle('no-project', !state.projectId);
+  if(!state.projectId){ boardEl.innerHTML = noProjectHtml().toString(); wireNoProject(); return; }
   populateAssigneeFilter();
   populateLabelFilter();
   populateSprintFilter();
-  $('manageSprintsBtn').classList.toggle('hidden', !canModerate());
+  populateTypeFilter();
+  $('manageSprintsBtn').classList.toggle('hidden', !can('manageSprints'));
   if(state.boardViewMode === 'kanban') renderKanban(); else renderTable();
 }
 
 /* ---------------- FILTER BAR ---------------- */
 
-$('typeFilter').innerHTML = html`<option value="">Type</option>${TICKET_TYPES.map(t => html`<option value="${t.key}">${t.label}</option>`)}`;
+/** Types are per project, so the list is rebuilt on each render. */
+function populateTypeFilter(){
+  const sel = $('typeFilter');
+  const current = sel.value;
+  sel.innerHTML = html`<option value="">Type</option>${activeTypes().map(t => html`<option value="${t.key}">${t.label}</option>`)}`;
+  if(Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+  markActive(sel);
+}
+
+/** Shown instead of the board when no project is open. */
+export function noProjectHtml(){
+  const admin = isAdmin();
+  const needsSetup = admin && !state.workspaceMeta;
+  return html`<div class="no-project-card">
+    ${icon('folder', 28)}
+    <h2>${needsSetup ? 'One more step' : state.projects.length ? 'Choose a project' : 'No projects yet'}</h2>
+    <p>${needsSetup ? 'devflow organises work into projects. Open Manage to set up the first one.'
+      : state.projects.length ? 'Pick one from the project menu at the top.'
+      : admin ? 'Create your first project in Manage.' : 'You\'re not in any project yet. Ask a workspace admin or a project manager to add you.'}</p>
+    ${admin ? html`<button type="button" class="primary" id="goManage">${needsSetup ? 'Open Manage' : 'Go to Projects'}</button>` : ''}
+  </div>`;
+}
+function wireNoProject(){
+  const btn = document.getElementById('goManage');
+  if(btn) btn.addEventListener('click', () => { state.manageSection = state.workspaceMeta ? 'projects' : 'overview'; $('navManage').classList.remove('hidden'); $('navManage').click(); });
+}
 
 /** Sprints change live, so the list is rebuilt on each render. */
 function populateSprintFilter(){
@@ -52,7 +80,7 @@ function populateSprintFilter(){
 }
 $('manageSprintsBtn').addEventListener('click', openSprintManager);
 
-/** Labels come from Board settings, so the list is rebuilt on each render. */
+/** Labels come from the project's settings, so the list is rebuilt on each render. */
 function populateLabelFilter(){
   const sel = $('labelFilter');
   const current = sel.value;
@@ -203,7 +231,7 @@ function renderColumn(status){
 
 function renderCard(t){
   const selected = state.selectedIds.has(t.firestoreId);
-  const canQuickEdit = !state.selectMode && (!t.archived || canModerate());
+  const canQuickEdit = !state.selectMode && can('editTickets') && (!t.archived || can('archiveTickets'));
   const flags = ticketFlags(t);
 
   const card = document.createElement('article');
@@ -235,7 +263,7 @@ function renderCard(t){
   card.addEventListener('keydown', e => { if(e.target === card && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); activate(); } });
 
   if(!state.selectMode){
-    card.draggable = !t.archived;
+    card.draggable = !t.archived && can('editTickets');
     card.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', t.firestoreId);
       e.dataTransfer.effectAllowed = 'move';
@@ -302,7 +330,7 @@ function updateBulkBar(){
       <option value="">Move to…</option>
       ${STATUSES.map(s => html`<option value="${s.key}">${s.label}</option>`)}
     </select>
-    ${canModerate() ? html`<button class="danger" type="button" id="bulkArchive">${icon('archive', 14)}Archive</button>` : ''}
+    ${can('archiveTickets') ? html`<button class="danger" type="button" id="bulkArchive">${icon('archive', 14)}Archive</button>` : ''}
     <button class="ghost" type="button" id="bulkCancel">Clear</button>`;
 
   const selected = () => Array.from(state.selectedIds).map(findTicket).filter(Boolean);

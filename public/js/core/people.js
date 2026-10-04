@@ -26,6 +26,16 @@ export function displayName(email){
   return profileOf(email).name || email;
 }
 
+/**
+ * People who can be picked as owner/reviewer/@mention in the current
+ * project: its members, plus workspace admins (who can work anywhere).
+ */
+export function projectPeople(){
+  const members = (state.project && state.project.memberEmails) || [];
+  const admins = state.allowlist.filter(u => u.role === 'admin').map(u => u.id);
+  return [...new Set([...members, ...admins])];
+}
+
 /** Round initials avatar (safe html). */
 export function avatarHtml(email, size = 20){
   const font = Math.max(9, Math.round(size * 0.42));
@@ -64,10 +74,10 @@ export function availabilityBadge(email){
  * @param {string} query
  * @param {{ exclude?: string[] }} opts  emails to leave out (e.g. yourself, already picked)
  */
-export function matchPeople(query, { exclude = [] } = {}){
+export function matchPeople(query, { exclude = [], pool = projectPeople() } = {}){
   const q = (query || '').trim().toLowerCase();
   const skip = exclude.map(normEmail);
-  const scored = state.allowlist
+  const scored = pool.map(id => ({ id }))
     .filter(u => !skip.includes(u.id))
     .map(u => {
       const name = displayName(u.id).toLowerCase();

@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 /* =========================================================
-   scripts/weekly-summary.mjs — posts a weekly summary of the board to
-   the team's Discord channel.
+   scripts/weekly-summary.mjs — posts a weekly summary of each project
+   to that project's Discord channel.
 
    Runs every Monday from .github/workflows/weekly-summary.yml (free —
    no Firebase Blaze plan or Cloud Functions needed). It reads Firestore
-   with a read-only service account and posts to the webhook saved in
-   Team → Board settings. Nothing is posted unless an admin has switched
-   "Weekly Discord summary" on there.
+   with a read-only service account and, for every active project that
+   has "Weekly summary" switched on in Manage → Integrations, posts to
+   the webhook saved there. A workspace that hasn't been upgraded to
+   projects yet is summarised from the old single-board settings.
 
    Usage:
      FIREBASE_SERVICE_ACCOUNT_JSON='{…}' node scripts/weekly-summary.mjs
      node scripts/weekly-summary.mjs --dry-run      print instead of posting
-     node scripts/weekly-summary.mjs --force        post even if switched off
+     node scripts/weekly-summary.mjs --force        include projects that have it switched off
    Against the local emulator: FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
    (project "demo-devflow"), no service account needed.
 ========================================================= */
@@ -56,7 +57,7 @@ function list(tickets, max = 8, extra = () => ''){
 }
 
 /* ---------------- BUILD THE SUMMARY ---------------- */
-export function buildSummary({ tickets, sprints, profiles, settings, now = Date.now() }){
+export function buildSummary({ tickets, sprints, profiles, settings, project = null, now = Date.now() }){
   const name = (email) => (profiles[(email || '').toLowerCase()] || {}).name || email || 'Unassigned';
   const active = tickets.filter(t => !t.archived);
   const weekAgo = now - 7 * DAY;
@@ -82,7 +83,7 @@ export function buildSummary({ tickets, sprints, profiles, settings, now = Date.
   if(stale.length) fields.push({ name: `🕸️ Stale ${staleDays}+ days (${stale.length})`, value: list(stale, 6, t => ` — ${name(t.owner)}`), inline: false });
 
   const sprint = sprints.find(s => s.status === 'active');
-  let description = 'Here is how the board looks this week.';
+  let description = `Here is how ${project ? project.name : 'the board'} looks this week.`;
   if(sprint){
     const inSprint = active.filter(t => t.sprintId === sprint.id);
     const sprintDone = inSprint.filter(t => statusOf(t) === 'done').length;
@@ -94,7 +95,7 @@ export function buildSummary({ tickets, sprints, profiles, settings, now = Date.
 
   return {
     embeds: [{
-      title: '📊 Weekly summary',
+      title: project ? `📊 Weekly summary · ${project.key} ${project.name}` : '📊 Weekly summary',
       description,
       color: 0xF5A524,
       fields,
@@ -105,35 +106,48 @@ export function buildSummary({ tickets, sprints, profiles, settings, now = Date.
 }
 
 /* ---------------- MAIN ---------------- */
-async function main(){
-  const db = connect();
-  const settingsDoc = await db.doc('config/settings').get();
-  const settings = settingsDoc.exists ? settingsDoc.data() : {};
-  if(!settings.weeklySummary && !FORCE){
-    console.log('Weekly summary is switched off in Team → Board settings. Nothing posted.');
-    return;
-  }
-  const webhook = settings.discordWebhookUrl;
-  if(!webhook && !DRY_RUN){
-    console.log('No Discord webhook saved in Team → Board settings. Nothing posted.');
-    return;
-  }
 
-  const [ticketSnap, sprintSnap, profileSnap] = await Promise.all([
-    db.collection('tickets').get(), db.collection('sprints').get(), db.collection('profiles').get()
-  ]);
-  const profiles = {};
-  profileSnap.docs.forEach(d => { profiles[d.id] = d.data(); });
+/** Every board to summarise: [{ label, base, project }], base = '' for the old layout. */
+async function boards(db){
+  const meta = await db.doc('meta/workspace').get();
+  if(!meta.exists || !(meta.data().version >= 2)) return [{ label: 'board', base: '', project: null }];
+  const snap = await db.collection('projects').where('status', '==', 'active').get();
+  return snap.docs.map(d => ({ label: d.data().key, base: `projects/${d.id}/`, project: d.data() }));
+}
+
+async function summarise(db, { label, base, project }, profiles){
+  const settingsDoc = await db.doc(`${base}config/settings`).get();
+  const settings = settingsDoc.exists ? settingsDoc.data() : {};
+  if(!settings.weeklySummary && !FORCE){ console.log(`${label}: weekly summary is switched off — skipped.`); return; }
+  const webhook = settings.discordWebhookUrl;
+  if(!webhook && !DRY_RUN){ console.log(`${label}: no Discord webhook saved — skipped.`); return; }
+
+  const [ticketSnap, sprintSnap] = await Promise.all([db.collection(`${base}tickets`).get(), db.collection(`${base}sprints`).get()]);
   const payload = buildSummary({
     tickets: ticketSnap.docs.map(d => d.data()),
     sprints: sprintSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-    profiles, settings
+    profiles, settings, project
   });
 
-  if(DRY_RUN){ console.log(JSON.stringify(payload, null, 2)); return; }
+  if(DRY_RUN){ console.log(`--- ${label} ---\n${JSON.stringify(payload, null, 2)}`); return; }
   const res = await fetch(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-  if(!res.ok) throw new Error(`Discord answered ${res.status}: ${await res.text()}`);
-  console.log('Weekly summary posted.');
+  if(!res.ok) throw new Error(`${label}: Discord answered ${res.status}: ${await res.text()}`);
+  console.log(`${label}: weekly summary posted.`);
+}
+
+async function main(){
+  const db = connect();
+  const profileSnap = await db.collection('profiles').get();
+  const profiles = {};
+  profileSnap.docs.forEach(d => { profiles[d.id] = d.data(); });
+
+  // One project failing (e.g. a deleted webhook) shouldn't stop the others.
+  let failed = 0;
+  for(const board of await boards(db)){
+    try{ await summarise(db, board, profiles); }
+    catch(err){ failed++; console.error(err.message || err); }
+  }
+  if(failed) process.exit(1);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

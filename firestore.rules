@@ -1,11 +1,20 @@
 rules_version = '2';
 
-// Devflow security rules. These are the real security boundary: the
-// browser code can be read and changed by anyone, so every permission and
-// every data check that matters is enforced here. See SECURITY.md.
+// devflow security rules — the real security boundary. The browser code
+// can be read and changed by anyone, so every permission and data check
+// that matters is enforced here. See SECURITY.md and ARCHITECTURE.md.
 //
-// Deploy: `firebase deploy --only firestore:rules`, or paste this file into
-// Firebase console → Firestore → Rules → Publish.
+// Model:
+//   workspace   allowlist/{email} (role: admin | member), roles/{roleId},
+//               profiles, accessRequests, projectRequests, notifications
+//   project     projects/{pid} (members: {email: roleId}) and, under it,
+//               tickets (+comments, activity), sprints, templates,
+//               config/settings, meta/counters
+//
+// Workspace admins can do everything in every project. Everyone else gets
+// the permissions of their role in that project (roles/{roleId}.permissions).
+//
+// Deploy: `npm run deploy:rules`.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,17 +32,40 @@ service cloud.firestore {
     function isVerified() {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
+    function allowlistPath() {
+      return /databases/$(database)/documents/allowlist/$(myEmail());
+    }
     function isApproved() {
-      return isVerified() && exists(/databases/$(database)/documents/allowlist/$(myEmail()));
+      return isVerified() && exists(allowlistPath());
     }
-    function myRole() {
-      return get(/databases/$(database)/documents/allowlist/$(myEmail())).data.role;
-    }
+    // Workspace admin: every permission, in every project.
     function isAdmin() {
-      return isApproved() && myRole() == 'admin';
+      return isApproved() && get(allowlistPath()).data.role == 'admin';
     }
-    function isAdminOrPM() {
-      return isApproved() && (myRole() == 'admin' || myRole() == 'pm');
+
+    /* ---------------- PROJECT MEMBERSHIP & PERMISSIONS ---------------- */
+
+    function projectDoc(pid) {
+      return get(/databases/$(database)/documents/projects/$(pid));
+    }
+    function isMember(pid) {
+      return isApproved() && (isAdmin() || myEmail() in projectDoc(pid).data.memberEmails);
+    }
+    // True if I may do `perm` in project `pid`.
+    function can(pid, perm) {
+      return isApproved() && (isAdmin() || (
+        myEmail() in projectDoc(pid).data.memberEmails
+        && get(/databases/$(database)/documents/roles/$(projectDoc(pid).data.members[myEmail()])).data.permissions.get(perm, false) == true
+      ));
+    }
+    // Archived projects are read-only, except for workspace admins.
+    function projectActive(pid) {
+      return isAdmin() || projectDoc(pid).data.get('status', 'active') == 'active';
+    }
+    // During the one-time upgrade a workspace admin copies the old data into
+    // the first project as-is (original authors, numbers and dates).
+    function migrating(pid) {
+      return isAdmin() && projectDoc(pid).data.get('migrating', false) == true;
     }
 
     /* ---------------- SMALL HELPERS ---------------- */
@@ -53,248 +85,24 @@ service cloud.firestore {
         || request.resource.data[field].lower() == myEmail();
     }
 
-    /* ---------------- TICKETS ---------------- */
+    /* ================================================================== */
+    /* WORKSPACE                                                          */
+    /* ================================================================== */
 
-    match /tickets/{ticketId} {
-
-      function ticketFields() {
-        return ['id', 'number', 'title', 'description', 'priority', 'dueDate', 'type',
-                'owner', 'reviewer', 'reviewers', 'linkUrl', 'labels', 'status', 'dod', 'sprintId',
-                'archived', 'archivedBy', 'archivedAt',
-                'blocked', 'blockedReason', 'blockedBy', 'blockedAt',
-                'createdBy', 'createdAt', 'lastActivityAt'];
-      }
-
-      // Shape and size checks on the ticket as it will be stored.
-      // (Old stage names are still accepted so legacy tickets stay editable.)
-      function validTicket(d) {
-        return d.title is string && d.title.size() > 0 && d.title.size() <= 200
-          && d.priority in ['critical', 'high', 'medium', 'low']
-          && d.status in ['backlog', 'in_progress', 'in_review', 'done', 'todo', 'code_review', 'testing']
-          && optString(d, 'description', 20000)
-          && optString(d, 'owner', 200)
-          && optString(d, 'reviewer', 200)
-          && (!('type' in d) || d.type in ['task', 'bug', 'feature', 'security', 'maintenance', 'analysis', 'research'])
-          && d.get('reviewers', []) is list && d.get('reviewers', []).size() <= 5
-          && d.get('dod', {}) is map && d.get('dod', {}).size() <= 10
-          && optString(d, 'sprintId', 40)
-          && optString(d, 'linkUrl', 2000)
-          && (d.get('linkUrl', '') == '' || d.linkUrl.matches('^https?://.+'))
-          && optString(d, 'dueDate', 10)
-          && (d.get('dueDate', '') == '' || d.dueDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
-          && d.get('labels', []) is list && d.get('labels', []).size() <= 20
-          && d.get('archived', false) is bool
-          && d.get('blocked', false) is bool
-          && optString(d, 'blockedReason', 500);
-      }
-
-      // A ticket has reviewers in `reviewers` (a list of lowercase emails);
-      // tickets from before multiple reviewers have a single `reviewer`.
-      function hasReviewer(d) {
-        return d.get('reviewers', []).size() > 0 || d.get('reviewer', '') != '';
-      }
-      function isReviewer(d) {
-        return myEmail() in d.get('reviewers', []) || d.get('reviewer', '').lower() == myEmail();
-      }
-
-      // Definition of Done: when an admin has set required items
-      // (config/settings.dodRequired), every one must be ticked (true) in
-      // the ticket's `dod` map before it can move to Done.
-      function dodComplete() {
-        let settingsPath = /databases/$(database)/documents/config/settings;
-        let dod = request.resource.data.get('dod', {});
-        return dod.values().hasOnly([true])
-          && (!exists(settingsPath) || dod.keys().hasAll(get(settingsPath).data.get('dodRequired', [])));
-      }
-
-      // Workflow rules for status moves:
-      // - only the four current stages can be moved into
-      // - "In review" needs at least one reviewer
-      // - "Done" can only be set by a PM/admin, or by one of the ticket's
-      //   reviewers who isn't also its owner (no closing your own work)
-      // - "Done" also needs the Definition of Done ticked, for everyone
-      function statusMoveAllowed() {
-        let next = request.resource.data.status;
-        return next in ['backlog', 'in_progress', 'in_review', 'done']
-          && (next != 'in_review' || hasReviewer(request.resource.data))
-          && (next != 'done' || (
-                (isAdminOrPM() || (isReviewer(resource.data) && resource.data.get('owner', '').lower() != myEmail()))
-                && dodComplete()));
-      }
-
-      allow read: if isApproved();
-
-      // New tickets start in Backlog, unarchived, created by the person
-      // signed in, and must take their number from the shared counter in
-      // the same transaction — so two tickets can never share a TASK id.
-      allow create: if isApproved()
-        && request.resource.data.keys().hasOnly(ticketFields())
-        && validTicket(request.resource.data)
-        && request.resource.data.createdBy.lower() == myEmail()
-        && request.resource.data.status == 'backlog'
-        && request.resource.data.get('archived', false) == false
-        && request.resource.data.get('blocked', false) == false
-        && request.resource.data.number is int
-        && request.resource.data.number == getAfter(/databases/$(database)/documents/meta/counters).data.ticketNumber
-        && request.resource.data.id.matches('^TASK-[0-9]+$');
-
-      allow update: if isApproved()
-        && changedKeys().hasOnly(ticketFields())
-        && validTicket(request.resource.data)
-        // id, number and creator details never change after creation
-        && !changedKeys().hasAny(['id', 'number', 'createdBy', 'createdAt'])
-        // only admins/PMs can archive or restore, or touch an archived ticket
-        && (!changedKeys().hasAny(['archived', 'archivedBy', 'archivedAt']) || isAdminOrPM())
-        && (resource.data.get('archived', false) == false || isAdminOrPM())
-        && setByMe('archivedBy')
-        && setByMe('blockedBy')
-        && (!changedKeys().hasAny(['status']) || statusMoveAllowed());
-
-      // Tickets are archived, not deleted. Only an admin can permanently
-      // delete one, and only after it has been archived.
-      allow delete: if isAdmin() && resource.data.get('archived', false) == true;
-
-      // Comments: approved users post as themselves. Authors can edit the
-      // text of their own (unless hidden). Admins/PMs can hide/unhide any.
-      // A comment can be deleted by its author, or by an admin/PM.
-      match /comments/{commentId} {
-        function validText(d) {
-          return d.text is string && d.text.size() > 0 && d.text.size() <= 5000;
-        }
-        allow read: if isApproved();
-        allow create: if isApproved()
-          && request.resource.data.keys().hasOnly(['text', 'author', 'createdAt', 'mentions'])
-          && validText(request.resource.data)
-          && request.resource.data.get('mentions', []) is list && request.resource.data.get('mentions', []).size() <= 10
-          && request.resource.data.author.lower() == myEmail();
-        allow update: if isApproved() && validText(request.resource.data) && (
-          (resource.data.author.lower() == myEmail()
-            && resource.data.get('hidden', false) == false
-            && changedKeys().hasOnly(['text', 'editedAt']))
-          || (isAdminOrPM()
-            && changedKeys().hasOnly(['hidden', 'hiddenBy', 'hiddenAt'])
-            && request.resource.data.get('hidden', false) is bool
-            && setByMe('hiddenBy'))
-        );
-        allow delete: if isApproved() &&
-          (resource.data.author.lower() == myEmail() || isAdminOrPM());
-      }
-
-      // Activity log: an append-only audit trail. Approved users add
-      // entries as themselves; nobody can edit or delete one, by design.
-      match /activity/{entryId} {
-        allow read: if isApproved();
-        allow create: if isApproved()
-          && request.resource.data.keys().hasOnly(['type', 'from', 'to', 'summary', 'reason', 'actor', 'createdAt'])
-          && request.resource.data.type in ['created', 'status_change', 'assignment', 'reviewer', 'edit',
-                                            'blocked', 'unblocked', 'archived', 'restored']
-          && request.resource.data.actor.lower() == myEmail()
-          && optString(request.resource.data, 'from', 200)
-          && optString(request.resource.data, 'to', 200)
-          && optString(request.resource.data, 'summary', 200)
-          && optString(request.resource.data, 'reason', 500);
-      }
-    }
-
-    /* ---------------- SPRINTS ---------------- */
-
-    // Time-boxed iterations tickets can be planned into (tickets.sprintId).
-    // Everyone approved can see them; admins and PMs manage them.
-    match /sprints/{sprintId} {
-      function validSprint(d) {
-        return d.keys().hasOnly(['name', 'goal', 'start', 'end', 'status', 'createdBy', 'createdAt'])
-          && d.name is string && d.name.size() > 0 && d.name.size() <= 60
-          && optString(d, 'goal', 300)
-          && d.start is string && d.start.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-          && d.end is string && d.end.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-          && d.end >= d.start
-          && d.status in ['planned', 'active', 'closed'];
-      }
-      allow read: if isApproved();
-      allow create, update: if isAdminOrPM() && validSprint(request.resource.data);
-      allow delete: if isAdminOrPM();
-    }
-
-    /* ---------------- NOTIFICATIONS (@mentions) ---------------- */
-
-    // In-app notifications. Sent as yourself, only to approved teammates;
-    // only the recipient can read them, mark them read, or delete them.
-    match /notifications/{notificationId} {
-      allow read: if isApproved() && resource.data.to == myEmail();
-      allow create: if isApproved()
-        && request.resource.data.keys().hasOnly(['to', 'by', 'type', 'ticketFid', 'ticketId', 'ticketTitle', 'text', 'createdAt', 'read'])
-        && request.resource.data.by.lower() == myEmail()
-        && request.resource.data.to is string
-        && request.resource.data.to != myEmail()
-        && exists(/databases/$(database)/documents/allowlist/$(request.resource.data.to))
-        && request.resource.data.type in ['mention']
-        && request.resource.data.read == false
-        && optString(request.resource.data, 'ticketFid', 64)
-        && optString(request.resource.data, 'ticketId', 20)
-        && optString(request.resource.data, 'ticketTitle', 200)
-        && optString(request.resource.data, 'text', 300);
-      allow update: if isApproved() && resource.data.to == myEmail()
-        && changedKeys().hasOnly(['read']) && request.resource.data.read is bool;
-      allow delete: if isApproved() && resource.data.to == myEmail();
-    }
-
-    /* ---------------- TICKET NUMBER COUNTER ---------------- */
-
-    // Shared counter behind TASK-### ids. It only ever goes up.
-    match /meta/counters {
-      allow read: if isApproved();
-      allow create: if isApproved()
-        && request.resource.data.keys().hasOnly(['ticketNumber'])
-        && request.resource.data.ticketNumber is int;
-      allow update: if isApproved()
-        && request.resource.data.keys().hasOnly(['ticketNumber'])
-        && request.resource.data.ticketNumber is int
-        && request.resource.data.ticketNumber > resource.data.ticketNumber;
-    }
-
-    /* ---------------- BOARD SETTINGS ---------------- */
-
-    // Discord webhook URL, WIP limits, stale threshold, the label list and
-    // the Definition of Done items. Approved users can
-    // read them; only admins can change them. Keeping the webhook here
-    // keeps it out of the site's source code.
-    match /config/settings {
-      function validSettings(d) {
-        return d.keys().hasOnly(['discordWebhookUrl', 'staleDays', 'wipLimits', 'labels', 'dodItems', 'dodRequired', 'weeklySummary', 'updatedBy', 'updatedAt'])
-          && d.get('weeklySummary', false) is bool
-          && d.get('labels', []) is list && d.get('labels', []).size() <= 30
-          && d.get('dodItems', []) is list && d.get('dodItems', []).size() <= 10
-          && d.get('dodRequired', []) is list && d.get('dodRequired', []).size() <= 10
-          && optString(d, 'discordWebhookUrl', 300)
-          && (d.get('discordWebhookUrl', '') == ''
-              || d.discordWebhookUrl.matches('^https://(ptb[.]|canary[.])?(discord|discordapp)[.]com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$'))
-          && d.get('staleDays', 5) is int && d.get('staleDays', 5) >= 1 && d.get('staleDays', 5) <= 365
-          && d.get('wipLimits', {}) is map && d.get('wipLimits', {}).size() <= 10;
-      }
-      allow read: if isApproved();
-      allow create, update: if isAdmin() && validSettings(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    /* ---------------- TEAM ---------------- */
-
-    // Allow list: a user can always read their own entry (so the app can
-    // tell them "pending approval"). Any approved user can read the full
-    // roster (needed for the assignee dropdown). Only admins can add
-    // people, remove people, or change roles.
+    // allowlist: who is in the workspace. Role: admin | member. ('pm' and
+    // 'developer' are accepted from before projects existed.)
     match /allowlist/{email} {
       allow read: if isSignedIn() && myEmail() == email;
       allow read: if isApproved();
       allow create, update: if isAdmin()
         && email == email.lower()
         && request.resource.data.keys().hasOnly(['role', 'addedBy', 'addedAt'])
-        && request.resource.data.role in ['developer', 'pm', 'admin'];
+        && request.resource.data.role in ['admin', 'member', 'pm', 'developer'];
       allow delete: if isAdmin();
     }
 
-    // Access requests: a verified user can create/read only their own
-    // request (the "Request access" button). Admins can read and delete
-    // any request (delete = approve or deny, both from the Team tab).
+    // Access requests: a verified user can create/read only their own.
+    // Admins read and delete them (delete = approve or deny).
     match /accessRequests/{email} {
       allow create: if isVerified() && myEmail() == email
         && request.resource.data.keys().hasOnly(['email', 'requestedAt'])
@@ -303,8 +111,7 @@ service cloud.firestore {
       allow read, delete: if isAdmin();
     }
 
-    // Profiles: any approved teammate can view anyone's profile. Only
-    // approved users can write, and only their own profile.
+    // Profiles: any approved teammate can view; you write only your own.
     match /profiles/{email} {
       allow read: if isApproved();
       allow write: if isApproved() && myEmail() == email
@@ -315,6 +122,324 @@ service cloud.firestore {
         && optString(request.resource.data, 'username', 50)
         && optString(request.resource.data, 'bio', 500)
         && optString(request.resource.data, 'timezone', 64);
+    }
+
+    // Roles: named sets of permissions, edited by workspace admins.
+    match /roles/{roleId} {
+      allow read: if isApproved();
+      allow create, update: if isAdmin()
+        && roleId.matches('^[a-z0-9_-]{1,30}$')
+        && request.resource.data.keys().hasOnly(['name', 'description', 'order', 'permissions', 'updatedBy', 'updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+        && optString(request.resource.data, 'description', 200)
+        && request.resource.data.permissions is map && request.resource.data.permissions.size() <= 20;
+      allow delete: if isAdmin();
+    }
+
+    // Workspace metadata (e.g. which data version is in use).
+    match /meta/workspace {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // Requests for new projects. Someone whose role allows it in one project
+    // asks; a workspace admin approves (and creates the project) or declines.
+    match /projectRequests/{requestId} {
+      allow create: if isApproved()
+        && request.resource.data.keys().hasOnly(['name', 'key', 'description', 'fromProjectId', 'requestedBy', 'createdAt', 'status'])
+        && request.resource.data.requestedBy.lower() == myEmail()
+        && request.resource.data.status == 'pending'
+        && can(request.resource.data.fromProjectId, 'requestProjects')
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
+        && request.resource.data.key is string && request.resource.data.key.matches('^[A-Z][A-Z0-9]{1,9}$')
+        && optString(request.resource.data, 'description', 500);
+      allow read: if isAdmin() || (isApproved() && resource.data.requestedBy == myEmail());
+      allow update: if isAdmin()
+        && changedKeys().hasOnly(['status', 'decidedBy', 'decidedAt', 'projectId'])
+        && request.resource.data.status in ['approved', 'declined'];
+      allow delete: if isAdmin() || (isApproved() && resource.data.requestedBy == myEmail() && resource.data.status == 'pending');
+    }
+
+    // In-app notifications (@mentions). Sent as yourself, only to approved
+    // teammates; only the recipient can read, mark read or delete them.
+    match /notifications/{notificationId} {
+      allow read: if isApproved() && resource.data.to == myEmail();
+      allow create: if isApproved()
+        && request.resource.data.keys().hasOnly(['to', 'by', 'type', 'projectId', 'ticketFid', 'ticketId', 'ticketTitle', 'text', 'createdAt', 'read'])
+        && request.resource.data.by.lower() == myEmail()
+        && request.resource.data.to is string
+        && request.resource.data.to != myEmail()
+        && exists(/databases/$(database)/documents/allowlist/$(request.resource.data.to))
+        && request.resource.data.type in ['mention']
+        && request.resource.data.read == false
+        && optString(request.resource.data, 'projectId', 64)
+        && optString(request.resource.data, 'ticketFid', 64)
+        && optString(request.resource.data, 'ticketId', 20)
+        && optString(request.resource.data, 'ticketTitle', 200)
+        && optString(request.resource.data, 'text', 300);
+      allow update: if isApproved() && resource.data.to == myEmail()
+        && changedKeys().hasOnly(['read']) && request.resource.data.read is bool;
+      allow delete: if isApproved() && resource.data.to == myEmail();
+    }
+
+    /* ================================================================== */
+    /* PROJECTS                                                           */
+    /* ================================================================== */
+
+    match /projects/{pid} {
+      function validProject(d) {
+        return d.keys().hasOnly(['name', 'key', 'description', 'status', 'members', 'memberEmails', 'migrating', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+          && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+          && d.key is string && d.key.matches('^[A-Z][A-Z0-9]{1,9}$')
+          && optString(d, 'description', 500)
+          && d.get('status', 'active') in ['active', 'archived']
+          && d.members is map && d.members.size() <= 300
+          && d.memberEmails is list
+          // the email list must match the members map exactly
+          && d.memberEmails.toSet() == d.members.keys().toSet();
+      }
+
+      // Members see their projects; workspace admins see all.
+      allow get: if isApproved() && (isAdmin() || myEmail() in resource.data.memberEmails);
+      allow list: if isApproved() && (isAdmin() || myEmail() in resource.data.memberEmails);
+      allow create: if isAdmin() && validProject(request.resource.data);
+      // Admins change anything; someone allowed to manage members changes
+      // only the member list.
+      allow update: if validProject(request.resource.data) && (
+        isAdmin()
+        || (can(pid, 'manageMembers') && projectActive(pid)
+            && changedKeys().hasOnly(['members', 'memberEmails', 'updatedBy', 'updatedAt']))
+      );
+      allow delete: if false; // archive instead
+
+      /* ---------------- TICKETS ---------------- */
+
+      match /tickets/{ticketId} {
+        function ticketFields() {
+          return ['id', 'number', 'title', 'description', 'priority', 'dueDate', 'type',
+                  'owner', 'reviewer', 'reviewers', 'linkUrl', 'labels', 'status', 'dod', 'sprintId',
+                  'archived', 'archivedBy', 'archivedAt',
+                  'blocked', 'blockedReason', 'blockedBy', 'blockedAt',
+                  'createdBy', 'createdAt', 'lastActivityAt'];
+        }
+
+        // Shape and size checks on the ticket as it will be stored.
+        // (Old stage names are still accepted so legacy tickets stay editable.)
+        function validTicket(d) {
+          return d.title is string && d.title.size() > 0 && d.title.size() <= 200
+            && d.priority in ['critical', 'high', 'medium', 'low']
+            && d.status in ['backlog', 'in_progress', 'in_review', 'done', 'todo', 'code_review', 'testing']
+            && optString(d, 'description', 20000)
+            && optString(d, 'owner', 200)
+            && optString(d, 'reviewer', 200)
+            && (!('type' in d) || (d.type is string && d.type.matches('^[a-z0-9_-]{1,30}$')))
+            && d.get('reviewers', []) is list && d.get('reviewers', []).size() <= 5
+            && d.get('dod', {}) is map && d.get('dod', {}).size() <= 10
+            && optString(d, 'sprintId', 40)
+            && optString(d, 'linkUrl', 2000)
+            && (d.get('linkUrl', '') == '' || d.linkUrl.matches('^https?://.+'))
+            && optString(d, 'dueDate', 10)
+            && (d.get('dueDate', '') == '' || d.dueDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
+            && d.get('labels', []) is list && d.get('labels', []).size() <= 20
+            && d.get('archived', false) is bool
+            && d.get('blocked', false) is bool
+            && optString(d, 'blockedReason', 500);
+        }
+
+        function hasReviewer(d) {
+          return d.get('reviewers', []).size() > 0 || d.get('reviewer', '') != '';
+        }
+        function isReviewer(d) {
+          return myEmail() in d.get('reviewers', []) || d.get('reviewer', '').lower() == myEmail();
+        }
+
+        // Definition of Done: every required item must be ticked to close.
+        function dodComplete() {
+          let settingsPath = /databases/$(database)/documents/projects/$(pid)/config/settings;
+          let dod = request.resource.data.get('dod', {});
+          return dod.values().hasOnly([true])
+            && (!exists(settingsPath) || dod.keys().hasAll(get(settingsPath).data.get('dodRequired', [])));
+        }
+
+        // Workflow:
+        // - only the four current stages can be moved into
+        // - "In review" needs at least one reviewer
+        // - "Done": someone allowed to close any ticket, or a reviewer who
+        //   isn't the owner — and the Definition of Done ticked, for everyone
+        function statusMoveAllowed() {
+          let next = request.resource.data.status;
+          return next in ['backlog', 'in_progress', 'in_review', 'done']
+            && (next != 'in_review' || hasReviewer(request.resource.data))
+            && (next != 'done' || (
+                  (can(pid, 'closeTickets') || (isReviewer(resource.data) && resource.data.get('owner', '').lower() != myEmail()))
+                  && dodComplete()));
+        }
+
+        allow read: if isMember(pid);
+
+        allow create: if (migrating(pid) && validTicket(request.resource.data))
+          || (can(pid, 'editTickets') && projectActive(pid)
+            && request.resource.data.keys().hasOnly(ticketFields())
+            && validTicket(request.resource.data)
+            && request.resource.data.createdBy.lower() == myEmail()
+            && request.resource.data.status == 'backlog'
+            && request.resource.data.get('archived', false) == false
+            && request.resource.data.get('blocked', false) == false
+            && request.resource.data.number is int
+            && request.resource.data.number == getAfter(/databases/$(database)/documents/projects/$(pid)/meta/counters).data.ticketNumber
+            && request.resource.data.id.matches('^[A-Z][A-Z0-9]{1,9}-[0-9]+$'));
+
+        allow update: if can(pid, 'editTickets') && projectActive(pid)
+          && changedKeys().hasOnly(ticketFields())
+          && validTicket(request.resource.data)
+          && !changedKeys().hasAny(['id', 'number', 'createdBy', 'createdAt'])
+          && (!changedKeys().hasAny(['archived', 'archivedBy', 'archivedAt']) || can(pid, 'archiveTickets'))
+          && (resource.data.get('archived', false) == false || can(pid, 'archiveTickets'))
+          && setByMe('archivedBy')
+          && setByMe('blockedBy')
+          && (!changedKeys().hasAny(['status']) || statusMoveAllowed());
+
+        // Archived first; only workspace admins delete permanently.
+        allow delete: if isAdmin() && resource.data.get('archived', false) == true;
+
+        match /comments/{commentId} {
+          function validText(d) {
+            return d.text is string && d.text.size() > 0 && d.text.size() <= 5000;
+          }
+          allow read: if isMember(pid);
+          allow create: if migrating(pid)
+            || (can(pid, 'comment') && projectActive(pid)
+              && request.resource.data.keys().hasOnly(['text', 'author', 'createdAt', 'mentions'])
+              && validText(request.resource.data)
+              && request.resource.data.get('mentions', []) is list && request.resource.data.get('mentions', []).size() <= 10
+              && request.resource.data.author.lower() == myEmail());
+          allow update: if isMember(pid) && validText(request.resource.data) && (
+            (resource.data.author.lower() == myEmail()
+              && resource.data.get('hidden', false) == false
+              && changedKeys().hasOnly(['text', 'editedAt']))
+            || (can(pid, 'moderateComments')
+              && changedKeys().hasOnly(['hidden', 'hiddenBy', 'hiddenAt'])
+              && request.resource.data.get('hidden', false) is bool
+              && setByMe('hiddenBy'))
+          );
+          allow delete: if isMember(pid) &&
+            (resource.data.author.lower() == myEmail() || can(pid, 'moderateComments'));
+        }
+
+        // Append-only audit trail: nobody edits or deletes entries.
+        match /activity/{entryId} {
+          allow read: if isMember(pid);
+          allow create: if migrating(pid)
+            || (isMember(pid)
+              && request.resource.data.keys().hasOnly(['type', 'from', 'to', 'summary', 'reason', 'actor', 'createdAt'])
+              && request.resource.data.type in ['created', 'status_change', 'assignment', 'reviewer', 'edit',
+                                                'blocked', 'unblocked', 'archived', 'restored']
+              && request.resource.data.actor.lower() == myEmail()
+              && optString(request.resource.data, 'from', 200)
+              && optString(request.resource.data, 'to', 200)
+              && optString(request.resource.data, 'summary', 200)
+              && optString(request.resource.data, 'reason', 500));
+        }
+      }
+
+      /* ---------------- SPRINTS ---------------- */
+
+      match /sprints/{sprintId} {
+        function validSprint(d) {
+          return d.keys().hasOnly(['name', 'goal', 'start', 'end', 'status', 'createdBy', 'createdAt'])
+            && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+            && optString(d, 'goal', 300)
+            && d.start is string && d.start.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && d.end is string && d.end.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && d.end >= d.start
+            && d.status in ['planned', 'active', 'closed'];
+        }
+        allow read: if isMember(pid);
+        allow create, update: if (migrating(pid) || can(pid, 'manageSprints')) && validSprint(request.resource.data);
+        allow delete: if can(pid, 'manageSprints');
+      }
+
+      /* ---------------- TEMPLATES ---------------- */
+
+      match /templates/{templateId} {
+        function validTemplate(d) {
+          return d.keys().hasOnly(['name', 'type', 'priority', 'labels', 'reviewers', 'description', 'order', 'enabled', 'updatedBy', 'updatedAt'])
+            && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+            && d.type is string && d.type.matches('^[a-z0-9_-]{1,30}$')
+            && (d.get('priority', '') == '' || d.priority in ['critical', 'high', 'medium', 'low'])
+            && d.get('labels', []) is list && d.get('labels', []).size() <= 20
+            && d.get('reviewers', []) is list && d.get('reviewers', []).size() <= 5
+            && optString(d, 'description', 20000)
+            && d.get('order', 0) is int
+            && d.get('enabled', true) is bool;
+        }
+        allow read: if isMember(pid);
+        allow create, update: if can(pid, 'manageContent') && validTemplate(request.resource.data);
+        allow delete: if can(pid, 'manageContent');
+      }
+
+      /* ---------------- PROJECT SETTINGS ---------------- */
+
+      // Each group of settings has its own permission.
+      match /config/settings {
+        function touched() {
+          return resource == null ? request.resource.data.keys() : request.resource.data.diff(resource.data).affectedKeys();
+        }
+        function validSettings(d) {
+          return d.keys().hasOnly(['discordWebhookUrl', 'staleDays', 'wipLimits', 'labels', 'types', 'dodItems', 'dodRequired', 'weeklySummary', 'updatedBy', 'updatedAt'])
+            && d.get('weeklySummary', false) is bool
+            && d.get('labels', []) is list && d.get('labels', []).size() <= 30
+            && d.get('types', []) is list && d.get('types', []).size() <= 20
+            && d.get('dodItems', []) is list && d.get('dodItems', []).size() <= 10
+            && d.get('dodRequired', []) is list && d.get('dodRequired', []).size() <= 10
+            && optString(d, 'discordWebhookUrl', 300)
+            && (d.get('discordWebhookUrl', '') == ''
+                || d.discordWebhookUrl.matches('^https://(ptb[.]|canary[.])?(discord|discordapp)[.]com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$'))
+            && d.get('staleDays', 5) is int && d.get('staleDays', 5) >= 1 && d.get('staleDays', 5) <= 365
+            && d.get('wipLimits', {}) is map && d.get('wipLimits', {}).size() <= 10;
+        }
+        allow read: if isMember(pid);
+        allow create, update: if isMember(pid) && validSettings(request.resource.data) && (migrating(pid) || (
+          (!touched().hasAny(['labels', 'types']) || can(pid, 'manageContent'))
+          && (!touched().hasAny(['dodItems', 'dodRequired', 'wipLimits', 'staleDays']) || can(pid, 'manageWorkflow'))
+          && (!touched().hasAny(['discordWebhookUrl', 'weeklySummary']) || can(pid, 'manageIntegrations'))
+        ));
+      }
+
+      /* ---------------- TICKET NUMBER COUNTER ---------------- */
+
+      match /meta/counters {
+        allow read: if isMember(pid);
+        allow create: if (migrating(pid) || can(pid, 'editTickets'))
+          && request.resource.data.keys().hasOnly(['ticketNumber'])
+          && request.resource.data.ticketNumber is int;
+        allow update: if can(pid, 'editTickets')
+          && request.resource.data.keys().hasOnly(['ticketNumber'])
+          && request.resource.data.ticketNumber is int
+          && request.resource.data.ticketNumber > resource.data.ticketNumber;
+      }
+    }
+
+    /* ================================================================== */
+    /* DATA FROM BEFORE PROJECTS (read-only)                              */
+    /* ================================================================== */
+
+    // The single-board collections from before projects existed. Kept as a
+    // read-only backup; the in-app upgrade copies them into the first project.
+    match /tickets/{ticketId} {
+      allow read: if isApproved();
+      match /{sub}/{docId} {
+        allow read: if isApproved();
+      }
+    }
+    match /sprints/{sprintId} {
+      allow read: if isApproved();
+    }
+    match /config/settings {
+      allow read: if isApproved();
+    }
+    match /meta/counters {
+      allow read: if isApproved();
     }
   }
 }

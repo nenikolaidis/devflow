@@ -8,5 +8,6 @@
 ========================================================= */
 import './features/auth.js';
 import './features/topbar.js';   // account menu + theme toggle
+import './features/project-switcher.js'; // project menu
 import './features/notifications.js'; // the bell
 import './features/shortcuts.js';     // keyboard shortcuts

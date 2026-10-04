@@ -10,15 +10,14 @@
 ========================================================= */
 import { state } from '../core/state.js';
 import {
-  PRIORITIES, TICKET_TEMPLATES, TICKET_TYPES, TYPE_KEYS, LIMITS, ROLE_LABELS, AVAILABILITY, MAX_REVIEWERS,
-  typeOf, reviewersOf
+  PRIORITIES, BLANK_TEMPLATE, DEFAULT_TEMPLATES, LIMITS, AVAILABILITY, MAX_REVIEWERS, reviewersOf
 } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { safeUrl, capitalize } from '../core/format.js';
-import { normEmail } from '../core/permissions.js';
+import { normEmail, roleName } from '../core/permissions.js';
 import { displayName, avatarHtml, profileOf, matchPeople } from '../core/people.js';
-import { labelNames, labelColor } from '../core/settings.js';
+import { labelNames, labelColor, activeTypes, typeInfo, typeOf, typeKeys } from '../core/settings.js';
 import { openModal, showToast, confirmDialog } from '../core/ui.js';
 import { createTicket, saveTicketChanges } from './ticket-actions.js';
 import { sprintOptions } from './sprints.js';
@@ -40,7 +39,7 @@ function optionHtml(u){
   const note = availabilityNote(u.id);
   return html`<div class="combo-item" role="option" data-val="${u.id}">
     <span class="cell-inline">${avatarHtml(u.id, 20)}${displayName(u.id)}${note ? html`<span class="availability-note">${note}</span>` : ''}</span>
-    <span class="chip">${ROLE_LABELS[u.role] || u.role}</span>
+    <span class="chip">${state.project && state.project.members && state.project.members[u.id] ? roleName(state.project.members[u.id]) : 'Admin'}</span>
   </div>`;
 }
 
@@ -104,7 +103,7 @@ function teammateValue(modal, id){
 
 /* ---------------- REVIEWERS (several people) ---------------- */
 
-function reviewersField(id){
+export function reviewersField(id){
   return html`
     <div class="field">
       <label for="${id}-input">Reviewers <span class="label-hint">up to ${MAX_REVIEWERS} · any one of them can close the ticket</span></label>
@@ -122,9 +121,9 @@ function reviewersField(id){
 /**
  * Wires a reviewersField. Pick from the list, or type an email / name and
  * press Enter. Emails are stored lowercase (firestore.rules compares them).
- * @returns {() => string[]} reads the current list
+ * @returns {{ get: () => string[], set: (list: string[]) => void }}
  */
-function wireReviewersField(modal, id, initial){
+export function wireReviewersField(modal, id, initial){
   let reviewers = [...initial];
   const input = modal.$(`#${id}-input`);
   const chips = modal.$(`#${id}-chips`);
@@ -161,13 +160,25 @@ function wireReviewersField(modal, id, initial){
     if(e.key === 'Backspace' && !input.value && reviewers.length){ reviewers.pop(); renderChips(); }
   });
   renderChips();
-  return () => reviewers;
+  return {
+    get: () => reviewers,
+    set: (list) => { reviewers = list.slice(0, MAX_REVIEWERS); renderChips(); }
+  };
 }
 
 /* ---------------- TYPE, PRIORITY, LABELS ---------------- */
 
+/** The project's active types, plus the ticket's current type if it has since been switched off. */
 function typeOptions(selected){
-  return TICKET_TYPES.map(t => html`<option value="${t.key}" ${t.key === selected ? 'selected' : ''}>${t.label}</option>`);
+  const types = activeTypes();
+  if(selected && !types.some(t => t.key === selected)) types.push(typeInfo(selected));
+  return types.map(t => html`<option value="${t.key}" ${t.key === selected ? 'selected' : ''}>${t.label}</option>`);
+}
+
+/** Templates offered for new tickets: the project's (switched-on, in order), or the built-in ones. */
+export function availableTemplates(){
+  const list = state.templates ? state.templates.filter(t => t.enabled !== false) : DEFAULT_TEMPLATES;
+  return [BLANK_TEMPLATE, ...list];
 }
 
 function priorityOptions(selected){
@@ -176,9 +187,9 @@ function priorityOptions(selected){
 
 /** The board's labels, plus any older label already on this ticket (so editing never drops it). */
 function labelCheckboxes(selected){
-  const own = (selected || []).filter(l => !TYPE_KEYS.includes(l));
+  const own = (selected || []).filter(l => !typeKeys().includes(l));
   const names = [...labelNames(), ...own.filter(l => !labelNames().includes(l))];
-  if(names.length === 0) return html`<span class="field-hint">No labels yet — an admin can add them in Team → Board settings.</span>`;
+  if(names.length === 0) return html`<span class="field-hint">No labels yet — add them in Manage → Labels.</span>`;
   return names.map(l => html`<label class="label-check"><input type="checkbox" value="${l}" ${own.includes(l) ? 'checked' : ''}><span class="label-dot" style="background:${labelColor(l)}"></span>${l}</label>`);
 }
 
@@ -202,7 +213,7 @@ export function openTicketForm(existing){
     body: html`
       ${!isEdit ? html`
         <div class="field"><label for="f-template">Start from a template</label>
-          <select id="f-template">${TICKET_TEMPLATES.map(tp => html`<option value="${tp.id}">${tp.name}</option>`)}</select>
+          <select id="f-template">${availableTemplates().map(tp => html`<option value="${tp.id}">${tp.name}</option>`)}</select>
         </div>` : ''}
       <div class="field"><label for="f-title">Title</label>
         <input type="text" id="f-title" maxlength="${LIMITS.TITLE}" value="${t.title || ''}" placeholder="Fix login page validation error"></div>
@@ -212,7 +223,7 @@ export function openTicketForm(existing){
       </div>
       <div class="row3">
         <div class="field"><label for="f-type">Type</label>
-          <select id="f-type">${typeOptions(isEdit ? typeOf(t) : 'task')}</select></div>
+          <select id="f-type">${typeOptions(isEdit ? typeOf(t) : (activeTypes()[0] || {}).key)}</select></div>
         <div class="field"><label for="f-priority">Priority</label>
           <select id="f-priority">${priorityOptions(t.priority || 'medium')}</select></div>
         <div class="field"><label for="f-due">Due date</label>
@@ -235,21 +246,25 @@ export function openTicketForm(existing){
       </div>`
   });
   wireTeammateField(m, 'f-owner');
-  const getReviewers = wireReviewersField(m, 'f-reviewers', reviewersOf(t));
+  const reviewersPicker = wireReviewersField(m, 'f-reviewers', reviewersOf(t));
+  const getReviewers = reviewersPicker.get;
 
   const templateSelect = m.$('#f-template');
   if(templateSelect){
     templateSelect.addEventListener('change', async () => {
-      const tp = TICKET_TEMPLATES.find(x => x.id === templateSelect.value);
+      const tp = availableTemplates().find(x => x.id === templateSelect.value);
       if(!tp) return;
       const desc = m.$('#f-desc');
       if(desc.value.trim()){
         const ok = await confirmDialog({ title: 'Replace description?', message: `Replace the current description with the "${tp.name}" template?`, confirmLabel: 'Replace' });
         if(!ok){ templateSelect.value = 'blank'; return; }
       }
-      desc.value = tp.description;
-      m.$('#f-type').value = tp.type;
+      desc.value = tp.description || '';
+      if(tp.type && m.$(`#f-type option[value="${tp.type}"]`)) m.$('#f-type').value = tp.type;
       if(tp.priority) m.$('#f-priority').value = tp.priority;
+      // Default labels and reviewers from the template.
+      m.$$('#f-labels input').forEach(cb => { cb.checked = (tp.labels || []).includes(cb.value); });
+      reviewersPicker.set(tp.reviewers || []);
     });
   }
 

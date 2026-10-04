@@ -4,13 +4,15 @@
    overdue, stale), and workload per owner. Archived tickets excluded.
 ========================================================= */
 import { state } from '../core/state.js';
-import { STATUS, STATUSES, STATUS_COLOR, PRIORITIES, PRIORITY_COLOR, TICKET_TYPES, normalizeStatus, typeOf } from '../core/constants.js';
+import { STATUS, STATUSES, STATUS_COLOR, PRIORITIES, PRIORITY_COLOR, normalizeStatus } from '../core/constants.js';
+import { allTypes, typeOf } from '../core/settings.js';
 import { html } from '../core/html.js';
 import { capitalize, formatDate } from '../core/format.js';
 import { icon, typeIcon } from '../core/icons.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { isOverdue, staleDays } from '../core/workflow.js';
 import { openDetail } from './ticket-detail.js';
+import { noProjectHtml } from './board.js';
 import { activeSprint, sprintProgress, daysLeft } from './sprints.js';
 
 const subEl = document.getElementById('dashSub');
@@ -24,6 +26,7 @@ panelsEl.addEventListener('click', e => {
 });
 
 export function renderDashboard(){
+  if(!state.projectId){ subEl.textContent = ''; statsEl.innerHTML = ''; panelsEl.innerHTML = noProjectHtml().toString(); return; }
   const tickets = state.tickets.filter(t => !t.archived);
   if(tickets.length === 0){
     subEl.textContent = '';
@@ -84,9 +87,9 @@ export function renderDashboard(){
     <section class="panel">
       <h2>Tickets by type</h2>
       <div class="bar-list wide-label">
-        ${TICKET_TYPES.map(ty => ({ ty, count: tickets.filter(t => typeOf(t) === ty.key).length })).filter(x => x.count).map(({ ty, count }) => html`
+        ${allTypes().map(ty => ({ ty, count: tickets.filter(t => typeOf(t) === ty.key).length })).filter(x => x.count).map(({ ty, count }) => html`
           <span class="cell-inline">${typeIcon(ty.key, 14)}${ty.label}</span>
-          <div class="bar-track" role="img" aria-label="${ty.label}: ${count} of ${total}"><div class="bar-fill" style="width:${(count / total) * 100}%;background:${ty.color}"></div></div>
+          <div class="bar-track" role="img" aria-label="${ty.label}: ${count} of ${total}"><div class="bar-fill" style="width:${(count / total) * 100}%;background:${ty.css}"></div></div>
           <span class="bar-num">${count}</span>`)}
       </div>
     </section>

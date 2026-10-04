@@ -105,8 +105,9 @@ From now on:
 
 1. Open your site and **Create account** with the email you added in step 4.
 2. Confirm your email from the link you receive, then **I've confirmed it — continue**. You're in.
-3. Ask a teammate to sign up. After confirming their email they press **Request access**; you approve them in the **Team** tab.
-4. In **Team → Board settings**, review the labels and save once.
+3. devflow asks you to create your **first project**: give it a name and a short key (the key starts every ticket ID, e.g. `WEB-001`). The built-in roles are created at the same time, and you become the project's Project manager.
+4. Ask a teammate to sign up. After confirming their email they press **Request access**; you approve them in **Manage → Members**, choosing their role in the project.
+5. Look through **Manage** — labels, ticket types, templates and workflow are per project; roles are shared by all projects.
 
 Then read [GUIDE.md](GUIDE.md) for how everything works day to day, and go through [SECURITY.md](SECURITY.md).
 
@@ -140,13 +141,13 @@ Without this, assignments simply don't send email; nothing else changes.
 Posts to a channel when a ticket is created, assigned, moved to review, blocked, archived or deleted, and when someone is @mentioned. Critical tickets ping `@here`.
 
 1. In Discord: your channel → **Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL**.
-2. In devflow: **Team → Board settings → Discord webhook URL** → paste → **Send test** → **Save settings**.
+2. In devflow: open the project → **Manage → Integrations → Webhook URL** → paste → **Send test** → **Save integrations**.
 
-The URL is stored in the database, never in the code, and only approved teammates can read it. If it ever leaks, delete it in Discord and paste a new one — no code change needed.
+Each project has its own webhook, so different projects can post to different channels. The URL is stored in the database, never in the code; only the project's members can read it, and the page keeps it hidden until you press **Show**. If it ever leaks, delete it in Discord and paste a new one — no code change needed.
 
 ### 11. (Optional) Weekly Discord summary
 
-Every Monday at 07:00 UTC a GitHub Action posts a recap to the same Discord channel: what was done this week, what's in progress and in review, what's new, anything blocked, overdue or stale, and the active sprint's progress. It runs on GitHub's free scheduler, so it doesn't need Firebase's paid plan.
+Every Monday at 07:00 UTC a GitHub Action posts a recap of each project to that project's Discord channel: what was done this week, what's in progress and in review, what's new, anything blocked, overdue or stale, and the active sprint's progress. It runs on GitHub's free scheduler, so it doesn't need Firebase's paid plan.
 
 1. **Create a read-only key.** Google Cloud console → select your project → **IAM & Admin → Service Accounts → Create service account**.
    - Name: `weekly-summary`
@@ -157,12 +158,22 @@ Every Monday at 07:00 UTC a GitHub Action posts a recap to the same Discord chan
    - Value: paste the *entire* contents of the JSON file.
 
    Then delete the downloaded file. Never commit it — `.gitignore` blocks common key file names, but don't rely on that.
-3. **Switch it on.** In devflow: **Team → Board settings → Weekly Discord summary** → tick → **Save settings**.
+3. **Switch it on.** In devflow, for each project that wants it: **Manage → Integrations → Weekly summary** → tick → **Save integrations**. Archived projects are skipped.
 4. **Try it now.** GitHub → **Actions → Weekly Discord summary → Run workflow**.
 
 To preview the message without posting, run `npm run summary:preview` against the local emulators (see [ARCHITECTURE.md](ARCHITECTURE.md#local-development-and-tests)).
 
 ---
+
+## Upgrading from the single-board version
+
+Earlier versions of devflow had one board. If you're running one of those, upgrade in this order:
+
+1. `npm test`, then **`npm run deploy:rules`** — the new rules first. They keep the old data readable (but read-only), so nothing breaks while you upgrade.
+2. Push the new code (GitHub deploys it).
+3. Sign in as a workspace admin. The board asks you to open **Manage → Overview** and press **Upgrade now**.
+
+The upgrade copies your board — tickets, comments, activity, sprints, settings and the ticket counter — into the first project, keeping the `TASK` key, every ID, author and date. Everyone keeps access: admins and project managers become **Project manager** in the project, developers become **Developer**, and admins stay workspace admins. It checks the counts before finishing, and the original data is left in place as a read-only backup. It only needs to run once, and it's safe to run again if it's interrupted.
 
 ## Updating
 

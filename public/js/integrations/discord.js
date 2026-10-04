@@ -1,9 +1,9 @@
 /* =========================================================
    integrations/discord.js — posts ticket events to a Discord channel.
 
-   The webhook URL is NOT in the code: an admin pastes it into Team →
-   Board settings, which saves it to Firestore (config/settings). Only
-   approved teammates can read it. With no URL saved, every function
+   The webhook URL is NOT in the code: a project manager or admin pastes
+   it into Manage → Integrations, which saves it to the project's
+   settings in Firestore. Only the project's members can read it. With no URL saved, every function
    here quietly does nothing. See SETUP.md step 10.
 ========================================================= */
 import { state } from '../core/state.js';

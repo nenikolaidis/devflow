@@ -13,6 +13,7 @@ import { on, EVENTS } from '../core/events.js';
 import { showToast } from '../core/ui.js';
 import * as api from '../data/api.js';
 import { openDetail } from './ticket-detail.js';
+import { switchProject } from '../data/sync.js';
 
 const $ = (id) => document.getElementById(id);
 const btn = $('notifBtn');
@@ -32,10 +33,22 @@ function render(){
           <span class="notif-body">
             <span><strong>${displayName(n.by)}</strong> mentioned you on <strong>${n.ticketId}</strong></span>
             <span class="notif-text">${n.text}</span>
-            <span class="notif-when">${n.ticketTitle} · ${formatDateTime(n.createdAt)}</span>
+            <span class="notif-when">${projectLabel(n)}${n.ticketTitle} · ${formatDateTime(n.createdAt)}</span>
           </span>
           ${n.read ? '' : html`<span class="unread-dot" aria-label="Unread"></span>`}
         </button>`)}`.toString();
+}
+
+/** "WEB · " when the mention is from a project other than the open one. */
+function projectLabel(n){
+  if(!n.projectId || n.projectId === state.projectId) return '';
+  const p = state.projects.find(x => x.id === n.projectId);
+  return p ? `${p.key} · ` : '';
+}
+
+function openOrExplain(n){
+  if(state.tickets.some(t => t.firestoreId === n.ticketFid)) openDetail(n.ticketFid);
+  else showToast(`${n.ticketId} is no longer on the board`);
 }
 
 function open(){
@@ -60,8 +73,14 @@ $('notifList').addEventListener('click', e => {
   if(!n) return;
   close();
   if(!n.read) api.markNotificationRead(n.id).catch(err => console.error(err));
-  if(state.tickets.some(t => t.firestoreId === n.ticketFid)) openDetail(n.ticketFid);
-  else showToast(`${n.ticketId} is no longer on the board`);
+  // Mentions from another project: switch to it, then open the ticket once its tickets have loaded.
+  if(n.projectId && n.projectId !== state.projectId){
+    if(!state.projects.some(p => p.id === n.projectId)){ showToast('You no longer have access to that project'); return; }
+    const stop = on(EVENTS.TICKETS_CHANGED, () => { stop(); openOrExplain(n); });
+    switchProject(n.projectId);
+    return;
+  }
+  openOrExplain(n);
 });
 $('notifMarkAll').addEventListener('click', () => {
   api.markAllNotificationsRead().catch(err => showToast('Could not update notifications: ' + err.message, 'error'));

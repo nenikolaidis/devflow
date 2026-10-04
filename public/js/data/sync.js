@@ -1,9 +1,14 @@
 /* =========================================================
-   data/sync.js — live Firestore listeners.
+   data/sync.js — live Firestore listeners, in two layers.
 
-   startSync() runs once an approved user signs in: it keeps `state`
-   up to date and emits an event after each change, so whichever screen
-   is showing can repaint (see features/nav.js). stopSync() detaches
+   Workspace (startSync, once an approved user signs in):
+     people (allowlist), profiles, roles, my projects, my notifications,
+     project requests, meta/workspace, and access requests for admins.
+   Current project (switchProject, whenever a project is opened):
+     its tickets, sprints, templates and settings.
+
+   Each listener updates `state` and emits an event, so whichever screen
+   is showing repaints (see features/nav.js). stopSync() detaches
    everything on sign-out.
 
    The watch*() helpers at the bottom are for short-lived listeners a
@@ -16,73 +21,142 @@ import { emit, EVENTS } from '../core/events.js';
 import { showToast } from '../core/ui.js';
 import { normEmail } from '../core/permissions.js';
 
-let unsubscribers = [];
+const LAST_PROJECT_KEY = 'devflow:lastProject';
+let workspaceUnsubs = [];
+let projectUnsubs = [];
 
-function listen(query, onSnapshot, label, { quiet = false } = {}){
-  unsubscribers.push(query.onSnapshot(onSnapshot, err => {
+function listen(list, query, onSnapshot, label, { quiet = false } = {}){
+  list.push(query.onSnapshot(onSnapshot, err => {
     console.error(`${label} sync error:`, err);
     if(!quiet) showToast(`${label} sync error: ${err.message}`, 'error');
   }));
 }
 
-/** Attaches the app-wide listeners. Admins also get access requests. */
+/* ---------------- WORKSPACE ---------------- */
+
+/** Attaches the workspace listeners. Admins also get access requests and every project. */
 export function startSync({ isAdmin }){
   stopSync();
+  const me = normEmail(state.currentUser.email);
+  const W = workspaceUnsubs;
 
-  listen(refs.tickets().orderBy('createdAt', 'desc'), snap => {
-    state.tickets = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
-    state.ticketsLoaded = true;
-    emit(EVENTS.TICKETS_CHANGED);
-  }, 'Tickets');
-
-  listen(refs.sprints(), snap => {
-    state.sprints = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.start).localeCompare(String(b.start)));
-    emit(EVENTS.SPRINTS_CHANGED);
-  }, 'Sprints');
-
-  // Needs the composite index in firestore.indexes.json (to + createdAt).
-  listen(refs.notifications().where('to', '==', normEmail(state.currentUser.email)).orderBy('createdAt', 'desc').limit(30), snap => {
-    state.notifications = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    emit(EVENTS.NOTIFICATIONS_CHANGED);
-  }, 'Notifications', { quiet: true }); // non-essential: don't toast if the index isn't deployed yet
-
-  listen(refs.allowlist(), snap => {
+  listen(W, refs.allowlist(), snap => {
     state.allowlist = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     emit(EVENTS.TEAM_CHANGED);
   }, 'Team');
 
-  listen(refs.profiles(), snap => {
+  listen(W, refs.profiles(), snap => {
     const map = {};
     snap.docs.forEach(d => { map[d.id] = d.data(); });
     state.profiles = map;
     emit(EVENTS.PROFILES_CHANGED);
   }, 'Profiles');
 
-  listen(refs.settings(), doc => {
-    state.settings = doc.exists ? doc.data() : {};
-    emit(EVENTS.SETTINGS_CHANGED);
-  }, 'Settings');
+  listen(W, refs.roles(), snap => {
+    const map = {};
+    snap.docs.forEach(d => { map[d.id] = d.data(); });
+    state.roles = map;
+    emit(EVENTS.ROLES_CHANGED);
+  }, 'Roles');
+
+  // Admins see every project; everyone else, the ones they're a member of.
+  const projectsQuery = isAdmin ? refs.projects() : refs.projects().where('memberEmails', 'array-contains', me);
+  listen(W, projectsQuery, snap => {
+    state.projects = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.status === 'archived') - (b.status === 'archived') || a.name.localeCompare(b.name));
+    // Keep the current project's doc fresh (members/roles can change live).
+    if(state.projectId){
+      const current = state.projects.find(p => p.id === state.projectId);
+      if(current) state.project = current;
+      else switchProject(pickDefaultProject()); // removed from it, or it vanished
+    }else if(state.projects.length){
+      switchProject(pickDefaultProject());
+    }
+    emit(EVENTS.PROJECTS_CHANGED);
+  }, 'Projects');
+
+  // Needs the composite index in firestore.indexes.json (to + createdAt).
+  listen(W, refs.notifications().where('to', '==', me).orderBy('createdAt', 'desc').limit(30), snap => {
+    state.notifications = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    emit(EVENTS.NOTIFICATIONS_CHANGED);
+  }, 'Notifications', { quiet: true });
+
+  const requestsQuery = isAdmin ? refs.projectRequests().where('status', '==', 'pending') : refs.projectRequests().where('requestedBy', '==', me);
+  listen(W, requestsQuery, snap => {
+    state.projectRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    emit(EVENTS.PROJECT_REQUESTS_CHANGED);
+  }, 'Project requests', { quiet: true });
+
+  listen(W, refs.workspace(), doc => {
+    state.workspaceMeta = doc.exists ? doc.data() : null;
+    emit(EVENTS.WORKSPACE_CHANGED);
+  }, 'Workspace', { quiet: true });
 
   if(isAdmin){
-    listen(refs.requests(), snap => {
+    listen(W, refs.requests(), snap => {
       state.accessRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       emit(EVENTS.REQUESTS_CHANGED);
     }, 'Access requests');
   }
 }
 
-/** Detaches every app-wide listener and clears live data. */
+/** The project to open: last used (if still visible), else the workspace default, else the first. */
+function pickDefaultProject(){
+  const visible = state.projects.filter(p => p.status !== 'archived');
+  let last = null;
+  try{ last = localStorage.getItem(LAST_PROJECT_KEY); }catch(e){ /* storage blocked */ }
+  return (visible.find(p => p.id === last)
+    || visible.find(p => state.workspaceMeta && p.id === state.workspaceMeta.defaultProjectId)
+    || visible[0] || state.projects[0] || {}).id || null;
+}
+
+/* ---------------- CURRENT PROJECT ---------------- */
+
+/** Opens a project: detaches the old project's listeners and attaches the new one's. */
+export function switchProject(pid){
+  projectUnsubs.forEach(unsub => unsub());
+  projectUnsubs = [];
+  Object.assign(state, { projectId: pid, project: state.projects.find(p => p.id === pid) || null,
+    tickets: [], settings: null, sprints: [], templates: null, ticketsLoaded: false });
+  state.filters.sprint = '';
+  state.selectedIds.clear();
+  if(pid){ try{ localStorage.setItem(LAST_PROJECT_KEY, pid); }catch(e){ /* ignore */ } }
+  emit(EVENTS.PROJECT_SWITCHED);
+  if(!pid) return;
+
+  const L = projectUnsubs;
+  listen(L, refs.tickets(pid).orderBy('createdAt', 'desc'), snap => {
+    state.tickets = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+    state.ticketsLoaded = true;
+    emit(EVENTS.TICKETS_CHANGED);
+  }, 'Tickets');
+
+  listen(L, refs.sprints(pid), snap => {
+    state.sprints = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    emit(EVENTS.SPRINTS_CHANGED);
+  }, 'Sprints');
+
+  listen(L, refs.templates(pid), snap => {
+    state.templates = snap.empty ? null : snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order || 0) - (b.order || 0));
+    emit(EVENTS.TEMPLATES_CHANGED);
+  }, 'Templates', { quiet: true });
+
+  listen(L, refs.settings(pid), doc => {
+    state.settings = doc.exists ? doc.data() : {};
+    emit(EVENTS.SETTINGS_CHANGED);
+  }, 'Settings');
+}
+
+/** Detaches every listener and clears live data. */
 export function stopSync(){
-  unsubscribers.forEach(unsub => unsub());
-  unsubscribers = [];
-  state.tickets = [];
-  state.allowlist = [];
-  state.accessRequests = [];
-  state.profiles = {};
-  state.settings = null;
-  state.sprints = [];
-  state.notifications = [];
-  state.ticketsLoaded = false;
+  [...workspaceUnsubs, ...projectUnsubs].forEach(unsub => unsub());
+  workspaceUnsubs = [];
+  projectUnsubs = [];
+  Object.assign(state, {
+    allowlist: [], accessRequests: [], profiles: {}, roles: {}, projects: [], projectRequests: [],
+    notifications: [], workspaceMeta: null,
+    projectId: null, project: null, tickets: [], settings: null, sprints: [], templates: null, ticketsLoaded: false
+  });
 }
 
 /* ---------------- SHORT-LIVED LISTENERS ---------------- */

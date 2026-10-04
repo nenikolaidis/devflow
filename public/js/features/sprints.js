@@ -11,7 +11,7 @@ import { SPRINT_STATUSES, LIMITS, STATUS, normalizeStatus } from '../core/consta
 import { html } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { formatDate } from '../core/format.js';
-import { canModerate } from '../core/permissions.js';
+import { can } from '../core/permissions.js';
 import { on, EVENTS } from '../core/events.js';
 import { openModal, showToast, confirmDialog } from '../core/ui.js';
 import * as api from '../data/api.js';
@@ -54,17 +54,22 @@ export function sprintProgress(s){
 const today = () => new Date().toISOString().slice(0, 10);
 const plusDays = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
+/** Opens Manage → Sprints (the board's "Sprints" button). */
 export function openSprintManager(){
-  if(!canModerate()){ showToast('Only admins and project managers can manage sprints'); return; }
+  if(!can('manageSprints')){ showToast('Your role in this project can\'t manage sprints'); return; }
+  state.manageSection = 'sprints';
+  document.getElementById('navManage').click();
+}
+
+/**
+ * Renders the sprint list and the create/edit form into `container`
+ * (Manage → Sprints). Returns a function that stops its live updates.
+ */
+export function mountSprintManager(container){
   let editing = null; // sprint id being edited, or null for "new"
   const unsubscribers = [];
-
-  const m = openModal({
-    title: 'Sprints',
-    initialFocus: '#sp-name',
-    onClose: () => unsubscribers.forEach(unsub => unsub()),
-    body: html`
-      <div id="sprintList" class="row-list sprint-list"></div>
+  container.innerHTML = html`
+      <div class="card-section"><h3>Sprints in ${state.project.name}</h3><div id="sprintList" class="row-list sprint-list"></div></div>
       <form class="card-section sprint-form" id="sprintForm" novalidate>
         <h3 id="sprintFormTitle">New sprint</h3>
         <div class="row2">
@@ -83,8 +88,8 @@ export function openSprintManager(){
           <button type="button" id="sp-cancel" class="hidden">Cancel edit</button>
           <button type="submit" class="primary" id="sp-save">Create sprint</button>
         </div>
-      </form>`
-  });
+      </form>`.toString();
+  const m = { $: (sel) => container.querySelector(sel) };
 
   const form = m.$('#sprintForm');
   const resetForm = () => {
@@ -177,4 +182,5 @@ export function openSprintManager(){
   resetForm();
   renderList();
   unsubscribers.push(on(EVENTS.SPRINTS_CHANGED, renderList), on(EVENTS.TICKETS_CHANGED, renderList));
+  return () => unsubscribers.forEach(unsub => unsub());
 }
