@@ -8,14 +8,17 @@
    Each function returns true on success, false otherwise.
 ========================================================= */
 import * as api from '../data/api.js';
-import { ACTIVITY, LIMITS, normalizeStatus, statusLabel } from '../core/constants.js';
+import { deleteField } from '../data/firebase.js';
+import { ACTIVITY, LIMITS, STATUS, normalizeStatus, statusLabel, reviewersOf, typeInfo, typeOf } from '../core/constants.js';
 import { moveBlockedReason, wipWarning } from '../core/workflow.js';
 import { showToast, confirmDialog, promptDialog } from '../core/ui.js';
 import { isPermissionError } from '../core/format.js';
+import { toggleChecklistLine } from '../core/markdown.js';
+import { displayName } from '../core/people.js';
 import { notifyAssignment } from '../integrations/email.js';
 import {
   notifyTicketCreated, notifyTicketAssigned, notifyTicketBlocked,
-  notifyTicketsArchived, notifyTicketsDeleted
+  notifyTicketsArchived, notifyTicketsDeleted, notifyReviewRequested
 } from '../integrations/discord.js';
 
 function fail(what, e){
@@ -34,6 +37,7 @@ export async function moveTicket(t, status){
   const warning = wipWarning(status, 1);
   try{
     await api.setStatus([t], status);
+    if(status === STATUS.IN_REVIEW) notifyReviewRequested(t, reviewersOf(t).map(displayName));
     showToast(`${t.id} moved to ${statusLabel(status)}${warning}`);
     return true;
   }catch(e){ return fail('Could not move ticket', e); }
@@ -143,7 +147,7 @@ export async function createTicket(fields){
 }
 
 const EDIT_FIELD_NAMES = {
-  title: 'title', description: 'description', priority: 'priority',
+  title: 'title', description: 'description', priority: 'priority', type: 'type',
   dueDate: 'due date', linkUrl: 'link', labels: 'labels'
 };
 
@@ -151,31 +155,67 @@ const EDIT_FIELD_NAMES = {
  * Saves changed fields on an existing ticket and records what changed:
  * owner and reviewer changes get their own activity entries (and owner
  * changes notify the new owner); everything else is summarised in one.
+ * `reviewers` is a list; tickets that still have the old single
+ * `reviewer` field get it removed on save.
  */
 export async function saveTicketChanges(existing, changes){
-  const same = (k) => JSON.stringify(changes[k] ?? '') === JSON.stringify(existing[k] ?? (k === 'labels' ? [] : ''));
+  // Compare against the effective values (older tickets have an inferred type and a single reviewer).
+  const current = { ...existing, type: typeOf(existing), reviewers: reviewersOf(existing) };
+  const empty = (k) => (k === 'labels' || k === 'reviewers' ? [] : '');
+  const same = (k) => JSON.stringify(changes[k] ?? empty(k)) === JSON.stringify(current[k] ?? empty(k));
   const changedKeys = Object.keys(changes).filter(k => !same(k));
   if(changedKeys.length === 0){ showToast('No changes'); return true; }
 
+  const toWrite = {};
+  changedKeys.forEach(k => { toWrite[k] = changes[k]; });
+  if(changedKeys.includes('reviewers') && existing.reviewer !== undefined) toWrite.reviewer = deleteField();
   try{
-    await api.updateTicket(existing.firestoreId, changes);
+    await api.updateTicket(existing.firestoreId, toWrite);
   }catch(e){ return fail('Could not save', e); }
 
-  const updated = { ...existing, ...changes };
+  const updated = { ...current, ...changes };
   if(changedKeys.includes('owner') && updated.owner){
     notifyAssignment(updated);
     notifyTicketAssigned(updated);
     api.logActivity(existing.firestoreId, { type: ACTIVITY.ASSIGNMENT, from: existing.owner || 'Unassigned', to: updated.owner });
   }
-  if(changedKeys.includes('reviewer')){
+  if(changedKeys.includes('reviewers')){
     // Logged separately so it's visible if someone makes themselves reviewer just to close a ticket.
-    api.logActivity(existing.firestoreId, { type: ACTIVITY.REVIEWER, from: existing.reviewer || '', to: updated.reviewer || '' });
+    api.logActivity(existing.firestoreId, {
+      type: ACTIVITY.REVIEWER,
+      from: current.reviewers.join(', ').slice(0, 200),
+      to: updated.reviewers.join(', ').slice(0, 200)
+    });
   }
   const others = changedKeys.filter(k => EDIT_FIELD_NAMES[k]).map(k =>
-    k === 'priority' ? `priority (${existing.priority} → ${updated.priority})` : EDIT_FIELD_NAMES[k]);
+    k === 'priority' ? `priority (${existing.priority} → ${updated.priority})`
+    : k === 'type' ? `type (${typeInfo(updated.type).label})`
+    : EDIT_FIELD_NAMES[k]);
   if(others.length){
     api.logActivity(existing.firestoreId, { type: ACTIVITY.EDIT, summary: others.join(', ').slice(0, 200) });
   }
   showToast(`${existing.id} updated`);
   return true;
+}
+
+/* ---------------- CHECKLISTS & DEFINITION OF DONE ---------------- */
+
+/** Ticks/unticks the "- [ ]" checklist line `lineIndex` in a ticket's description. */
+export async function toggleChecklistItem(t, lineIndex){
+  const description = toggleChecklistLine(t.description, lineIndex);
+  if(description === t.description) return false;
+  const line = (description.split(/\r?\n/)[lineIndex] || '').replace(/^\s*[-*]\s+\[(.)\]\s?/, (_, m) => (m === ' ' ? '✗ ' : '✓ '));
+  try{
+    await api.updateTicket(t.firestoreId, { description });
+    api.logActivity(t.firestoreId, { type: ACTIVITY.EDIT, summary: `checklist: ${line}`.slice(0, 200) });
+    return true;
+  }catch(e){ return fail('Could not update the checklist', e); }
+}
+
+/** Ticks/unticks one Definition of Done item. */
+export async function toggleDodItem(t, item, done){
+  try{
+    await api.setDodItem(t, item, done);
+    return true;
+  }catch(e){ return fail('Could not update the Definition of Done', e); }
 }

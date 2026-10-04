@@ -451,3 +451,87 @@ table.ticket-table{ width:100%; border-collapse:collapse; font-size:13px; }
   button,.tab{ min-height:40px; }
   .pill-select{ height:40px; }
 }
+
+/* ---------------- 11. PHASE 3: TYPES, REVIEWERS, CHECKLISTS, MY WORK ---------------- */
+.type-icon{ display:inline-flex; flex:none; }
+.row3{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
+.label-hint{ font-weight:400; color:var(--muted); font-size:12px; margin-left:4px; }
+.field-hint code,.markdown code{ font-family:var(--font-mono); font-size:12px; padding:1px 5px; border-radius:5px; background:var(--chip); color:var(--text); }
+
+/* quick filters */
+.quick-filters{ display:inline-flex; gap:4px; }
+button.quick{ height:32px; padding:0 11px; border-radius:999px; background:transparent; color:var(--text-2); font-size:13px; }
+button.quick:hover{ color:var(--text); }
+button.quick.active{ background:color-mix(in srgb, var(--accent) 16%, transparent); border-color:var(--accent); color:var(--text); }
+
+/* people chips (reviewers) */
+.chip-input{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:5px; min-height:38px; border:1px solid var(--line-strong); border-radius:9px; background:var(--panel); }
+.chip-input:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.chip-list{ display:contents; }
+.chip-input .combo{ flex:1 1 140px; min-width:140px; }
+.chip-input .combo-input{ width:100%; min-height:0; height:28px; padding:0 6px; border:none; background:transparent; box-shadow:none !important; }
+.person-chip{ display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 4px 0 3px; border:1px solid var(--line); border-radius:999px; background:var(--chip); font-size:13px; white-space:nowrap; }
+.person-chip.static{ padding-right:10px; background:transparent; }
+.person-chip button{ width:20px; height:20px; min-height:0; padding:0; border:none; border-radius:50%; background:transparent; color:var(--muted); }
+.person-chip button:hover{ background:var(--line-strong); color:var(--text); }
+.avatar-stack{ display:inline-flex; }
+.avatar-stack .avatar{ box-shadow:0 0 0 2px var(--panel); }
+.avatar-stack .avatar + .avatar{ margin-left:-6px; }
+.availability-note{ font-size:11px; color:var(--muted); margin-left:2px; }
+.availability{ display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--text-2); }
+
+/* checklists & description formatting */
+.checklist-badge{ display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); white-space:nowrap; }
+.checklist-badge.complete{ color:var(--green); }
+.detail-section{ display:flex; flex-direction:column; gap:8px; }
+.section-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.markdown{ font-size:14px; color:var(--text-2); overflow-wrap:anywhere; }
+.markdown > * + *{ margin-top:8px; }
+.markdown p{ margin:0; }
+.markdown .md-h{ margin:14px 0 2px; font-size:13px; font-weight:600; color:var(--text); }
+.markdown > .md-h:first-child{ margin-top:0; }
+.markdown ul,.markdown ol{ margin:0; padding-left:20px; }
+.markdown li + li{ margin-top:3px; }
+.markdown a{ color:var(--blue); }
+.md-checklist{ list-style:none; padding-left:0 !important; margin:0; display:flex; flex-direction:column; gap:2px; }
+.md-checklist label{ display:flex; align-items:flex-start; gap:8px; padding:4px 6px; margin:0 -6px; border-radius:7px; cursor:pointer; color:var(--text); }
+.md-checklist label:hover{ background:var(--chip); }
+.md-checklist input{ margin:3px 0 0; width:15px; height:15px; accent-color:var(--accent); flex:none; cursor:pointer; }
+.md-checklist input:disabled{ cursor:default; }
+.md-checklist li.done span{ color:var(--muted); text-decoration:line-through; }
+.dod-box{ padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--bg); }
+.dod-box.complete{ border-color:color-mix(in srgb, var(--green) 50%, var(--line)); }
+
+/* settings lists (labels, definition of done) */
+.settings-list{ display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+.settings-row{ display:flex; align-items:center; gap:8px; }
+.settings-row input[type=text]{ flex:1; min-width:0; min-height:0; height:34px; }
+.settings-row select{ min-height:0; height:34px; width:120px; padding:0 8px; }
+.settings-row .icon{ color:var(--muted); }
+
+/* team list */
+.allow-row .em{ display:flex; flex-direction:column; gap:1px; }
+.member-name{ font-weight:500; overflow:hidden; text-overflow:ellipsis; }
+.member-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 4px; font-size:12px; color:var(--muted); }
+.profile-badges{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+
+/* my work */
+.work-panel h2{ gap:8px; }
+.count-pill{ font-size:12px; font-weight:500; color:var(--muted); background:var(--chip); padding:0 7px; border-radius:999px; }
+.work-list{ display:flex; flex-direction:column; margin:0 -8px; }
+.work-row{ display:grid; grid-template-columns:auto 72px minmax(0,1fr) auto; align-items:center; gap:10px; width:100%; height:auto; min-height:40px; padding:8px; border:none; border-radius:8px; background:transparent; color:var(--text); text-align:left; font-weight:400; font-size:14px; }
+.work-row:hover{ background:var(--bg); }
+.work-title{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0; }
+.work-meta{ display:flex; align-items:center; gap:10px; }
+.bar-list.wide-label{ grid-template-columns:150px minmax(0,1fr) 28px; }
+
+@media (max-width: 720px){
+  .row3{ grid-template-columns:1fr 1fr; }
+  .work-row{ grid-template-columns:auto minmax(0,1fr) auto; }
+  .work-row .card-id{ display:none; }
+}
+#myWorkPanels{ grid-template-columns:1fr; }
+.pill-select{ max-width:122px; text-overflow:ellipsis; }
+#sortSelect{ max-width:140px; }
+.toolbar{ gap:6px; }
+.field > button.small{ align-self:flex-start; }

@@ -10,11 +10,13 @@ import { on, EVENTS } from '../core/events.js';
 import { isAdmin } from '../core/permissions.js';
 import { renderBoardView, exitSelectMode } from './board.js';
 import { renderDashboard } from './dashboard.js';
+import { renderMyWork } from './my-work.js';
 import { renderAllowlist, renderRequests } from './team.js';
 import { renderSettings } from './settings-panel.js';
 
 const TABS = {
   board: { button: 'navBoard', view: 'boardView' },
+  mywork: { button: 'navMyWork', view: 'myWorkView' },
   dashboard: { button: 'navDashboard', view: 'dashboardView' },
   team: { button: 'navTeam', view: 'teamView' }
 };
@@ -35,6 +37,7 @@ export function switchTab(tab){
 /** Repaints the visible tab from whatever is in state. */
 export function renderCurrentTab(){
   if(state.currentTab === 'board') renderBoardView();
+  if(state.currentTab === 'mywork') renderMyWork();
   if(state.currentTab === 'dashboard') renderDashboard();
   if(state.currentTab === 'team' && isAdmin()){
     renderAllowlist();
@@ -50,6 +53,7 @@ Object.entries(TABS).forEach(([name, ids]) => {
 // Live data changed → repaint what's visible.
 on(EVENTS.TICKETS_CHANGED, () => {
   if(state.currentTab === 'board') renderBoardView();
+  if(state.currentTab === 'mywork') renderMyWork();
   if(state.currentTab === 'dashboard') renderDashboard();
 });
 on(EVENTS.PROFILES_CHANGED, renderCurrentTab);           // names/avatars appear everywhere

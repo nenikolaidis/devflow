@@ -20,9 +20,9 @@ export const state = {
   settings: null,          // config/settings doc; read via data/settings.js getSettings()
 
   /* ---- UI-only state ---- */
-  currentTab: 'board',     // 'board' | 'dashboard' | 'team'
+  currentTab: 'board',     // 'board' | 'mywork' | 'dashboard' | 'team'
   boardViewMode: 'kanban', // 'kanban' | 'table'
-  filters: { search: '', priority: '', label: '', assignee: '', showArchived: false },
+  filters: { search: '', type: '', priority: '', label: '', assignee: '', quick: '', showArchived: false },
   tableSort: { key: 'createdAt', dir: 'desc' },
   selectMode: false,
   selectedIds: new Set(),  // firestoreIds picked in multi-select

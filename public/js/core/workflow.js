@@ -8,7 +8,7 @@
    No DOM and no Firestore here — just decisions.
 ========================================================= */
 import { state } from './state.js';
-import { STATUS, STALE_STATUSES, normalizeStatus, statusLabel } from './constants.js';
+import { STATUS, STALE_STATUSES, normalizeStatus, statusLabel, reviewersOf } from './constants.js';
 import { getSettings } from './settings.js';
 import { canModerate, isMe } from './permissions.js';
 import { daysSince } from './format.js';
@@ -18,14 +18,44 @@ import { daysSince } from './format.js';
  * Keep in step with statusMoveAllowed() in firestore.rules.
  */
 export function moveBlockedReason(t, statusKey){
-  if(statusKey === STATUS.IN_REVIEW && !t.reviewer){
+  const reviewers = reviewersOf(t);
+  if(statusKey === STATUS.IN_REVIEW && reviewers.length === 0){
     return `Add a reviewer to ${t.id} before moving it to In review`;
   }
-  if(statusKey === STATUS.DONE && !canModerate()){
-    if(!isMe(t.reviewer)) return `Only ${t.id}'s reviewer, a PM, or an admin can move it to Done`;
-    if(isMe(t.owner)) return `You own ${t.id}, so someone else (or a PM/admin) has to review and close it`;
+  if(statusKey === STATUS.DONE){
+    if(!canModerate()){
+      if(!reviewers.some(isMe)) return `Only one of ${t.id}'s reviewers, a PM, or an admin can move it to Done`;
+      if(isMe(t.owner)) return `You own ${t.id}, so another reviewer (or a PM/admin) has to close it`;
+    }
+    const missing = dodMissing(t);
+    if(missing.length) return `Tick the Definition of Done first: ${missing.map(i => i.text).join(', ')}`;
   }
   return null;
+}
+
+/* ---------------- DEFINITION OF DONE ---------------- */
+
+/** The board's Definition of Done items not yet ticked on this ticket. */
+export function dodMissing(t){
+  const ticked = t.dod || {};
+  return getSettings().dodItems.filter(item => ticked[item.id] !== true);
+}
+
+/**
+ * The ticket's `dod` map trimmed to the current items (all true when
+ * complete). Sent when moving to Done, so items an admin has since
+ * removed don't block the move in firestore.rules.
+ */
+export function cleanDod(t){
+  const ticked = t.dod || {};
+  const out = {};
+  getSettings().dodItems.forEach(item => { out[item.id] = ticked[item.id] === true; });
+  return out;
+}
+
+/** True if I'm one of the ticket's reviewers. */
+export function isMyReview(t){
+  return reviewersOf(t).some(isMe);
 }
 
 /** Active (non-archived) tickets in a column, ignoring filters — what WIP limits count. */

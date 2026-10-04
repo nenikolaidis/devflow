@@ -7,13 +7,14 @@
    nav.js calls it whenever tickets, team, profiles or settings change.
 ========================================================= */
 import { state } from '../core/state.js';
-import { STATUS, STATUSES, STATUS_COLOR, ALL_LABELS, normalizeStatus } from '../core/constants.js';
+import { STATUS, STATUSES, STATUS_COLOR, TICKET_TYPES, normalizeStatus, typeOf } from '../core/constants.js';
 import { html } from '../core/html.js';
-import { icon, statusIcon } from '../core/icons.js';
+import { icon, statusIcon, typeIcon } from '../core/icons.js';
+import { labelNames } from '../core/settings.js';
 import { canModerate } from '../core/permissions.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { columnCount, wipLimit } from '../core/workflow.js';
-import { matchesFilters, sortTickets, priorityBadge, labelList, dueBadge, ticketFlags, findTicket } from './ticket-common.js';
+import { matchesFilters, sortTickets, priorityBadge, labelList, dueBadge, ticketFlags, findTicket, checklistBadge } from './ticket-common.js';
 import { renderTable } from './table.js';
 import { openDetail } from './ticket-detail.js';
 import { openTicketForm, openQuickEdit } from './ticket-form.js';
@@ -25,12 +26,22 @@ const boardEl = $('board');
 /** Repaints the active board view (Kanban or table). */
 export function renderBoardView(){
   populateAssigneeFilter();
+  populateLabelFilter();
   if(state.boardViewMode === 'kanban') renderKanban(); else renderTable();
 }
 
 /* ---------------- FILTER BAR ---------------- */
 
-$('labelFilter').innerHTML = html`<option value="">Label</option>${ALL_LABELS.map(l => html`<option value="${l}">${l}</option>`)}`;
+$('typeFilter').innerHTML = html`<option value="">Type</option>${TICKET_TYPES.map(t => html`<option value="${t.key}">${t.label}</option>`)}`;
+
+/** Labels come from Board settings, so the list is rebuilt on each render. */
+function populateLabelFilter(){
+  const sel = $('labelFilter');
+  const current = sel.value;
+  sel.innerHTML = html`<option value="">Label</option>${labelNames().map(l => html`<option value="${l}">${l}</option>`)}`;
+  if(Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+  markActive(sel);
+}
 
 function populateAssigneeFilter(){
   const sel = $('assigneeFilter');
@@ -51,8 +62,21 @@ $('searchInput').addEventListener('input', e => {
   if(state.currentTab !== 'board') $('navBoard').click();
   else renderBoardView();
 });
-[['priorityFilter', 'priority'], ['labelFilter', 'label'], ['assigneeFilter', 'assignee']].forEach(([id, key]) => {
+[['typeFilter', 'type'], ['priorityFilter', 'priority'], ['labelFilter', 'label'], ['assigneeFilter', 'assignee']].forEach(([id, key]) => {
   $(id).addEventListener('change', e => { state.filters[key] = e.target.value; markActive(e.target); renderBoardView(); });
+});
+
+// Quick filters: one at a time; clicking the active one turns it off.
+document.querySelectorAll('.quick-filters .quick').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.filters.quick = state.filters.quick === btn.dataset.quick ? '' : btn.dataset.quick;
+    document.querySelectorAll('.quick-filters .quick').forEach(b => {
+      const on = b.dataset.quick === state.filters.quick;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    renderBoardView();
+  });
 });
 
 // "/" focuses search (unless you're typing somewhere or a dialog is open).
@@ -140,7 +164,8 @@ function renderColumn(status){
 
   const body = document.createElement('div');
   body.className = 'column-body';
-  if(tickets.length === 0) body.innerHTML = html`<div class="column-empty">${state.filters.search || state.filters.priority || state.filters.label || state.filters.assignee ? 'No matching tickets' : 'No tickets'}</div>`;
+  const filtering = ['search', 'type', 'priority', 'label', 'assignee', 'quick'].some(k => state.filters[k]);
+  if(tickets.length === 0) body.innerHTML = html`<div class="column-empty">${filtering ? 'No matching tickets' : 'No tickets'}</div>`;
   tickets.forEach(t => body.appendChild(renderCard(t)));
 
   body.addEventListener('dragover', e => { e.preventDefault(); body.classList.add('drag-over'); });
@@ -168,6 +193,7 @@ function renderCard(t){
   card.innerHTML = html`
     <div class="card-top">
       ${state.selectMode ? html`<span class="card-select-box${selected ? ' checked' : ''}" aria-hidden="true">${selected ? icon('check', 12) : ''}</span>` : ''}
+      ${typeIcon(typeOf(t), 15)}
       <span class="card-id">${t.id}</span>
       <div class="card-top-right">
         ${canQuickEdit ? html`<button type="button" class="quick-edit-btn" title="Quick edit" aria-label="Quick edit ${t.id}">${icon('edit', 14)}</button>` : ''}
@@ -178,6 +204,7 @@ function renderCard(t){
     ${flags ? html`<div class="card-flags">${flags}</div>` : ''}
     <div class="card-foot">
       <div class="card-labels">${labelList(t.labels)}</div>
+      ${checklistBadge(t)}
       ${dueBadge(t)}
       ${avatarHtml(t.owner, 24)}
     </div>`;

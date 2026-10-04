@@ -92,6 +92,7 @@
 
     <nav class="tabs" role="tablist" aria-label="Sections">
       <button type="button" role="tab" id="navBoard" class="tab active" aria-selected="true" aria-controls="boardView">Board</button>
+      <button type="button" role="tab" id="navMyWork" class="tab" aria-selected="false" aria-controls="myWorkView">My work</button>
       <button type="button" role="tab" id="navDashboard" class="tab" aria-selected="false" aria-controls="dashboardView">Dashboard</button>
       <button type="button" role="tab" id="navTeam" class="tab hidden" aria-selected="false" aria-controls="teamView">Team</button>
     </nav>
@@ -135,6 +136,16 @@
   <!-- BOARD -->
   <section id="boardView" role="tabpanel" aria-labelledby="navBoard">
     <div class="toolbar" role="group" aria-label="Filters and view">
+      <div class="quick-filters" role="group" aria-label="Quick filters">
+        <button type="button" class="quick" data-quick="mine" aria-pressed="false">Mine</button>
+        <button type="button" class="quick" data-quick="review" aria-pressed="false" title="In review, and you are a reviewer">To review</button>
+        <button type="button" class="quick" data-quick="blocked" aria-pressed="false">Blocked</button>
+        <button type="button" class="quick" data-quick="stale" aria-pressed="false">Stale</button>
+      </div>
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <select id="typeFilter" class="pill-select" aria-label="Filter by type">
+        <option value="">Type</option>
+      </select>
       <select id="priorityFilter" class="pill-select" aria-label="Filter by priority">
         <option value="">Priority</option>
         <option value="critical">Critical</option>
@@ -175,6 +186,12 @@
     </div>
     <div class="board" id="board"></div>
     <div class="table-wrap hidden" id="ticketTable"></div>
+  </section>
+
+  <!-- MY WORK -->
+  <section id="myWorkView" class="page hidden" role="tabpanel" aria-labelledby="navMyWork">
+    <div class="page-head"><h1>My work</h1><span class="page-sub" id="myWorkSub"></span></div>
+    <div class="dash-panels" id="myWorkPanels"></div>
   </section>
 
   <!-- DASHBOARD -->
@@ -223,6 +240,18 @@
         <p class="field-hint">Applies to tickets In progress or In review.</p>
         <input type="number" id="setStaleDays" class="narrow-input" min="1" max="365" step="1">
       </div>
+      <fieldset class="field">
+        <legend>Labels</legend>
+        <p class="field-hint">The topic areas people can tag tickets with. Renaming a label doesn't change tickets that already use the old name.</p>
+        <div id="setLabels" class="settings-list"></div>
+        <button type="button" class="small" id="addLabelBtn">Add label</button>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Definition of Done</legend>
+        <p class="field-hint">Items every ticket must have ticked before it can move to Done — enforced by the database, for everyone. Leave empty to turn it off.</p>
+        <div id="setDod" class="settings-list"></div>
+        <button type="button" class="small" id="addDodBtn">Add item</button>
+      </fieldset>
       <fieldset class="field">
         <legend>Work-in-progress limits per column</legend>
         <p class="field-hint">0 means no limit. Columns over their limit turn red.</p>

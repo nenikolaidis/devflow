@@ -7,7 +7,7 @@ import { state } from '../core/state.js';
 import { ROLES, ROLE_LABELS } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { isMe, normEmail } from '../core/permissions.js';
-import { displayName, avatarHtml } from '../core/people.js';
+import { displayName, avatarHtml, profileOf, availabilityBadge, localTime } from '../core/people.js';
 import { showToast, confirmDialog } from '../core/ui.js';
 import * as api from '../data/api.js';
 import { openProfileModal } from './profiles.js';
@@ -24,8 +24,11 @@ export function renderAllowlist(){
   const list = $('allowList');
   list.innerHTML = html`${state.allowlist.map(u => html`
     <div class="allow-row" data-email="${u.id}">
-      ${avatarHtml(u.id, 22)}
-      <span class="em">${displayName(u.id)}${isMe(u.id) ? ' (you)' : ''}</span>
+      ${avatarHtml(u.id, 32)}
+      <span class="em">
+        <span class="member-name">${displayName(u.id)}${isMe(u.id) ? ' (you)' : ''}</span>
+        <span class="member-meta">${profileOf(u.id).title ? `${profileOf(u.id).title} · ` : ''}${availabilityBadge(u.id)}${localTime(u.id) ? ` · ${localTime(u.id)} local` : ''}</span>
+      </span>
       <select class="roleSelect" aria-label="Role for ${u.id}" ${isMe(u.id) ? 'disabled' : ''}>${roleOptions(u.role)}</select>
       <button type="button" class="ghost small" data-action="view">View</button>
       ${isMe(u.id) ? '' : html`<button type="button" class="ghost small" data-action="remove">Remove</button>`}

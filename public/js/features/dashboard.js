@@ -4,10 +4,10 @@
    overdue, stale), and workload per owner. Archived tickets excluded.
 ========================================================= */
 import { state } from '../core/state.js';
-import { STATUS, STATUSES, STATUS_COLOR, PRIORITIES, PRIORITY_COLOR, normalizeStatus } from '../core/constants.js';
+import { STATUS, STATUSES, STATUS_COLOR, PRIORITIES, PRIORITY_COLOR, TICKET_TYPES, normalizeStatus, typeOf } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { capitalize, formatDate } from '../core/format.js';
-import { icon } from '../core/icons.js';
+import { icon, typeIcon } from '../core/icons.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { isOverdue, staleDays } from '../core/workflow.js';
 import { openDetail } from './ticket-detail.js';
@@ -76,6 +76,16 @@ export function renderDashboard(){
       </div>
       <div class="legend">
         ${byStatus.map(s => html`<div class="legend-item"><span class="label-dot" style="background:${STATUS_COLOR[s.key]}"></span><span>${s.label}</span><strong>${s.count}</strong></div>`)}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Tickets by type</h2>
+      <div class="bar-list wide-label">
+        ${TICKET_TYPES.map(ty => ({ ty, count: tickets.filter(t => typeOf(t) === ty.key).length })).filter(x => x.count).map(({ ty, count }) => html`
+          <span class="cell-inline">${typeIcon(ty.key, 14)}${ty.label}</span>
+          <div class="bar-track" role="img" aria-label="${ty.label}: ${count} of ${total}"><div class="bar-fill" style="width:${(count / total) * 100}%;background:${ty.color}"></div></div>
+          <span class="bar-num">${count}</span>`)}
       </div>
     </section>
 

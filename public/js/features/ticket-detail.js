@@ -6,19 +6,21 @@
    It closes after an action that changes the ticket; reopening shows
    fresh data from state.
 ========================================================= */
-import { STATUSES, normalizeStatus } from '../core/constants.js';
+import { STATUSES, normalizeStatus, reviewersOf } from '../core/constants.js';
 import { html } from '../core/html.js';
+import { renderMarkdown, checklistProgress, toggleChecklistLine } from '../core/markdown.js';
+import { getSettings } from '../core/settings.js';
 import { icon, statusIcon } from '../core/icons.js';
 import { formatDateTime, safeUrl } from '../core/format.js';
 import { canModerate, isAdmin } from '../core/permissions.js';
 import { displayName, avatarHtml } from '../core/people.js';
-import { moveBlockedReason, isOverdue } from '../core/workflow.js';
+import { moveBlockedReason, isOverdue, dodMissing } from '../core/workflow.js';
 import { openModal, showToast } from '../core/ui.js';
-import { findTicket, priorityWithLabel, labelList, dueBadge } from './ticket-common.js';
+import { findTicket, priorityWithLabel, labelList, dueBadge, typeWithLabel, visibleLabels } from './ticket-common.js';
 import { openTicketForm } from './ticket-form.js';
 import { mountComments } from './comments.js';
 import { mountActivityLog } from './activity-log.js';
-import { moveTicket, toggleBlocked, archiveTickets, restoreTicket, deleteTicketPermanently } from './ticket-actions.js';
+import { moveTicket, toggleBlocked, archiveTickets, restoreTicket, deleteTicketPermanently, toggleChecklistItem, toggleDodItem } from './ticket-actions.js';
 
 export function openDetail(firestoreId){
   const t = findTicket(firestoreId);
@@ -27,6 +29,10 @@ export function openDetail(firestoreId){
   // Archived tickets are read-only for everyone except admins/PMs (who can restore them).
   const readOnly = t.archived && !moderator;
   const link = safeUrl(t.linkUrl);
+  const reviewers = reviewersOf(t);
+  const checklist = checklistProgress(t.description);
+  const dodItems = getSettings().dodItems;
+  const dodTicked = t.dod || {};
   const unsubscribers = [];
 
   const headerActions = t.archived
@@ -55,18 +61,39 @@ export function openDetail(firestoreId){
       ${t.archived ? '' : html`<div class="status-track" role="group" aria-label="Status">${STATUSES.map(s => statusButton(t, s))}</div>`}
 
       <dl class="detail-props">
+        <dt>Type</dt><dd>${typeWithLabel(t)}</dd>
         <dt>Priority</dt><dd>${priorityWithLabel(t.priority)}</dd>
         <dt>Owner</dt><dd>${avatarHtml(t.owner, 22)}${t.owner ? displayName(t.owner) : html`<span class="muted">Unassigned</span>`}</dd>
-        <dt>Reviewer</dt><dd>${t.reviewer ? html`${avatarHtml(t.reviewer, 22)}${displayName(t.reviewer)}` : html`<span class="muted">No reviewer yet</span>`}</dd>
+        <dt>Reviewers</dt><dd>${reviewers.length
+          ? reviewers.map(r => html`<span class="person-chip static">${avatarHtml(r, 20)}${displayName(r)}</span>`)
+          : html`<span class="muted">No reviewers yet</span>`}</dd>
         <dt>Due date</dt><dd>${t.dueDate ? html`${dueBadge(t)}${isOverdue(t) ? html`<span class="flag flag-overdue">Overdue</span>` : ''}` : html`<span class="muted">No due date</span>`}</dd>
-        <dt>Labels</dt><dd>${(t.labels || []).length ? labelList(t.labels, { boxed: true }) : html`<span class="muted">None</span>`}</dd>
+        <dt>Labels</dt><dd>${visibleLabels(t).length ? labelList(t.labels, { boxed: true }) : html`<span class="muted">None</span>`}</dd>
         <dt>Created</dt><dd>${t.createdBy ? displayName(t.createdBy) : '—'}${t.createdAt ? html`<span class="muted">· ${formatDateTime(t.createdAt)}</span>` : ''}</dd>
       </dl>
 
-      <div>
-        <h3 class="section-label">Description</h3>
-        <p class="detail-desc ${t.description ? '' : 'empty'}" style="margin-top:8px">${t.description || 'No description yet.'}</p>
+      <div class="detail-section">
+        <div class="section-head">
+          <h3 class="section-label">Description</h3>
+          ${checklist.total ? html`<span class="checklist-badge ${checklist.done === checklist.total ? 'complete' : ''}">${icon('listCheck', 12)}${checklist.done}/${checklist.total} done</span>` : ''}
+        </div>
+        ${t.description
+          ? html`<div class="markdown" id="detailDesc">${renderMarkdown(t.description, { interactive: !readOnly })}</div>`
+          : html`<p class="detail-desc empty">No description yet.</p>`}
       </div>
+
+      ${dodItems.length ? html`
+        <div class="detail-section dod-box ${dodMissing(t).length ? '' : 'complete'}">
+          <div class="section-head">
+            <h3 class="section-label">Definition of Done</h3>
+            <span class="checklist-badge ${dodMissing(t).length ? '' : 'complete'}">${dodItems.length - dodMissing(t).length}/${dodItems.length}</span>
+          </div>
+          <ul class="md-checklist" id="dodList">
+            ${dodItems.map(item => html`<li class="${dodTicked[item.id] === true ? 'done' : ''}"><label>
+              <input type="checkbox" data-dod="${item.id}" ${dodTicked[item.id] === true ? 'checked' : ''} ${readOnly ? 'disabled' : ''}><span>${item.text}</span></label></li>`)}
+          </ul>
+          <p class="field-hint">Every item must be ticked before this ticket can move to Done.</p>
+        </div>` : ''}
 
       ${link ? html`<a class="link-box" href="${link}" target="_blank" rel="noopener noreferrer">${icon('link', 14)}<span>${t.linkUrl}</span></a>` : ''}
 
@@ -93,6 +120,46 @@ export function openDetail(firestoreId){
       });
     });
   });
+
+  // Ticking a checklist item in the description or the Definition of Done saves it right away.
+  // (The panel then reflects the click; the board updates live.)
+  const desc = m.$('#detailDesc');
+  if(desc){
+    desc.addEventListener('change', async e => {
+      const box = e.target.closest('input[data-line]');
+      if(!box) return;
+      box.disabled = true;
+      const ok = await toggleChecklistItem(t, Number(box.dataset.line));
+      if(ok) t.description = toggleChecklistLine(t.description, Number(box.dataset.line));
+      else box.checked = !box.checked;
+      box.disabled = false;
+      box.closest('li').classList.toggle('done', box.checked);
+    });
+  }
+  const dodList = m.$('#dodList');
+  if(dodList){
+    dodList.addEventListener('change', async e => {
+      const box = e.target.closest('input[data-dod]');
+      if(!box) return;
+      const item = dodItems.find(i => i.id === box.dataset.dod);
+      box.disabled = true;
+      const ok = await toggleDodItem(t, item, box.checked);
+      if(ok){ t.dod = { ...(t.dod || {}), [item.id]: box.checked }; refreshStatusLocks(); }
+      else box.checked = !box.checked;
+      box.disabled = false;
+      box.closest('li').classList.toggle('done', box.checked);
+    });
+  }
+
+  /** Re-checks which status moves are allowed (e.g. Done unlocks once the Definition of Done is ticked). */
+  function refreshStatusLocks(){
+    m.$$('.status-track button').forEach(btn => {
+      if(btn.classList.contains('active')) return;
+      const reason = moveBlockedReason(t, btn.dataset.status);
+      btn.classList.toggle('locked', !!reason);
+      btn.title = reason || `Move to ${btn.textContent.trim()}`;
+    });
+  }
 
   // Status buttons: moves the workflow doesn't allow are dimmed, with the reason as a tooltip.
   m.$$('.status-track button').forEach(btn => {

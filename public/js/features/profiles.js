@@ -4,11 +4,11 @@
    and shows their tickets. Opened from the Profile button or the Team tab.
 ========================================================= */
 import { state } from '../core/state.js';
-import { FALLBACK_TIMEZONES, LIMITS, ROLE_LABELS } from '../core/constants.js';
+import { FALLBACK_TIMEZONES, LIMITS, ROLE_LABELS, AVAILABILITY, STATUS, normalizeStatus } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { formatDateTime } from '../core/format.js';
 import { normEmail, isMe } from '../core/permissions.js';
-import { profileOf, avatarHtml } from '../core/people.js';
+import { profileOf, avatarHtml, availabilityBadge, localTime } from '../core/people.js';
 import { priorityIcon } from '../core/icons.js';
 import { openModal, showToast } from '../core/ui.js';
 import { saveOwnProfile } from '../data/api.js';
@@ -28,7 +28,7 @@ export function openProfileModal(targetEmail){
   const self = isMe(email);
   const p = profileOf(email);
   const role = (state.allowlist.find(u => u.id === email) || {}).role;
-  const assigned = state.tickets.filter(t => !t.archived && normEmail(t.owner) === email);
+  const assigned = state.tickets.filter(t => !t.archived && normalizeStatus(t.status) !== STATUS.DONE && normEmail(t.owner) === email);
   const createdCount = state.tickets.filter(t => normEmail(t.createdBy) === email).length;
   const lastActive = p.lastActive ? formatDateTime(p.lastActive) : '—';
 
@@ -40,14 +40,20 @@ export function openProfileModal(targetEmail){
         ${avatarHtml(email, 56)}
         <div>
           <div class="profile-name">${p.name || email}</div>
-          <div class="profile-sub">${p.username ? `@${p.username} · ` : ''}${email}</div>
-          <span class="role-pill">${ROLE_LABELS[role] || role || '—'}</span>
+          <div class="profile-sub">${p.title ? `${p.title} · ` : ''}${p.username ? `@${p.username} · ` : ''}${email}</div>
+          <div class="profile-badges"><span class="role-pill">${ROLE_LABELS[role] || role || '—'}</span>${availabilityBadge(email)}</div>
         </div>
       </div>
 
       ${self ? html`
         <div class="field"><label for="p-name">Name</label>
           <input type="text" id="p-name" maxlength="${LIMITS.PROFILE_NAME}" value="${p.name || ''}" placeholder="Your full name"></div>
+        <div class="row2">
+          <div class="field"><label for="p-title">Job title</label>
+            <input type="text" id="p-title" maxlength="${LIMITS.PROFILE_TITLE}" value="${p.title || ''}" placeholder="Frontend developer"></div>
+          <div class="field"><label for="p-availability">Status</label>
+            <select id="p-availability">${AVAILABILITY.map(a => html`<option value="${a.key}" ${(p.availability || 'available') === a.key ? 'selected' : ''}>${a.label}</option>`)}</select></div>
+        </div>
         <div class="field"><label for="p-username">Username</label>
           <input type="text" id="p-username" maxlength="${LIMITS.PROFILE_USERNAME}" value="${p.username || ''}" placeholder="jsmith"></div>
         <div class="field"><label for="p-bio">Bio</label>
@@ -57,19 +63,19 @@ export function openProfileModal(targetEmail){
       ` : html`
         ${p.bio ? html`<p class="profile-bio">${p.bio}</p>` : ''}
         <div class="profile-meta">
-          <div><span>Time zone</span>${p.timezone || '—'}</div>
+          <div><span>Time zone</span>${p.timezone || '—'}${localTime(email) ? ` · ${localTime(email)} now` : ''}</div>
           <div><span>Last active</span>${lastActive}</div>
         </div>`}
 
       <div class="profile-meta">
         ${self ? html`<div><span>Last active</span>${lastActive}</div>` : ''}
-        <div><span>Assigned tickets</span>${assigned.length}</div>
+        <div><span>Open tickets</span>${assigned.length}</div>
         <div><span>Created tickets</span>${createdCount}</div>
       </div>
 
       ${assigned.length ? html`
         <div class="profile-tickets">
-          <h3>Assigned tickets</h3>
+          <h3>Open tickets</h3>
           ${assigned.slice(0, 8).map(t => html`<button type="button" class="mini-ticket" data-fid="${t.firestoreId}"><span class="card-id">${t.id}</span><span class="mini-title">${t.title}</span>${priorityIcon(t.priority)}</button>`)}
         </div>` : ''}
 
@@ -84,6 +90,8 @@ export function openProfileModal(targetEmail){
       try{
         await saveOwnProfile({
           name: m.$('#p-name').value.trim(),
+          title: m.$('#p-title').value.trim(),
+          availability: m.$('#p-availability').value,
           username: m.$('#p-username').value.trim(),
           bio: m.$('#p-bio').value.trim(),
           timezone: m.$('#p-tz').value

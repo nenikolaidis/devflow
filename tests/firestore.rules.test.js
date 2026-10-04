@@ -317,3 +317,75 @@ describe('batched writes the app uses', () => {
     await assertSucceeds(updateDoc(doc(db, 'tickets/t1'), { archived: false, archivedBy: deleteField(), archivedAt: deleteField() }));
   });
 });
+
+/* ------------------------------------------------------------------ */
+describe('multiple reviewers', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'allowlist', 'dev3@team.dev'), { role: 'developer' });
+      await updateDoc(doc(db, 'tickets/t1'), { reviewer: deleteField(), reviewers: ['dev2@team.dev', 'dev3@team.dev'], status: 'in_review' });
+    });
+  });
+  it('any listed reviewer can move to Done', async () => {
+    await assertSucceeds(updateDoc(doc(as('dev3@team.dev'), 'tickets/t1'), { status: 'done' }));
+  });
+  it('someone not in the list cannot', async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'allowlist', 'dev4@team.dev'), { role: 'developer' }));
+    await assertFails(updateDoc(doc(as('dev4@team.dev'), 'tickets/t1'), { status: 'done' }));
+  });
+  it('the owner cannot close even if listed as a reviewer', async () => {
+    await env.withSecurityRulesDisabled(ctx => updateDoc(doc(ctx.firestore(), 'tickets/t1'), { reviewers: [USERS.dev, 'dev3@team.dev'] }));
+    await assertFails(updateDoc(doc(as('dev'), 'tickets/t1'), { status: 'done' }));
+  });
+  it('In review accepts a reviewers list', async () => {
+    await env.withSecurityRulesDisabled(ctx => updateDoc(doc(ctx.firestore(), 'tickets/t1'), { status: 'in_progress' }));
+    await assertSucceeds(updateDoc(doc(as('dev'), 'tickets/t1'), { status: 'in_review' }));
+  });
+  it('In review fails with an empty reviewers list', async () => {
+    await env.withSecurityRulesDisabled(ctx => updateDoc(doc(ctx.firestore(), 'tickets/t1'), { status: 'in_progress', reviewers: [] }));
+    await assertFails(updateDoc(doc(as('dev'), 'tickets/t1'), { status: 'in_review' }));
+  });
+  it('more than 5 reviewers is rejected', async () => {
+    await assertFails(updateDoc(doc(as('dev'), 'tickets/t1'), { reviewers: ['a@x', 'b@x', 'c@x', 'd@x', 'e@x', 'f@x'] }));
+  });
+});
+
+/* ------------------------------------------------------------------ */
+describe('Definition of Done', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore();
+      await updateDoc(doc(db, 'config/settings'), { dodItems: [{ id: 'tests', text: 'Tests added' }], dodRequired: ['tests'] });
+      await updateDoc(doc(db, 'tickets/t1'), { status: 'in_review' });
+    });
+  });
+  it('blocks Done until every item is ticked — even for admins', async () => {
+    await assertFails(updateDoc(doc(as('admin'), 'tickets/t1'), { status: 'done' }));
+    await assertFails(updateDoc(doc(as('admin'), 'tickets/t1'), { status: 'done', dod: { tests: false } }));
+  });
+  it('allows Done once ticked', async () => {
+    await assertSucceeds(updateDoc(doc(as('dev2'), 'tickets/t1'), { status: 'done', dod: { tests: true } }));
+  });
+  it('anyone approved can tick items', async () => {
+    await assertSucceeds(updateDoc(doc(as('dev'), 'tickets/t1'), { dod: { tests: true } }));
+  });
+});
+
+/* ------------------------------------------------------------------ */
+describe('ticket types, labels and profiles', () => {
+  it('accepts a known type and rejects an unknown one', async () => {
+    await assertSucceeds(createTicket(as('dev'), newTicket(USERS.dev, { type: 'research' })));
+    await assertFails(createTicket(as('dev'), newTicket(USERS.dev, { type: 'epic-saga' })));
+  });
+  it('admins can save the label list and Definition of Done', async () => {
+    await assertSucceeds(updateDoc(doc(as('admin'), 'config/settings'), {
+      labels: [{ name: 'frontend', color: 'pink' }], dodItems: [{ id: 'docs', text: 'Docs updated' }], dodRequired: ['docs']
+    }));
+    await assertFails(updateDoc(doc(as('pm'), 'config/settings'), { labels: [] }));
+  });
+  it('profiles accept a job title and a known availability', async () => {
+    await assertSucceeds(setDoc(doc(as('dev'), 'profiles', USERS.dev), { name: 'Dev', title: 'Frontend developer', availability: 'busy' }));
+    await assertFails(setDoc(doc(as('dev'), 'profiles', USERS.dev), { name: 'Dev', availability: 'on the moon' }));
+  });
+});

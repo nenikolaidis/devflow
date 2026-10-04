@@ -11,7 +11,7 @@
    decorative (aria-hidden); give their button an aria-label.
 ========================================================= */
 import { raw } from './html.js';
-import { normalizeStatus } from './constants.js';
+import { normalizeStatus, TICKET_TYPES } from './constants.js';
 
 const STROKE = {
   plus: '<path d="M8 3v10M3 8h10"/>',
@@ -41,8 +41,25 @@ const STROKE = {
   logout: '<path d="M6 13.5H3.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1H6M10.5 11 13.5 8l-3-3M13.5 8H6"/>',
   check: '<path d="m3.5 8.5 3 3 6-7"/>',
   info: '<circle cx="8" cy="8" r="6"/><path d="M8 7.5v3.5M8 5h.01"/>',
-  alert: '<path d="M8 2.5 14 13H2Z"/><path d="M8 6.5v3M8 11.5h.01"/>'
+  alert: '<path d="M8 2.5 14 13H2Z"/><path d="M8 6.5v3M8 11.5h.01"/>',
+  checkSquare: '<rect x="2.5" y="2.5" width="11" height="11" rx="2.5"/><path d="m5.5 8 1.8 1.8L10.8 6"/>',
+  bug: '<rect x="5" y="5.5" width="6" height="8" rx="3"/><path d="M6 5.5a2 2 0 0 1 4 0M2.5 8.5H5M11 8.5h2.5M3 12l2-1M13 12l-2-1M3 5l2 1.5M13 5l-2 1.5M8 8v5"/>',
+  sparkle: '<path d="M8 2v3M8 11v3M2 8h3M11 8h3M4 4l1.8 1.8M10.2 10.2 12 12M4 12l1.8-1.8M10.2 5.8 12 4"/>',
+  shield: '<path d="M8 1.8 13 3.8v4c0 3-2.2 5.2-5 6.4-2.8-1.2-5-3.4-5-6.4v-4Z"/><path d="m5.8 8 1.5 1.5L10.4 6.4"/>',
+  wrench: '<path d="M10.5 2.5a3 3 0 0 0-2.8 4L2.8 11.4a1.2 1.2 0 0 0 1.7 1.7L9.4 8.2a3 3 0 0 0 4-2.8l-1.8 1.1-1.7-.4-.4-1.7Z"/>',
+  chartLine: '<path d="M2.5 13.5h11M3.5 11l3-3.5 2.5 2 4-5"/>',
+  flask: '<path d="M6 2h4M6.5 2v4L3 12.5A1 1 0 0 0 3.9 14h8.2a1 1 0 0 0 .9-1.5L9.5 6V2M5 10h6"/>',
+  users: '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5a4.5 4.5 0 0 1 9 0M10.5 3.2a2.5 2.5 0 0 1 0 4.6M12 9.3a4.5 4.5 0 0 1 2.5 4.2"/>',
+  inbox: '<path d="M2 9h3.5l1 2h3l1-2H14"/><path d="M3.5 3.5h9L14 9v3.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9Z"/>',
+  eye: '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/>',
+  listCheck: '<path d="M7 4h7M7 8h7M7 12h7"/><path d="m2 4 1 1 2-2M2 8.5l1 1 2-2M2 12.5l1 1 2-2"/>'
 };
+
+/** The icon for a ticket type (see TICKET_TYPES), colored by type. */
+export function typeIcon(typeKey, size = 16){
+  const info = TICKET_TYPES.find(t => t.key === typeKey) || TICKET_TYPES[0];
+  return raw(`<span class="type-icon" style="color:${info.color}" title="${info.label}">${icon(info.icon, size)}</span>`);
+}
 
 /** A named line icon (see STROKE above for the names). */
 export function icon(name, size = 16){

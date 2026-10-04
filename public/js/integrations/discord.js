@@ -86,6 +86,22 @@ export function notifyTicketAssigned(ticket){
   });
 }
 
+/** Posts a message when a ticket moves to In review, naming its reviewers. */
+export function notifyReviewRequested(ticket, reviewerNames){
+  post({
+    embeds: [{
+      title: `👀 ${ticket.id} is ready for review`,
+      description: ticket.title,
+      color: 0x5B8DD9,
+      fields: [
+        { name: 'Reviewers', value: reviewerNames.join(', ') || '—', inline: false },
+        { name: 'Moved by', value: actorEmail(), inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    }]
+  });
+}
+
 /** Posts a message when a ticket is marked as blocked. */
 export function notifyTicketBlocked(ticket, reason){
   post({

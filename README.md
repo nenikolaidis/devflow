@@ -38,6 +38,18 @@ Includes:
 
 ---
 
+### Ticket types, labels and checklists
+
+- **Types**: Task, Bug, Feature, Security, Maintenance, Business analysis, Research — each with its own icon and template
+- **Labels** (topic areas like frontend or backend) are managed by admins in Team → Board settings
+- **Checklists**: `- [ ] item` lines in a description become tickable, with progress shown on the card
+- **Multiple reviewers**: up to 5 per ticket; any of them (except the owner) can close it
+- **My work**: one page with tickets assigned to you, reviews waiting for you, and what you finished recently
+- **Quick filters**: Mine, To review, Blocked, Stale
+- **Profiles**: job title, status (Available / Busy / Away) and each teammate's local time
+
+---
+
 ### Project moderation
 
 - **Workflow rules** — a ticket needs a reviewer before it can move to In review, and only its reviewer, a PM, or an admin can move it to Done (enforced in the database rules, not just the UI)
@@ -46,6 +58,7 @@ Includes:
 - **Stale tickets** — tickets with no activity in In progress / In review for a configurable number of days are flagged
 - **Work-in-progress limits** — set a maximum per column; the column turns red when it's over
 - **Comment moderation** — authors can edit their own comments; admins/PMs can hide inappropriate ones
+- **Definition of Done** — an optional checklist set by admins that every ticket must complete before Done (enforced by the database)
 
 ---
 

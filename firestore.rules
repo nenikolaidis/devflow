@@ -58,8 +58,8 @@ service cloud.firestore {
     match /tickets/{ticketId} {
 
       function ticketFields() {
-        return ['id', 'number', 'title', 'description', 'priority', 'dueDate',
-                'owner', 'reviewer', 'linkUrl', 'labels', 'status',
+        return ['id', 'number', 'title', 'description', 'priority', 'dueDate', 'type',
+                'owner', 'reviewer', 'reviewers', 'linkUrl', 'labels', 'status', 'dod',
                 'archived', 'archivedBy', 'archivedAt',
                 'blocked', 'blockedReason', 'blockedBy', 'blockedAt',
                 'createdBy', 'createdAt', 'lastActivityAt'];
@@ -74,6 +74,9 @@ service cloud.firestore {
           && optString(d, 'description', 20000)
           && optString(d, 'owner', 200)
           && optString(d, 'reviewer', 200)
+          && (!('type' in d) || d.type in ['task', 'bug', 'feature', 'security', 'maintenance', 'analysis', 'research'])
+          && d.get('reviewers', []) is list && d.get('reviewers', []).size() <= 5
+          && d.get('dod', {}) is map && d.get('dod', {}).size() <= 10
           && optString(d, 'linkUrl', 2000)
           && (d.get('linkUrl', '') == '' || d.linkUrl.matches('^https?://.+'))
           && optString(d, 'dueDate', 10)
@@ -84,18 +87,38 @@ service cloud.firestore {
           && optString(d, 'blockedReason', 500);
       }
 
+      // A ticket has reviewers in `reviewers` (a list of lowercase emails);
+      // tickets from before multiple reviewers have a single `reviewer`.
+      function hasReviewer(d) {
+        return d.get('reviewers', []).size() > 0 || d.get('reviewer', '') != '';
+      }
+      function isReviewer(d) {
+        return myEmail() in d.get('reviewers', []) || d.get('reviewer', '').lower() == myEmail();
+      }
+
+      // Definition of Done: when an admin has set required items
+      // (config/settings.dodRequired), every one must be ticked (true) in
+      // the ticket's `dod` map before it can move to Done.
+      function dodComplete() {
+        let settingsPath = /databases/$(database)/documents/config/settings;
+        let dod = request.resource.data.get('dod', {});
+        return dod.values().hasOnly([true])
+          && (!exists(settingsPath) || dod.keys().hasAll(get(settingsPath).data.get('dodRequired', [])));
+      }
+
       // Workflow rules for status moves:
       // - only the four current stages can be moved into
-      // - "In review" needs a reviewer on the ticket
-      // - "Done" can only be set by a PM/admin, or by the ticket's reviewer
-      //   when that reviewer isn't also the owner (no closing your own work)
+      // - "In review" needs at least one reviewer
+      // - "Done" can only be set by a PM/admin, or by one of the ticket's
+      //   reviewers who isn't also its owner (no closing your own work)
+      // - "Done" also needs the Definition of Done ticked, for everyone
       function statusMoveAllowed() {
         let next = request.resource.data.status;
         return next in ['backlog', 'in_progress', 'in_review', 'done']
-          && (next != 'in_review' || request.resource.data.get('reviewer', '') != '')
-          && (next != 'done' || isAdminOrPM()
-              || (resource.data.get('reviewer', '').lower() == myEmail()
-                  && resource.data.get('owner', '').lower() != myEmail()));
+          && (next != 'in_review' || hasReviewer(request.resource.data))
+          && (next != 'done' || (
+                (isAdminOrPM() || (isReviewer(resource.data) && resource.data.get('owner', '').lower() != myEmail()))
+                && dodComplete()));
       }
 
       allow read: if isApproved();
@@ -187,12 +210,16 @@ service cloud.firestore {
 
     /* ---------------- BOARD SETTINGS ---------------- */
 
-    // Discord webhook URL, WIP limits, stale threshold. Approved users can
+    // Discord webhook URL, WIP limits, stale threshold, the label list and
+    // the Definition of Done items. Approved users can
     // read them; only admins can change them. Keeping the webhook here
     // keeps it out of the site's source code.
     match /config/settings {
       function validSettings(d) {
-        return d.keys().hasOnly(['discordWebhookUrl', 'staleDays', 'wipLimits', 'updatedBy', 'updatedAt'])
+        return d.keys().hasOnly(['discordWebhookUrl', 'staleDays', 'wipLimits', 'labels', 'dodItems', 'dodRequired', 'updatedBy', 'updatedAt'])
+          && d.get('labels', []) is list && d.get('labels', []).size() <= 30
+          && d.get('dodItems', []) is list && d.get('dodItems', []).size() <= 10
+          && d.get('dodRequired', []) is list && d.get('dodRequired', []).size() <= 10
           && optString(d, 'discordWebhookUrl', 300)
           && (d.get('discordWebhookUrl', '') == ''
               || d.discordWebhookUrl.matches('^https://(ptb[.]|canary[.])?(discord|discordapp)[.]com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$'))
@@ -236,7 +263,9 @@ service cloud.firestore {
     match /profiles/{email} {
       allow read: if isApproved();
       allow write: if isApproved() && myEmail() == email
-        && request.resource.data.keys().hasOnly(['name', 'username', 'bio', 'timezone', 'lastActive', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['name', 'username', 'bio', 'timezone', 'title', 'availability', 'lastActive', 'createdAt'])
+        && optString(request.resource.data, 'title', 60)
+        && request.resource.data.get('availability', 'available') in ['available', 'busy', 'away']
         && optString(request.resource.data, 'name', 100)
         && optString(request.resource.data, 'username', 50)
         && optString(request.resource.data, 'bio', 500)

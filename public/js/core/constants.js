@@ -98,24 +98,65 @@ export const STATUS_COLOR = {
   done: 'var(--green)'
 };
 
-export const ALL_LABELS = [
-  'bug', 'feature', 'security', 'maintenance', 'documentation', 'testing',
-  'frontend', 'backend', 'database', 'analysis'
+/* ---------------- TICKET TYPES ---------------- */
+// What kind of work a ticket is. Each type has an icon (core/icons.js) and
+// a color. Keys are stored in Firestore — keep in sync with firestore.rules.
+export const TICKET_TYPES = [
+  { key: 'task', label: 'Task', icon: 'checkSquare', color: 'var(--text-2)' },
+  { key: 'bug', label: 'Bug', icon: 'bug', color: 'var(--red)' },
+  { key: 'feature', label: 'Feature', icon: 'sparkle', color: 'var(--blue)' },
+  { key: 'security', label: 'Security', icon: 'shield', color: 'var(--purple)' },
+  { key: 'maintenance', label: 'Maintenance', icon: 'wrench', color: 'var(--amber)' },
+  { key: 'analysis', label: 'Business analysis', icon: 'chartLine', color: 'var(--teal)' },
+  { key: 'research', label: 'Research', icon: 'flask', color: 'var(--pink)' }
+];
+export const TYPE_KEYS = TICKET_TYPES.map(t => t.key);
+
+export function typeInfo(key){
+  return TICKET_TYPES.find(t => t.key === key) || TICKET_TYPES[0];
+}
+
+/**
+ * A ticket's type. Tickets created before types existed get one from
+ * their labels (a "bug" label → Bug), so nothing needs migrating.
+ */
+export function typeOf(t){
+  if(t.type && TYPE_KEYS.includes(t.type)) return t.type;
+  const labels = t.labels || [];
+  return ['bug', 'security', 'feature', 'maintenance', 'analysis', 'research'].find(k => labels.includes(k)) || 'task';
+}
+
+/* ---------------- LABELS (topic areas) ---------------- */
+// Admins manage the label list in Team → Board settings (stored in
+// config/settings.labels). Colors are names from LABEL_PALETTE.
+export const LABEL_PALETTE = {
+  gray: 'var(--muted)', red: 'var(--red)', amber: 'var(--amber)', green: 'var(--green)',
+  teal: 'var(--teal)', blue: 'var(--blue)', purple: 'var(--purple)', pink: 'var(--pink)'
+};
+export const DEFAULT_LABELS = [
+  { name: 'frontend', color: 'pink' },
+  { name: 'backend', color: 'green' },
+  { name: 'database', color: 'amber' },
+  { name: 'testing', color: 'teal' },
+  { name: 'documentation', color: 'blue' },
+  { name: 'design', color: 'purple' }
 ];
 
-// The small colored dot shown before each label.
-export const LABEL_COLOR = {
-  bug: 'var(--red)',
-  feature: 'var(--blue)',
-  security: 'var(--purple)',
-  maintenance: 'var(--muted)',
-  documentation: 'var(--teal)',
-  testing: 'var(--amber)',
-  frontend: 'var(--pink)',
-  backend: 'var(--green)',
-  database: 'var(--amber)',
-  analysis: 'var(--teal)'
-};
+/* ---------------- REVIEWERS ---------------- */
+export const MAX_REVIEWERS = 5;
+
+/** A ticket's reviewers as a list (older tickets stored a single `reviewer`). */
+export function reviewersOf(t){
+  if(Array.isArray(t.reviewers)) return t.reviewers;
+  return t.reviewer ? [t.reviewer] : [];
+}
+
+/* ---------------- PROFILES ---------------- */
+export const AVAILABILITY = [
+  { key: 'available', label: 'Available', color: 'var(--green)' },
+  { key: 'busy', label: 'Busy', color: 'var(--amber)' },
+  { key: 'away', label: 'Away', color: 'var(--muted)' }
+];
 
 /* ---------------- FIELD LIMITS (mirrored in firestore.rules) ---------------- */
 export const LIMITS = {
@@ -126,17 +167,23 @@ export const LIMITS = {
   BLOCKED_REASON: 500,
   PROFILE_NAME: 100,
   PROFILE_USERNAME: 50,
-  PROFILE_BIO: 500
+  PROFILE_BIO: 500,
+  PROFILE_TITLE: 60,
+  LABEL_NAME: 24,
+  MAX_LABELS: 30,
+  DOD_ITEM: 120,
+  MAX_DOD_ITEMS: 10
 };
 
 /* ---------------- TABLE VIEW ---------------- */
 export const TABLE_COLUMNS = [
   { key: 'id', label: 'ID' },
+  { key: 'type', label: 'Type' },
   { key: 'title', label: 'Title' },
   { key: 'status', label: 'Status' },
   { key: 'priority', label: 'Priority' },
   { key: 'owner', label: 'Owner' },
-  { key: 'reviewer', label: 'Reviewer' },
+  { key: 'reviewers', label: 'Reviewers' },
   { key: 'labels', label: 'Labels' },
   { key: 'dueDate', label: 'Due' }
 ];
@@ -159,30 +206,39 @@ export const FALLBACK_TIMEZONES = [
 ];
 
 /* ---------------- TICKET TEMPLATES ---------------- */
-// Starting points for the "New ticket" form. Picking one pre-fills the
-// description scaffold plus a sensible default priority/labels; the
-// person can still edit everything afterward.
+// Starting points for the "New ticket" form. Picking one sets the type,
+// a sensible priority and a description scaffold. Descriptions support
+// simple formatting (core/markdown.js): "## " headings, "- " bullets,
+// "1. " numbered lines and "- [ ] " checklist items.
 export const TICKET_TEMPLATES = [
-  { id: 'blank', name: 'Blank ticket', priority: null, labels: [], description: '' },
+  { id: 'blank', name: 'Blank ticket', type: 'task', priority: null, description: '' },
   {
-    id: 'bug', name: 'Bug report', priority: 'high', labels: ['bug'],
-    description: 'Steps to reproduce\n1. \n2. \n3. \n\nExpected result\n\n\nActual result\n\n\nEnvironment (browser / OS / version)\n'
+    id: 'task', name: 'Task', type: 'task', priority: 'medium',
+    description: '## What needs doing\n\n\n## Done when\n- [ ] \n- [ ] \n'
   },
   {
-    id: 'feature', name: 'Feature request', priority: 'medium', labels: ['feature'],
-    description: 'Problem / motivation\n\n\nProposed solution\n\n\nAlternatives considered\n'
+    id: 'bug', name: 'Bug report', type: 'bug', priority: 'high',
+    description: '## Steps to reproduce\n1. \n2. \n3. \n\n## Expected result\n\n\n## Actual result\n\n\n## Environment\nBrowser / OS / version: \n\n## Fix checklist\n- [ ] Reproduced\n- [ ] Fixed\n- [ ] Test added\n'
   },
   {
-    id: 'security', name: 'Security issue', priority: 'critical', labels: ['security'],
-    description: 'Vulnerability description\n\n\nImpact\n\n\nSteps to reproduce / proof of concept\n\n\nSuggested remediation\n'
+    id: 'feature', name: 'Feature request', type: 'feature', priority: 'medium',
+    description: '## Problem / motivation\n\n\n## Proposed solution\n\n\n## Alternatives considered\n\n\n## Acceptance criteria\n- [ ] \n- [ ] \n'
   },
   {
-    id: 'maintenance', name: 'Maintenance task', priority: 'low', labels: ['maintenance'],
-    description: 'What needs maintaining\n\n\nWhy now\n\n\nRisk if skipped\n'
+    id: 'security', name: 'Security issue', type: 'security', priority: 'critical',
+    description: '## Vulnerability\n\n\n## Impact\n\n\n## Steps to reproduce / proof of concept\n\n\n## Suggested remediation\n\n\n## Checklist\n- [ ] Fix deployed\n- [ ] Affected users / data reviewed\n- [ ] Regression test added\n'
   },
   {
-    id: 'business_analysis', name: 'Business analysis', priority: 'medium', labels: ['analysis'],
-    description: 'Business objective\n\n\nStakeholders\n\n\nCurrent process (as-is)\n\n\nProposed process (to-be)\n\n\nRequirements (functional / non-functional)\n\n\nAcceptance criteria\n\n\nSuccess metrics / KPIs\n\n\nAssumptions & constraints\n\n\nRisks & dependencies\n'
+    id: 'maintenance', name: 'Maintenance task', type: 'maintenance', priority: 'low',
+    description: '## What needs maintaining\n\n\n## Why now\n\n\n## Risk if skipped\n\n\n## Checklist\n- [ ] \n'
+  },
+  {
+    id: 'business_analysis', name: 'Business analysis', type: 'analysis', priority: 'medium',
+    description: '## Business objective\n\n\n## Stakeholders\n\n\n## Current process (as-is)\n\n\n## Proposed process (to-be)\n\n\n## Requirements (functional / non-functional)\n\n\n## Acceptance criteria\n- [ ] \n- [ ] \n\n## Success metrics / KPIs\n\n\n## Assumptions & constraints\n\n\n## Risks & dependencies\n'
+  },
+  {
+    id: 'research', name: 'Research / spike', type: 'research', priority: 'medium',
+    description: '## Question to answer\n\n\n## Time box\n\n\n## Options to compare\n- \n- \n\n## Findings\n\n\n## Recommendation\n\n\n## Done when\n- [ ] Findings written up\n- [ ] Follow-up tickets created\n'
   }
 ];
 
@@ -190,8 +246,11 @@ export const TICKET_TEMPLATES = [
 // Stored in Firestore at config/settings (admins edit them in the Team
 // tab). These defaults apply until an admin saves.
 // wipLimits: status key -> max tickets in that column (0 = no limit).
+// labels: [{ name, color }]; dodItems: [{ id, text }] (empty = no Definition of Done).
 export const DEFAULT_SETTINGS = {
   discordWebhookUrl: '',
   staleDays: 5,
-  wipLimits: { backlog: 0, in_progress: 5, in_review: 3, done: 0 }
+  wipLimits: { backlog: 0, in_progress: 5, in_review: 3, done: 0 },
+  labels: DEFAULT_LABELS,
+  dodItems: []
 };

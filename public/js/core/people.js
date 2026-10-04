@@ -3,7 +3,7 @@
    initials avatar. Reads profiles from state (no Firestore calls).
 ========================================================= */
 import { state } from './state.js';
-import { AVATAR_COLORS } from './constants.js';
+import { AVATAR_COLORS, AVAILABILITY } from './constants.js';
 import { html } from './html.js';
 import { initials } from './format.js';
 import { normEmail } from './permissions.js';
@@ -35,4 +35,24 @@ export function avatarHtml(email, size = 20){
   const color = avatarColor(email);
   // Tint background; initials mixed toward the text color so they stay readable in both themes.
   return html`<span class="avatar" style="${box}background:${color}2E;color:color-mix(in srgb, ${color} 55%, var(--text));" title="${label}">${initials(label)}</span>`;
+}
+
+/** "14:05" in the person's own time zone ('' if unknown). */
+export function localTime(email){
+  const tz = profileOf(email).timezone;
+  if(!tz) return '';
+  try{ return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone: tz }).format(new Date()); }
+  catch(e){ return ''; }
+}
+
+/** { key, label, color } of the person's status (Available when not set). */
+export function availabilityOf(email){
+  const key = profileOf(email).availability;
+  return AVAILABILITY.find(a => a.key === key) || AVAILABILITY[0];
+}
+
+/** Small status dot + label (safe html). */
+export function availabilityBadge(email){
+  const a = availabilityOf(email);
+  return html`<span class="availability"><span class="label-dot" style="background:${a.color}"></span>${a.label}</span>`;
 }

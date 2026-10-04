@@ -17,6 +17,7 @@ import { db, serverTime, deleteField } from './firebase.js';
 import { state } from '../core/state.js';
 import { COLLECTIONS, DOCS, STATUS, ACTIVITY, normalizeStatus } from '../core/constants.js';
 import { normEmail } from '../core/permissions.js';
+import { cleanDod } from '../core/workflow.js';
 
 /* ---------------- REFERENCES ---------------- */
 export const refs = {
@@ -97,10 +98,14 @@ export function updateTicket(fid, fields){
   return refs.ticket(fid).update(fields);
 }
 
-/** Moves tickets to a status in one batch and logs each move. */
+/**
+ * Moves tickets to a status in one batch and logs each move. Moving to
+ * Done also sends the ticket's Definition of Done trimmed to the current
+ * items, which firestore.rules checks.
+ */
 export async function setStatus(tickets, status){
   const batch = db.batch();
-  tickets.forEach(t => batch.update(refs.ticket(t.firestoreId), { status }));
+  tickets.forEach(t => batch.update(refs.ticket(t.firestoreId), status === STATUS.DONE ? { status, dod: cleanDod(t) } : { status }));
   await batch.commit();
   tickets.forEach(t => logActivity(t.firestoreId, { type: ACTIVITY.STATUS_CHANGE, from: normalizeStatus(t.status), to: status }));
 }
@@ -125,6 +130,12 @@ export async function setBlocked(fid, reason){
     await refs.ticket(fid).update({ blocked: false, blockedReason: deleteField(), blockedBy: deleteField(), blockedAt: deleteField() });
     logActivity(fid, { type: ACTIVITY.UNBLOCKED });
   }
+}
+
+/** Ticks or unticks one Definition of Done item and logs it. */
+export async function setDodItem(t, item, done){
+  await refs.ticket(t.firestoreId).update({ [`dod.${item.id}`]: done });
+  logActivity(t.firestoreId, { type: ACTIVITY.EDIT, summary: `definition of done: ${done ? '✓' : '✗'} ${item.text}`.slice(0, 200) });
 }
 
 /** Permanently deletes an archived ticket. Admins only. */

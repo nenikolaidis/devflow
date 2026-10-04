@@ -31,14 +31,15 @@ public/js/
 │   ├── state.js           the shared in-memory state object
 │   ├── events.js          tiny pub/sub: on(EVENT, fn) / emit(EVENT)
 │   ├── html.js            html`` safe templates (auto-escaping), escapeHtml, raw
-│   ├── icons.js           inline SVG icons: icon(name), statusIcon, priorityIcon, logo
+│   ├── icons.js           inline SVG icons: icon(name), statusIcon, priorityIcon, typeIcon, logo
+│   ├── markdown.js        safe description formatting + checklist helpers
 │   ├── theme.js           light/dark: follow the system, toggle, remember the choice
 │   ├── ui.js              showToast, openModal, confirmDialog, promptDialog
 │   ├── format.js          dates, safeUrl, initials, friendly error messages
 │   ├── permissions.js     myEmail, isMe, isAdmin, canModerate
 │   ├── people.js          displayName, avatarHtml (from profiles in state)
 │   ├── settings.js        getSettings() — board settings with defaults
-│   └── workflow.js        move rules, WIP limits, stale & overdue detection
+│   └── workflow.js        move rules (reviewers, Definition of Done), WIP limits, stale & overdue
 │
 ├── data/                  the only code that talks to Firestore
 │   ├── firebase.js        initialises Firebase (and local emulators with ?emulators)
@@ -57,10 +58,11 @@ public/js/
 │   ├── ticket-actions.js  move / archive / block / save — with toasts & notifications
 │   ├── comments.js        comment thread with edit / hide / delete
 │   ├── activity-log.js    read-only audit trail
+│   ├── my-work.js         "My work" tab: assigned to me, waiting for my review, recently done
 │   ├── dashboard.js       stats and lists
 │   ├── profiles.js        profile dialog
 │   ├── team.js            Team tab: members, roles, access requests
-│   └── settings-panel.js  Team tab: board settings
+│   └── settings-panel.js  Team tab: board settings (webhook, labels, Definition of Done, WIP)
 │
 └── integrations/
     ├── discord.js         posts ticket events to a Discord webhook
@@ -120,13 +122,16 @@ Email addresses used as document ids are always **lowercase**.
 | `id` | string | `TASK-001`; never changes |
 | `number` | int | must equal `meta/counters.ticketNumber` at creation (rules check this) |
 | `title` | string | 1–200 chars |
-| `description` | string | ≤ 20,000 |
+| `description` | string | ≤ 20,000; simple formatting incl. `- [ ]` checklists (`core/markdown.js`) |
+| `type` | string | `task` · `bug` · `feature` · `security` · `maintenance` · `analysis` · `research`. Missing on older tickets — `typeOf()` infers it from their labels |
 | `priority` | string | `critical` · `high` · `medium` · `low` |
 | `status` | string | `backlog` · `in_progress` · `in_review` · `done` (old: `todo`, `code_review`, `testing` still readable) |
-| `owner`, `reviewer` | string | usually an email; free text allowed; ≤ 200 |
+| `owner` | string | usually a lowercase email; free text allowed; ≤ 200 |
+| `reviewers` | string[] | up to 5, lowercase emails (free text allowed). Older tickets have a single `reviewer` string instead — read both with `reviewersOf()`; saving converts to `reviewers` |
+| `dod` | map | Definition of Done ticks: `{ itemId: true/false }` |
 | `dueDate` | string | `YYYY-MM-DD` or empty |
 | `linkUrl` | string | `http(s)://…` or empty |
-| `labels` | string[] | ≤ 20 |
+| `labels` | string[] | ≤ 20; names from the board's label list |
 | `blocked`, `blockedReason`, `blockedBy`, `blockedAt` | | set together; `blockedBy` must be the writer |
 | `archived`, `archivedBy`, `archivedAt` | | admins/PMs only |
 | `createdBy`, `createdAt` | | never change |
@@ -142,9 +147,9 @@ Subcollections:
 |---|---|---|
 | `allowlist/{email}` | `role` (`developer`·`pm`·`admin`), `addedBy`, `addedAt` | admins |
 | `accessRequests/{email}` | `email`, `requestedAt` | the verified user themselves; admins delete |
-| `profiles/{email}` | `name`, `username`, `bio`, `timezone`, `lastActive`, `createdAt` | the user themselves |
+| `profiles/{email}` | `name`, `username`, `bio`, `title`, `availability` (`available`·`busy`·`away`), `timezone`, `lastActive`, `createdAt` | the user themselves |
 | `meta/counters` | `ticketNumber` (only ever increases) | any approved user, inside the create transaction |
-| `config/settings` | `discordWebhookUrl`, `staleDays`, `wipLimits{status: n}`, `updatedBy`, `updatedAt` | admins |
+| `config/settings` | `discordWebhookUrl`, `staleDays`, `wipLimits{status: n}`, `labels[{name, color}]`, `dodItems[{id, text}]`, `dodRequired[id]` (what the rules check), `updatedBy`, `updatedAt` | admins |
 
 ---
 
@@ -153,8 +158,9 @@ Subcollections:
 | Action | Developer | PM | Admin |
 |---|:-:|:-:|:-:|
 | Read everything, create & edit tickets, comment | ✓ | ✓ | ✓ |
-| Move to In review (ticket needs a reviewer) | ✓ | ✓ | ✓ |
-| Move to Done | only as the ticket's reviewer, and not if also its owner | ✓ | ✓ |
+| Move to In review (ticket needs at least one reviewer) | ✓ | ✓ | ✓ |
+| Move to Done | only as one of the ticket's reviewers, and not if also its owner | ✓ | ✓ |
+| …and when a Definition of Done is set | only once every item is ticked | same | same |
 | Archive / restore tickets, hide comments | | ✓ | ✓ |
 | Permanently delete an archived ticket | | | ✓ |
 | Approve people, change roles, board settings | | | ✓ |
@@ -191,9 +197,13 @@ update `tests/firestore.rules.test.js`.
 
 ## Common changes
 
-**Add a label** — add it to `ALL_LABELS` and give it a dot color in
-`LABEL_COLOR` (both in `core/constants.js`). The filter and forms pick it
-up automatically.
+**Add a label** — no code change: an admin adds it in Team → Board
+settings. (`DEFAULT_LABELS` in `core/constants.js` is only the starting
+list before anything is saved.)
+
+**Add a ticket type** — add it to `TICKET_TYPES` in `core/constants.js`
+(with an icon from `core/icons.js`) and to the `type in [...]` list in
+`validTicket()` in `firestore.rules`.
 
 **Add a ticket template** — add an entry to `TICKET_TEMPLATES` in
 `core/constants.js`.

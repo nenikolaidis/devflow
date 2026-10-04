@@ -25,7 +25,8 @@ export const auth = firebase.auth();
 export const db = firebase.firestore();
 
 if(useEmulators){
-  auth.useEmulator('http://127.0.0.1:9099');
+  // Firebase's own warning strip covers the bottom of the page; we log our own notice instead.
+  auth.useEmulator('http://127.0.0.1:9099', { disableWarnings: true });
   db.useEmulator('127.0.0.1', 8080);
   console.info('Devflow: using local emulators (demo-devflow). No real data is touched.');
 }

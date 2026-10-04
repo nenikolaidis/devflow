@@ -16,7 +16,10 @@ export function describeActivity(entry){
     case ACTIVITY.CREATED: return `${who} created this ticket`;
     case ACTIVITY.STATUS_CHANGE: return `${who} moved status: ${statusLabel(entry.from)} → ${statusLabel(entry.to)}`;
     case ACTIVITY.ASSIGNMENT: return `${who} assigned this to ${displayName(entry.to)}`;
-    case ACTIVITY.REVIEWER: return entry.to ? `${who} set the reviewer to ${displayName(entry.to)}` : `${who} removed the reviewer`;
+    case ACTIVITY.REVIEWER: {
+      const names = (entry.to || '').split(',').map(e => e.trim()).filter(Boolean).map(displayName);
+      return names.length ? `${who} set the reviewers to ${names.join(', ')}` : `${who} removed the reviewers`;
+    }
     case ACTIVITY.EDIT: return `${who} updated ${entry.summary}`;
     case ACTIVITY.BLOCKED: return `${who} marked this blocked: ${entry.reason}`;
     case ACTIVITY.UNBLOCKED: return `${who} cleared the blocked flag`;
