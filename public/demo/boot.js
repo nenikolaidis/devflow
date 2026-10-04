@@ -57,7 +57,7 @@ function demoBar(){
 
   const link = document.createElement('a');
   link.className = 'demo-link';
-  link.href = 'https://github.com/nenikolaidis/devflow.github.io';
+  link.href = 'https://github.com/nenikolaidis/devflow';
   link.target = '_blank';
   link.rel = 'noopener';
   link.textContent = 'Source on GitHub';

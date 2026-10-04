@@ -1,6 +1,6 @@
 # devflow — ticket tracking for development teams
 
-[![Test and deploy](https://github.com/nenikolaidis/devflow.github.io/actions/workflows/deploy.yml/badge.svg)](https://github.com/nenikolaidis/devflow.github.io/actions/workflows/deploy.yml)
+[![Test and deploy](https://github.com/nenikolaidis/devflow/actions/workflows/deploy.yml/badge.svg)](https://github.com/nenikolaidis/devflow/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 [![Live demo](https://img.shields.io/badge/demo-try%20it-f5a524.svg)](https://devflow-board-11146.web.app/demo/)
 
