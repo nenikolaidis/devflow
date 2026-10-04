@@ -1,6 +1,12 @@
 # devflow — ticket tracking for development teams
 
+[![Test and deploy](https://github.com/nenikolaidis/devflow.github.io/actions/workflows/deploy.yml/badge.svg)](https://github.com/nenikolaidis/devflow.github.io/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+[![Live demo](https://img.shields.io/badge/demo-try%20it-f5a524.svg)](https://devflow-board-11146.web.app/demo/)
+
 **Plan, track and ship software work: projects, tickets, sprints and code reviews on a real-time board, with roles and security built in.**
+
+Built with plain JavaScript, [Firebase](https://firebase.google.com) (Firestore, Auth, Hosting) and GitHub Actions. No framework and no build step.
 
 I built devflow to run day-to-day work on a development team: tickets move through a short, enforced workflow, everyone sees changes instantly, and the people who should approve work are the only ones who can close it. It runs entirely on Firebase's free tier and is hosted as static files, so there is no server to maintain.
 
@@ -96,6 +102,22 @@ npm run serve        # then open http://localhost:5050/?emulators
 ```
 
 With `?emulators` in the address the app talks to the local emulators, so you can't touch real data.
+
+Project layout:
+
+```text
+public/                 the website (the only folder that gets deployed)
+├── js/core/            building blocks: state, events, safe HTML, permissions — no database code
+├── js/data/            all Firestore access: one-off reads/writes and live listeners
+├── js/features/        one file per screen; manage/ holds the Manage area
+├── js/integrations/    Discord and email
+└── demo/               the public demo: the same app on in-memory sample data
+firestore.rules         database security rules — the real security boundary
+tests/                  security-rules tests and end-to-end browser tests
+scripts/                the weekly Discord summary job
+```
+
+[ARCHITECTURE.md](ARCHITECTURE.md) explains every file.
 
 ---
 
