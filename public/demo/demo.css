@@ -15,8 +15,10 @@
 .demo-link{ color:var(--text); font-weight:500; }
 .demo-loading{ padding:40px 20px; text-align:center; color:var(--muted); font-family:system-ui, sans-serif; }
 
-@media (max-width:700px){
-  .demo-bar{ padding:7px 16px; }
-  .demo-text{ flex-basis:100%; order:3; }
-  .demo-link{ display:none; }
+@media (max-width:720px){
+  .demo-bar{ padding:7px 14px; gap:4px 10px; }
+  .demo-person{ flex:1; min-width:0; font-size:0; }  /* hide "Viewing as" text, keep the menu */
+  .demo-person select{ flex:1; min-width:0; min-height:30px; font-size:13px; }
+  .demo-text{ flex-basis:100%; order:3; font-size:12px; }
+  .demo-text-long,.demo-link{ display:none; }
 }

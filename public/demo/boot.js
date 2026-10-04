@@ -34,7 +34,10 @@ function demoBar(){
 
   const text = document.createElement('span');
   text.className = 'demo-text';
-  text.textContent = 'Sample data that lives only in this tab. Nothing is saved — reload to start over.';
+  const long = document.createElement('span');
+  long.className = 'demo-text-long';
+  long.textContent = 'Sample data that lives only in this tab. ';
+  text.append(long, 'Nothing is saved — reload to start over.');
 
   const label = document.createElement('label');
   label.className = 'demo-person';
