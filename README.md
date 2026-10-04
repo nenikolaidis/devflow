@@ -13,7 +13,7 @@ Devflow turns a simple board into a multi-user project management app:
 Built with:
 
 - **Firebase** — authentication, database, real-time synchronization, and hosting
-- **GitHub** (private repo) — source code, with automatic deploys to Firebase Hosting
+- **GitHub** — source code, with automatic deploys to Firebase Hosting
 
 Setup takes approximately **20–30 minutes** — see [SETUP.md](SETUP.md), then [SECURITY.md](SECURITY.md).
 

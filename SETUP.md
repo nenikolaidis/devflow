@@ -6,7 +6,7 @@ Changes sync to everyone instantly.
 
 It has three parts:
 1. **Firebase** (free) — handles login, stores the tickets in real time, and hosts the app.
-2. **A private GitHub repo** — holds the code; every push to `main` deploys automatically.
+2. **A GitHub repo** (public or private) — holds the code; every push to `main` deploys automatically. No secrets are stored in it.
 3. **SECURITY.md** — one-time hardening settings. Do these after setup.
 
 Total setup time: about 20–30 minutes, one time only.
@@ -103,9 +103,9 @@ firebase deploy --only hosting,firestore:rules
 Your board is now live at `https://<project-id>.web.app`. That domain is
 already an authorized login domain, so there's nothing to add in Firebase.
 
-## 7. Keep the code in a private GitHub repo, with auto-deploy
+## 7. Keep the code on GitHub, with auto-deploy
 
-1. Create a **private** GitHub repository and push this folder to it.
+1. Create a GitHub repository (public is fine — nothing secret is in the code) and push this folder to it.
 2. In the folder, run `firebase init hosting:github` and follow the prompts. It creates a deploy-only service account and stores it as a GitHub secret. Say **No** when asked to overwrite `firebase.json` or the workflow files.
 3. Make sure the secret is called `FIREBASE_SERVICE_ACCOUNT` (GitHub → **Settings → Secrets and variables → Actions**), or update the name in `.github/workflows/deploy.yml`.
 4. From now on, every push to `main` deploys the site (watch it in the **Actions** tab). Rules changes are deployed by hand with `firebase deploy --only firestore:rules`, so they're always a deliberate step.

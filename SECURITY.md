@@ -10,7 +10,7 @@ top to bottom; each step says where to click.
 |---|---|---|
 | **Firestore rules** | All data: who can read/write what, and what shape the data must have | `firestore.rules` |
 | **Verified email** | Stops someone registering a teammate's address before they do | Rules + `public/js/auth.js` |
-| **Private repo** | Your code and its history | GitHub settings |
+| **No secrets in the repo** | The repo is public; webhook and keys live in Firestore/GitHub secrets | GitHub settings |
 | **Firebase Hosting headers** | Limits which scripts/connections the page can use; blocks framing; asks search engines not to index | `firebase.json` |
 | **Pinned scripts (SRI)** | If a CDN is ever tampered with, the browser refuses the changed script | `public/index.html` |
 | **API key restriction + App Check** | Only your site can call your Firebase project | Google Cloud / Firebase console |
@@ -28,7 +28,7 @@ else — no tickets, names, comments or team list.
 
 ### 1. Rotate the Discord webhook (urgent)
 
-The old webhook URL is in this repo's git history, which was public.
+The old webhook URL is in this repo's public git history. Anyone can still read it there, so it must be deleted in Discord.
 
 1. Discord → your channel → **Edit Channel → Integrations → Webhooks** → delete the old webhook.
 2. Create a new one and copy its URL.
@@ -36,20 +36,24 @@ The old webhook URL is in this repo's git history, which was public.
 
 The new URL is stored in Firestore, never in the code.
 
-### 2. Make the GitHub repo private
+### 2. GitHub repo settings (public repo)
 
-1. GitHub → the repo → **Settings → General** → scroll to **Danger Zone → Change repository visibility → Make private**.
-2. **Settings → Pages** → under *Build and deployment*, set **Source** to **None** (or delete the Pages site) — the app moves to Firebase Hosting.
-3. **Settings → Branches → Add branch ruleset** (or *branch protection rule*) for `main`:
+The repo is **public on purpose**, as a portfolio piece. That's safe because
+nothing secret is in the code: the Firebase config isn't a secret, the
+Discord webhook lives in Firestore, and all data is protected by the rules.
+What people can see is *how* Devflow is built, never your tickets, comments
+or team.
+
+1. **Settings → Pages** → under *Build and deployment*, set **Source** to **None**. The app now runs on Firebase Hosting, and the old Pages copy would be outdated.
+2. **Settings → Branches → Add branch ruleset** (or *branch protection rule*) for `main`:
    - Require a pull request before merging
    - Block force pushes
    - Restrict deletions
-4. **Settings → Code security**: turn on **Dependabot alerts** and **Dependabot security updates**. Turn on **Secret scanning / push protection** if your plan offers it.
-5. **Settings → Collaborators**: check only the people who should see the code are listed.
-
-> Making the repo private hides the history going forward, but anyone who
-> already cloned it keeps a copy. That's why step 1 (rotating the webhook)
-> matters even after the repo is private.
+3. **Settings → Code security**: turn on **Dependabot alerts**, **Secret scanning** and **Push protection** (free for public repos). Push protection blocks a push if it contains something that looks like a key or webhook URL.
+4. **Settings → Collaborators**: only people who should be able to *change* the code (anyone can read it).
+5. Rules for a public repo:
+   - Never commit webhook URLs, service-account keys, `.env` files or real ticket data.
+   - The EmailJS public key in `public/js/notify.js` is designed to be public. In EmailJS → **Account → Security**, add your site's domain to the allowed list so others can't send email with it.
 
 ### 3. Require verified emails — and verify your own account
 
@@ -68,7 +72,7 @@ Firebase console → **Authentication → Settings**:
 2. **User actions** → keep **Email enumeration protection** **on** (stops attackers checking which emails have accounts).
 3. **Authorized domains** → keep `devflow-board-11146.web.app`, `devflow-board-11146.firebaseapp.com` and `localhost`. **Remove** `nenikolaidis.github.io` once the move is done.
 
-### 5. Host on Firebase Hosting (deploys from the private repo)
+### 5. Host on Firebase Hosting (deploys from GitHub)
 
 One-time setup on your computer (needs [Node.js](https://nodejs.org)):
 
@@ -80,6 +84,9 @@ firebase deploy --only hosting,firestore:rules
 ```
 
 Your site is now at **https://devflow-board-11146.web.app**.
+
+(If `npm install -g` fails with a permission error, skip it and type
+`npx firebase-tools` wherever these steps say `firebase`.)
 
 Automatic deploys on every push to `main` (`.github/workflows/deploy.yml`):
 
