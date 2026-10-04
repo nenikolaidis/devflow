@@ -30,8 +30,9 @@ jobs:
   build_and_preview:
     name: Preview deploy
     needs: test
-    # Forks don't get the deploy secret, so only preview PRs from this repo.
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # Forks and Dependabot don't get the deploy secret, so only preview PRs
+    # opened by people in this repo. Dependabot PRs still run the tests above.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
