@@ -3,28 +3,45 @@
    that shows tickets: badges, chips, filtering and sorting.
 ========================================================= */
 import { state } from '../core/state.js';
-import { STATUSES, PRIORITIES, normalizeStatus } from '../core/constants.js';
+import { STATUSES, PRIORITIES, LABEL_COLOR, normalizeStatus } from '../core/constants.js';
 import { html } from '../core/html.js';
-import { staleDays } from '../core/workflow.js';
+import { capitalize, formatDate } from '../core/format.js';
+import { icon, priorityIcon } from '../core/icons.js';
+import { staleDays, isOverdue } from '../core/workflow.js';
 
 export function findTicket(firestoreId){
   return state.tickets.find(t => t.firestoreId === firestoreId);
 }
 
-export function priorityPill(priority){
-  return html`<span class="priority-pill p-${priority}">${priority}</span>`;
+/** Priority icon, with the name as a tooltip (icon only, for cards). */
+export function priorityBadge(priority){
+  return html`<span class="priority-wrap" title="${capitalize(priority)} priority">${priorityIcon(priority)}<span class="sr-only">${capitalize(priority)} priority</span></span>`;
 }
 
-export function labelChips(labels){
-  return (labels || []).map(l => html`<span class="chip">${l}</span>`);
+/** Priority icon + name (for the table and the ticket panel). */
+export function priorityWithLabel(priority){
+  return html`<span class="cell-inline">${priorityIcon(priority)}${capitalize(priority)}</span>`;
 }
 
-/** Badges for archived / blocked / stale tickets. */
+/** Labels as small colored dots + names. boxed=true draws a pill outline. */
+export function labelList(labels, { boxed = false } = {}){
+  return (labels || []).map(l => html`<span class="label ${boxed ? 'boxed' : ''}"><span class="label-dot" style="background:${LABEL_COLOR[l] || 'var(--muted)'}"></span>${l}</span>`);
+}
+
+/** Due date with a calendar icon; red when overdue. Empty when there's no due date. */
+export function dueBadge(t){
+  if(!t.dueDate) return '';
+  const overdue = isOverdue(t);
+  return html`<span class="due ${overdue ? 'overdue' : ''}" title="${overdue ? 'Overdue' : 'Due date'}">${icon('calendar', 12)}${formatDate(t.dueDate)}</span>`;
+}
+
+/** Badges for archived / blocked / stale tickets ('' when none apply). */
 export function ticketFlags(t){
   const stale = staleDays(t);
-  return html`${t.archived ? html`<span class="flag flag-archived">Archived</span>` : ''}${
-    t.blocked ? html`<span class="flag flag-blocked" title="${t.blockedReason || ''}">⛔ Blocked</span>` : ''}${
-    stale ? html`<span class="flag flag-stale" title="No activity for ${stale} days">Stale ${stale}d</span>` : ''}`;
+  if(!t.archived && !t.blocked && !stale) return '';
+  return html`${t.archived ? html`<span class="flag flag-archived">${icon('archive', 12)}Archived</span>` : ''}${
+    t.blocked ? html`<span class="flag flag-blocked" title="${t.blockedReason || ''}">${icon('blocked', 12)}Blocked</span>` : ''}${
+    stale ? html`<span class="flag flag-stale" title="No activity for ${stale} days">${icon('clock', 12)}Stale ${stale}d</span>` : ''}`;
 }
 
 /** True if the ticket passes the board's search / filter bar. */

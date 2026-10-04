@@ -7,4 +7,4 @@
    right screen. See ARCHITECTURE.md for the full map.
 ========================================================= */
 import './features/auth.js';
-import './features/profiles.js'; // Profile button in the top bar
+import './features/topbar.js';   // account menu + theme toggle

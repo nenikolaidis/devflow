@@ -49,6 +49,15 @@ Includes:
 
 ---
 
+### Look and feel
+
+- Light and dark themes — follows your computer's setting, with a toggle in the top bar
+- Tickets open in a side panel, so the board stays in view
+- Works on phones: columns swipe sideways, filters scroll in one row
+- Keyboard friendly: `/` jumps to search, Esc closes panels, Enter opens a focused ticket
+
+---
+
 ### Dashboard
 
 Track project progress with:

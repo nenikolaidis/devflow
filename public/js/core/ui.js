@@ -10,6 +10,7 @@
    Use these instead of the browser's alert/confirm/prompt.
 ========================================================= */
 import { html } from './html.js';
+import { icon } from './icons.js';
 
 /* ---------------- TOAST ---------------- */
 const toastEl = document.getElementById('toast');
@@ -48,25 +49,30 @@ function trapFocus(e, container){
 /**
  * Opens a dialog.
  * @param {object} opts
- * @param {string|SafeHtml} opts.title  plain text, or html`` for a custom header
- * @param {SafeHtml} opts.body          the dialog content (html``)
- * @param {string} [opts.size]          '' | 'narrow'
- * @param {string} [opts.initialFocus]  selector to focus first (default: first field)
- * @param {Function} [opts.onClose]     runs once when the dialog closes (e.g. stop listeners)
+ * @param {string|SafeHtml} opts.title    plain text, or html`` for a custom header
+ * @param {SafeHtml} opts.body            the dialog content (html``)
+ * @param {string} [opts.size]            '' | 'narrow'
+ * @param {boolean} [opts.drawer]         slide in from the right as a side panel (tickets)
+ * @param {SafeHtml} [opts.headerActions] buttons shown in the header, before Close
+ * @param {string} [opts.label]           accessible name when the title isn't plain text
+ * @param {string} [opts.initialFocus]    selector to focus first (default: first field)
+ * @param {Function} [opts.onClose]       runs once when the dialog closes (e.g. stop listeners)
  * @returns {{ el: HTMLElement, $: Function, $$: Function, close: Function }}
  */
-export function openModal({ title, body, size = '', initialFocus = '', onClose }){
+export function openModal({ title, body, size = '', drawer = false, headerActions = '', label = '', initialFocus = '', onClose }){
   const titleId = `modal-title-${++modalCount}`;
   const previousFocus = document.activeElement;
   const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
+  overlay.className = 'modal-overlay' + (drawer ? ' drawer-overlay' : '');
   overlay.innerHTML = html`
-    <div class="modal ${size}" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
+    <div class="modal ${size} ${drawer ? 'drawer' : ''}" role="dialog" aria-modal="true"
+      ${label ? html`aria-label="${label}"` : html`aria-labelledby="${titleId}"`}>
       <div class="modal-head">
         ${typeof title === 'string' ? html`<h2 id="${titleId}">${title}</h2>` : html`<div id="${titleId}">${title}</div>`}
-        <button class="ghost modal-close" type="button" aria-label="Close">✕</button>
+        ${headerActions ? html`<div class="modal-head-actions">${headerActions}</div>` : ''}
+        <button class="ghost modal-close" type="button" aria-label="Close">${icon('x')}</button>
       </div>
-      ${body}
+      ${drawer ? html`<div class="drawer-body">${body}</div>` : body}
     </div>`;
   document.body.appendChild(overlay);
 

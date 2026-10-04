@@ -24,12 +24,15 @@ and explain *why* something isn't allowed.
 public/js/
 ├── app.js                 entry point — imports features/auth.js (which pulls in everything)
 ├── config.js              every editable value: Firebase config, App Check key, EmailJS, password length
+├── theme-init.js          tiny non-module script in <head>: applies a saved light/dark choice before paint
 │
 ├── core/                  building blocks — no Firestore calls
 │   ├── constants.js       roles, statuses, collection names, labels, templates, limits, defaults
 │   ├── state.js           the shared in-memory state object
 │   ├── events.js          tiny pub/sub: on(EVENT, fn) / emit(EVENT)
 │   ├── html.js            html`` safe templates (auto-escaping), escapeHtml, raw
+│   ├── icons.js           inline SVG icons: icon(name), statusIcon, priorityIcon, logo
+│   ├── theme.js           light/dark: follow the system, toggle, remember the choice
 │   ├── ui.js              showToast, openModal, confirmDialog, promptDialog
 │   ├── format.js          dates, safeUrl, initials, friendly error messages
 │   ├── permissions.js     myEmail, isMe, isAdmin, canModerate
@@ -45,10 +48,11 @@ public/js/
 ├── features/              one file per screen or part of a screen
 │   ├── auth.js            login/signup, verify-email & pending screens, account dialog, the gate
 │   ├── nav.js             tab switching; repaints the visible tab on data events
+│   ├── topbar.js          account menu (avatar) and the theme toggle
 │   ├── board.js           filter bar, Kanban columns, cards, drag & drop, bulk actions
 │   ├── table.js           table view
 │   ├── ticket-common.js   badges, chips, filtering, sorting shared by board/table
-│   ├── ticket-detail.js   the ticket dialog
+│   ├── ticket-detail.js   the ticket side panel
 │   ├── ticket-form.js     new/edit form, quick edit, teammate picker
 │   ├── ticket-actions.js  move / archive / block / save — with toasts & notifications
 │   ├── comments.js        comment thread with edit / hide / delete
@@ -166,6 +170,12 @@ update `tests/firestore.rules.test.js`.
 - **Build HTML only with `html```** from `core/html.js`. Values are escaped
   automatically (including quotes, so they're safe in attributes). Never
   build markup with plain template strings from user data.
+- **Colors come from CSS variables** in `css/style.css` (section 1), defined once
+  for light and once for dark. Never hard-code a hex color in JS or markup —
+  use `var(--text)`, `var(--red)`, `STATUS_COLOR`, `LABEL_COLOR`, etc., so both
+  themes work.
+- **Icons:** `icon('name')` from `core/icons.js` (add new ones to its `STROKE`
+  map). No emoji and no icon fonts.
 - **No `alert` / `confirm` / `prompt`.** Use `confirmDialog` /
   `promptDialog` / `openModal` from `core/ui.js` — they handle Esc,
   focus, and screen readers.
@@ -181,8 +191,9 @@ update `tests/firestore.rules.test.js`.
 
 ## Common changes
 
-**Add a label** — add it to `ALL_LABELS` in `core/constants.js`. The
-filter and forms pick it up automatically.
+**Add a label** — add it to `ALL_LABELS` and give it a dot color in
+`LABEL_COLOR` (both in `core/constants.js`). The filter and forms pick it
+up automatically.
 
 **Add a ticket template** — add an entry to `TICKET_TEMPLATES` in
 `core/constants.js`.

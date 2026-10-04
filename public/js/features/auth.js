@@ -20,6 +20,7 @@ import { friendlyAuthError } from '../core/format.js';
 import { myEmail } from '../core/permissions.js';
 import { showToast, openModal, closeAllModals } from '../core/ui.js';
 import { switchTab } from './nav.js';
+import { refreshUserBadge } from './topbar.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -160,7 +161,7 @@ async function routeSignedInUser(user){
     const role = await api.getRole(email);
     if(!role){ showPending(email); return; }
     state.currentRole = role;
-    $('whoami').textContent = `${email} · ${ROLE_LABELS[role] || role}`;
+    refreshUserBadge();
     $('navTeam').classList.toggle('hidden', role !== ROLES.ADMIN);
     showScreen('app');
     startSync({ isAdmin: role === ROLES.ADMIN });

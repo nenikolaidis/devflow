@@ -5,10 +5,9 @@
 import { state } from '../core/state.js';
 import { TABLE_COLUMNS, statusLabel } from '../core/constants.js';
 import { html } from '../core/html.js';
-import { formatDate } from '../core/format.js';
+import { statusIcon } from '../core/icons.js';
 import { displayName, avatarHtml } from '../core/people.js';
-import { isOverdue } from '../core/workflow.js';
-import { matchesFilters, sortTickets, priorityPill, labelChips, ticketFlags } from './ticket-common.js';
+import { matchesFilters, sortTickets, priorityWithLabel, labelList, dueBadge, ticketFlags } from './ticket-common.js';
 import { openDetail } from './ticket-detail.js';
 
 const container = document.getElementById('ticketTable');
@@ -49,12 +48,12 @@ export function renderTable(){
 function rowHtml(t){
   return html`<tr data-fid="${t.firestoreId}" tabindex="0" class="${t.archived ? 'archived' : ''}">
     <td class="mono">${t.id}</td>
-    <td>${t.title} ${ticketFlags(t)}</td>
-    <td>${statusLabel(t.status)}</td>
-    <td>${priorityPill(t.priority)}</td>
-    <td><span class="table-assignee">${avatarHtml(t.owner, 16)} ${displayName(t.owner)}</span></td>
-    <td>${t.reviewer ? displayName(t.reviewer) : '—'}</td>
-    <td>${labelChips(t.labels).length ? labelChips(t.labels) : '—'}</td>
-    <td class="due ${isOverdue(t) ? 'overdue' : ''}">${t.dueDate ? formatDate(t.dueDate) : '—'}</td>
+    <td><span class="cell-title">${t.title}${ticketFlags(t)}</span></td>
+    <td><span class="cell-inline">${statusIcon(t.status, 14)}${statusLabel(t.status)}</span></td>
+    <td>${priorityWithLabel(t.priority)}</td>
+    <td><span class="cell-inline">${avatarHtml(t.owner, 20)}${displayName(t.owner)}</span></td>
+    <td>${t.reviewer ? displayName(t.reviewer) : html`<span class="muted-text">—</span>`}</td>
+    <td><span class="cell-inline">${(t.labels || []).length ? labelList(t.labels) : '—'}</span></td>
+    <td>${t.dueDate ? dueBadge(t) : html`<span class="muted-text">—</span>`}</td>
   </tr>`;
 }

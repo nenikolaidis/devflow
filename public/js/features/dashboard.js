@@ -1,16 +1,18 @@
 /* =========================================================
    features/dashboard.js — the Dashboard tab: headline numbers,
-   status/priority breakdowns, blocked and stale lists, and a per-owner
-   table. Archived tickets are excluded.
+   status and priority breakdowns, a "needs attention" list (blocked,
+   overdue, stale), and workload per owner. Archived tickets excluded.
 ========================================================= */
 import { state } from '../core/state.js';
-import { STATUS, STATUSES, PRIORITIES, PRIORITY_COLOR, normalizeStatus } from '../core/constants.js';
+import { STATUS, STATUSES, STATUS_COLOR, PRIORITIES, PRIORITY_COLOR, normalizeStatus } from '../core/constants.js';
 import { html } from '../core/html.js';
-import { capitalize } from '../core/format.js';
-import { displayName } from '../core/people.js';
+import { capitalize, formatDate } from '../core/format.js';
+import { icon } from '../core/icons.js';
+import { displayName, avatarHtml } from '../core/people.js';
 import { isOverdue, staleDays } from '../core/workflow.js';
 import { openDetail } from './ticket-detail.js';
 
+const subEl = document.getElementById('dashSub');
 const statsEl = document.getElementById('dashStats');
 const panelsEl = document.getElementById('dashPanels');
 
@@ -23,81 +25,100 @@ panelsEl.addEventListener('click', e => {
 export function renderDashboard(){
   const tickets = state.tickets.filter(t => !t.archived);
   if(tickets.length === 0){
+    subEl.textContent = '';
     statsEl.innerHTML = '';
-    panelsEl.innerHTML = html`<div class="dash-empty">No tickets yet — create one from the Board tab to see stats here.</div>`;
+    panelsEl.innerHTML = html`<div class="panel dash-empty">No tickets yet — create one from the Board tab to see stats here.</div>`;
     return;
   }
 
   const isDone = (t) => normalizeStatus(t.status) === STATUS.DONE;
   const total = tickets.length;
   const done = tickets.filter(isDone).length;
-  const blocked = tickets.filter(t => t.blocked && !isDone(t));
+  const open = tickets.filter(t => !isDone(t));
+  const blocked = open.filter(t => t.blocked);
+  const overdue = tickets.filter(isOverdue);
   const stale = tickets.filter(t => staleDays(t)).sort((a, b) => staleDays(b) - staleDays(a));
+  const byStatus = STATUSES.map(s => ({ ...s, count: tickets.filter(t => normalizeStatus(t.status) === s.key).length }));
+
+  subEl.textContent = `${total} active ticket${total === 1 ? '' : 's'} · archived tickets not counted`;
 
   statsEl.innerHTML = html`
-    ${statCard(total, 'Total tickets')}
-    ${statCard(total - done, 'Open')}
-    ${statCard(tickets.filter(isOverdue).length, 'Overdue', 'red')}
-    ${statCard(blocked.length, 'Blocked', 'red')}
-    ${statCard(stale.length, 'Stale')}
-    ${statCard(`${Math.round((done / total) * 100)}%`, 'Completion rate', 'teal')}`;
+    ${statCard('Open', open.length)}
+    ${statCard('In progress', byStatus.find(s => s.key === STATUS.IN_PROGRESS).count)}
+    ${statCard('Overdue', overdue.length, overdue.length ? 'red' : '')}
+    ${statCard('Blocked', blocked.length, blocked.length ? 'red' : '')}
+    ${statCard('Stale', stale.length, stale.length ? 'amber' : '')}
+    ${statCard('Completed', `${Math.round((done / total) * 100)}%`, '', `${done} of ${total}`)}`;
 
-  const byOwner = {};
+  // One row per ticket that needs attention, most urgent reason first.
+  const attention = [];
+  const seen = new Set();
+  const add = (t, flag) => { if(!seen.has(t.firestoreId)){ seen.add(t.firestoreId); attention.push({ t, flag }); } };
+  blocked.forEach(t => add(t, html`<span class="flag flag-blocked" title="${t.blockedReason || ''}">${icon('blocked', 12)}Blocked</span>`));
+  overdue.forEach(t => add(t, html`<span class="flag flag-overdue">${icon('calendar', 12)}Overdue · ${formatDate(t.dueDate)}</span>`));
+  stale.forEach(t => add(t, html`<span class="flag flag-stale">${icon('clock', 12)}Stale ${staleDays(t)}d</span>`));
+
+  // Workload: open and done per owner.
+  const owners = {};
   tickets.forEach(t => {
-    const owner = t.owner || '';
-    byOwner[owner] = byOwner[owner] || { total: 0, done: 0 };
-    byOwner[owner].total++;
-    if(isDone(t)) byOwner[owner].done++;
+    const key = t.owner || '';
+    owners[key] = owners[key] || { open: 0, done: 0 };
+    owners[key][isDone(t) ? 'done' : 'open']++;
   });
-  const owners = Object.entries(byOwner).sort((a, b) => b[1].total - a[1].total).slice(0, 8);
+  const ownerRows = Object.entries(owners).sort((a, b) => b[1].open - a[1].open).slice(0, 10);
+  const maxOpen = Math.max(1, ...ownerRows.map(([, v]) => v.open));
 
   panelsEl.innerHTML = html`
     <section class="panel">
-      <h3>Tickets by status</h3>
-      ${STATUSES.map(s => barRow(s.label, tickets.filter(t => normalizeStatus(t.status) === s.key).length, total, 'var(--accent)'))}
+      <h2>Tickets by status</h2>
+      <div class="stacked-bar" role="img" aria-label="${byStatus.map(s => `${s.label} ${s.count}`).join(', ')}">
+        ${byStatus.filter(s => s.count).map(s => html`<span style="flex:${s.count};background:${STATUS_COLOR[s.key]}"></span>`)}
+      </div>
+      <div class="legend">
+        ${byStatus.map(s => html`<div class="legend-item"><span class="label-dot" style="background:${STATUS_COLOR[s.key]}"></span><span>${s.label}</span><strong>${s.count}</strong></div>`)}
+      </div>
     </section>
+
     <section class="panel">
-      <h3>Tickets by priority</h3>
-      ${PRIORITIES.map(p => barRow(capitalize(p), tickets.filter(t => t.priority === p).length, total, PRIORITY_COLOR[p]))}
+      <h2>Tickets by priority</h2>
+      <div class="bar-list">
+        ${PRIORITIES.map(p => {
+          const count = tickets.filter(t => t.priority === p).length;
+          return html`<span>${capitalize(p)}</span>
+            <div class="bar-track" role="img" aria-label="${capitalize(p)}: ${count} of ${total}"><div class="bar-fill" style="width:${(count / total) * 100}%;background:${PRIORITY_COLOR[p]}"></div></div>
+            <span class="bar-num">${count}</span>`;
+        })}
+      </div>
     </section>
+
     <section class="panel">
-      <h3>Blocked tickets</h3>
-      ${ticketList(blocked, 'Nothing is blocked.', t => t.blockedReason || '')}
+      <h2>Needs attention</h2>
+      ${attention.length
+        ? html`<div class="attention-list">${attention.slice(0, 8).map(({ t, flag }) => html`
+            <button type="button" class="mini-ticket" data-fid="${t.firestoreId}">
+              <span class="card-id">${t.id}</span>
+              <span class="mini-title">${t.title}</span>
+              ${flag}
+            </button>`)}</div>`
+        : html`<div class="empty-note">Nothing is blocked, overdue or stale.</div>`}
     </section>
+
     <section class="panel">
-      <h3>Stale tickets — no activity in a while</h3>
-      ${ticketList(stale, 'No stale tickets.', t => `${staleDays(t)}d · ${displayName(t.owner)}`)}
-    </section>
-    <section class="panel panel-wide">
-      <h3>By owner</h3>
-      <table class="owner-table">
-        <thead><tr><th scope="col">Owner</th><th scope="col">Total</th><th scope="col">Done</th><th scope="col">Open</th></tr></thead>
-        <tbody>${owners.map(([owner, v]) => html`<tr><td>${displayName(owner)}</td><td>${v.total}</td><td>${v.done}</td><td>${v.total - v.done}</td></tr>`)}</tbody>
-      </table>
+      <h2>Workload by owner</h2>
+      <div class="table-scroll">
+        <table class="owner-table">
+          <thead><tr><th scope="col">Owner</th><th scope="col" class="num">Open</th><th scope="col" class="num">Done</th><th scope="col" class="load">Load</th></tr></thead>
+          <tbody>${ownerRows.map(([owner, v]) => html`<tr>
+            <td><span class="cell-inline">${avatarHtml(owner, 22)}${displayName(owner)}</span></td>
+            <td class="num">${v.open}</td>
+            <td class="num">${v.done}</td>
+            <td class="load"><div class="bar-track" aria-hidden="true"><div class="bar-fill" style="width:${(v.open / maxOpen) * 100}%;background:var(--accent)"></div></div></td>
+          </tr>`)}</tbody>
+        </table>
+      </div>
     </section>`;
 }
 
-function statCard(value, label, tone = ''){
-  return html`<div class="stat-card"><div class="stat-num ${tone}">${value}</div><div class="stat-label">${label}</div></div>`;
-}
-
-function barRow(label, count, total, color){
-  const pct = total ? (count / total) * 100 : 0;
-  return html`
-    <div class="bar-row">
-      <div class="bar-row-top"><span>${label}</span><span>${count}</span></div>
-      <div class="bar-track" role="img" aria-label="${label}: ${count} of ${total}">
-        <div class="bar-fill" style="width:${pct}%; background:${color};"></div>
-      </div>
-    </div>`;
-}
-
-function ticketList(rows, emptyText, detail){
-  if(rows.length === 0) return html`<div class="empty-note">${emptyText}</div>`;
-  return rows.map(t => html`
-    <button type="button" class="mini-ticket" data-fid="${t.firestoreId}">
-      <span class="card-id">${t.id}</span>
-      <span class="mini-title">${t.title}</span>
-      <span class="mini-detail">${detail(t)}</span>
-    </button>`);
+function statCard(label, value, tone = '', extra = ''){
+  return html`<div class="stat-card"><div class="stat-label">${label}</div><div class="stat-num ${tone}">${value}${extra ? html`<span class="stat-extra">${extra}</span>` : ''}</div></div>`;
 }

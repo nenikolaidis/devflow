@@ -6,9 +6,10 @@
 import { state } from '../core/state.js';
 import { FALLBACK_TIMEZONES, LIMITS, ROLE_LABELS } from '../core/constants.js';
 import { html } from '../core/html.js';
-import { formatDateTime, initials } from '../core/format.js';
+import { formatDateTime } from '../core/format.js';
 import { normEmail, isMe } from '../core/permissions.js';
-import { avatarColor, profileOf } from '../core/people.js';
+import { profileOf, avatarHtml } from '../core/people.js';
+import { priorityIcon } from '../core/icons.js';
 import { openModal, showToast } from '../core/ui.js';
 import { saveOwnProfile } from '../data/api.js';
 import { openDetail } from './ticket-detail.js';
@@ -29,7 +30,6 @@ export function openProfileModal(targetEmail){
   const role = (state.allowlist.find(u => u.id === email) || {}).role;
   const assigned = state.tickets.filter(t => !t.archived && normEmail(t.owner) === email);
   const createdCount = state.tickets.filter(t => normEmail(t.createdBy) === email).length;
-  const color = avatarColor(email);
   const lastActive = p.lastActive ? formatDateTime(p.lastActive) : '—';
 
   const m = openModal({
@@ -37,7 +37,7 @@ export function openProfileModal(targetEmail){
     initialFocus: self ? '#p-name' : '',
     body: html`
       <div class="profile-head">
-        <span class="avatar avatar-lg" style="background:${color}22;color:${color};" aria-hidden="true">${initials(p.name || email)}</span>
+        ${avatarHtml(email, 56)}
         <div>
           <div class="profile-name">${p.name || email}</div>
           <div class="profile-sub">${p.username ? `@${p.username} · ` : ''}${email}</div>
@@ -55,13 +55,13 @@ export function openProfileModal(targetEmail){
         <div class="field"><label for="p-tz">Time zone</label>
           <select id="p-tz">${TIMEZONES.map(tz => html`<option value="${tz}" ${p.timezone === tz ? 'selected' : ''}>${tz}</option>`)}</select></div>
       ` : html`
-        ${p.bio ? html`<div class="detail-desc">${p.bio}</div>` : ''}
-        <div class="detail-meta">
+        ${p.bio ? html`<p class="profile-bio">${p.bio}</p>` : ''}
+        <div class="profile-meta">
           <div><span>Time zone</span>${p.timezone || '—'}</div>
           <div><span>Last active</span>${lastActive}</div>
         </div>`}
 
-      <div class="detail-meta">
+      <div class="profile-meta">
         ${self ? html`<div><span>Last active</span>${lastActive}</div>` : ''}
         <div><span>Assigned tickets</span>${assigned.length}</div>
         <div><span>Created tickets</span>${createdCount}</div>
@@ -69,8 +69,8 @@ export function openProfileModal(targetEmail){
 
       ${assigned.length ? html`
         <div class="profile-tickets">
-          <h4>Assigned tickets</h4>
-          ${assigned.slice(0, 8).map(t => html`<button type="button" class="mini-ticket" data-fid="${t.firestoreId}"><span class="card-id">${t.id}</span> <span class="mini-title">${t.title}</span></button>`)}
+          <h3>Assigned tickets</h3>
+          ${assigned.slice(0, 8).map(t => html`<button type="button" class="mini-ticket" data-fid="${t.firestoreId}"><span class="card-id">${t.id}</span><span class="mini-title">${t.title}</span>${priorityIcon(t.priority)}</button>`)}
         </div>` : ''}
 
       ${self ? html`<div class="modal-actions"><button type="button" class="primary" id="saveProfile">Save profile</button></div>` : ''}`
@@ -95,4 +95,3 @@ export function openProfileModal(targetEmail){
   }
 }
 
-document.getElementById('profileBtn').addEventListener('click', () => openProfileModal());

@@ -1,19 +1,20 @@
 /* =========================================================
-   features/ticket-detail.js — the ticket dialog: status track,
-   description, details, actions (edit / block / archive / restore /
-   delete), comments and the activity log.
+   features/ticket-detail.js — the ticket side panel: status steps,
+   details, description, link, actions (edit / block / archive /
+   restore / delete), and a Comments | Activity switcher.
 
    It closes after an action that changes the ticket; reopening shows
    fresh data from state.
 ========================================================= */
 import { STATUSES, normalizeStatus } from '../core/constants.js';
 import { html } from '../core/html.js';
-import { formatDate, formatDateTime, safeUrl } from '../core/format.js';
+import { icon, statusIcon } from '../core/icons.js';
+import { formatDateTime, safeUrl } from '../core/format.js';
 import { canModerate, isAdmin } from '../core/permissions.js';
-import { displayName } from '../core/people.js';
-import { moveBlockedReason } from '../core/workflow.js';
+import { displayName, avatarHtml } from '../core/people.js';
+import { moveBlockedReason, isOverdue } from '../core/workflow.js';
 import { openModal, showToast } from '../core/ui.js';
-import { findTicket, priorityPill } from './ticket-common.js';
+import { findTicket, priorityWithLabel, labelList, dueBadge } from './ticket-common.js';
 import { openTicketForm } from './ticket-form.js';
 import { mountComments } from './comments.js';
 import { mountActivityLog } from './activity-log.js';
@@ -28,47 +29,79 @@ export function openDetail(firestoreId){
   const link = safeUrl(t.linkUrl);
   const unsubscribers = [];
 
+  const headerActions = t.archived
+    ? html`${moderator ? html`<button type="button" data-act="restore">${icon('restore', 14)}Restore</button>` : ''}
+           ${isAdmin() ? html`<button type="button" class="danger" data-act="delete">${icon('trash', 14)}Delete</button>` : ''}`
+    : html`<button type="button" data-act="block">${icon('blocked', 14)}${t.blocked ? 'Unblock' : 'Mark blocked'}</button>
+           <button type="button" data-act="edit">${icon('edit', 14)}Edit</button>
+           ${moderator ? html`<button type="button" class="danger" data-act="archive">${icon('archive', 14)}Archive</button>` : ''}`;
+
   const m = openModal({
-    title: html`<span class="card-id">${t.id}</span><h2 class="detail-title">${t.title}</h2>`,
+    drawer: true,
+    label: `${t.id}: ${t.title}`,
+    title: html`<div class="drawer-id">
+      <span class="card-id">${t.id}</span>
+      <button type="button" class="ghost small" data-act="copy" aria-label="Copy commit message" title="Copy commit message: [${t.id}] ${t.title}">${icon('copy', 14)}</button>
+    </div>`,
+    headerActions,
+    initialFocus: '.modal-close',
     onClose: () => unsubscribers.forEach(unsub => unsub()),
     body: html`
-      ${t.archived ? html`<div class="banner banner-archived">Archived${t.archivedBy ? ` by ${displayName(t.archivedBy)}` : ''}${t.archivedAt ? ` · ${formatDateTime(t.archivedAt)}` : ''}. Hidden from the board and dashboard.</div>` : ''}
-      ${t.blocked ? html`<div class="banner banner-blocked" role="status"><strong>⛔ Blocked</strong>${t.blockedBy ? ` · flagged by ${displayName(t.blockedBy)}` : ''}<div>${t.blockedReason || 'No reason given.'}</div></div>` : ''}
+      <h2 class="detail-title">${t.title}</h2>
+
+      ${t.archived ? html`<div class="banner banner-archived">${icon('archive')}<div class="banner-body"><strong>Archived${t.archivedBy ? ` by ${displayName(t.archivedBy)}` : ''}</strong><span>${t.archivedAt ? formatDateTime(t.archivedAt) + ' · ' : ''}Hidden from the board and dashboard.</span></div></div>` : ''}
+      ${t.blocked ? html`<div class="banner banner-blocked" role="status">${icon('blocked')}<div class="banner-body"><strong>Blocked${t.blockedBy ? ` · flagged by ${displayName(t.blockedBy)}` : ''}</strong><span>${t.blockedReason || 'No reason given.'}</span></div></div>` : ''}
+
       ${t.archived ? '' : html`<div class="status-track" role="group" aria-label="Status">${STATUSES.map(s => statusButton(t, s))}</div>`}
-      <div class="detail-desc">${t.description || 'No description provided.'}</div>
-      <div class="detail-meta">
-        <div><span>Priority</span>${priorityPill(t.priority)}</div>
-        <div><span>Due date</span>${t.dueDate ? formatDate(t.dueDate) : '—'}</div>
-        <div><span>Owner</span>${t.owner ? displayName(t.owner) : 'Unassigned'}</div>
-        <div><span>Reviewer</span>${t.reviewer ? displayName(t.reviewer) : 'Unassigned'}</div>
-        <div><span>Labels</span>${(t.labels || []).join(', ') || '—'}</div>
-        <div><span>Created by</span>${t.createdBy ? displayName(t.createdBy) : '—'}</div>
+
+      <dl class="detail-props">
+        <dt>Priority</dt><dd>${priorityWithLabel(t.priority)}</dd>
+        <dt>Owner</dt><dd>${avatarHtml(t.owner, 22)}${t.owner ? displayName(t.owner) : html`<span class="muted">Unassigned</span>`}</dd>
+        <dt>Reviewer</dt><dd>${t.reviewer ? html`${avatarHtml(t.reviewer, 22)}${displayName(t.reviewer)}` : html`<span class="muted">No reviewer yet</span>`}</dd>
+        <dt>Due date</dt><dd>${t.dueDate ? html`${dueBadge(t)}${isOverdue(t) ? html`<span class="flag flag-overdue">Overdue</span>` : ''}` : html`<span class="muted">No due date</span>`}</dd>
+        <dt>Labels</dt><dd>${(t.labels || []).length ? labelList(t.labels, { boxed: true }) : html`<span class="muted">None</span>`}</dd>
+        <dt>Created</dt><dd>${t.createdBy ? displayName(t.createdBy) : '—'}${t.createdAt ? html`<span class="muted">· ${formatDateTime(t.createdAt)}</span>` : ''}</dd>
+      </dl>
+
+      <div>
+        <h3 class="section-label">Description</h3>
+        <p class="detail-desc ${t.description ? '' : 'empty'}" style="margin-top:8px">${t.description || 'No description yet.'}</p>
       </div>
-      <div class="commit-box"><span>[${t.id}] ${t.title}</span><button type="button" class="ghost" data-act="copy">Copy</button></div>
-      <div class="modal-actions detail-actions">
-        ${t.archived
-          ? html`${moderator ? html`<button type="button" data-act="restore">Restore</button>` : ''}
-                 ${isAdmin() ? html`<button type="button" class="danger" data-act="delete">Delete permanently</button>` : ''}`
-          : html`${moderator ? html`<button type="button" class="danger" data-act="archive">Archive</button>` : ''}
-                 <button type="button" data-act="block">${t.blocked ? 'Unblock' : 'Mark blocked'}</button>
-                 <button type="button" data-act="edit">Edit</button>`}
-      </div>
-      ${link ? html`<div class="link-box"><a href="${link}" target="_blank" rel="noopener noreferrer">${t.linkUrl}</a><span class="link-hint">open ↗</span></div>` : ''}
-      <section class="comments" aria-label="Comments"><h4>Comments</h4><div id="detailComments"></div></section>
-      <section class="comments" aria-label="Activity"><h4>Activity</h4><div id="detailActivity"></div></section>`
+
+      ${link ? html`<a class="link-box" href="${link}" target="_blank" rel="noopener noreferrer">${icon('link', 14)}<span>${t.linkUrl}</span></a>` : ''}
+
+      <div>
+        <div class="history-tabs" role="tablist" aria-label="Ticket history">
+          <button type="button" role="tab" id="tabComments" aria-selected="true" aria-controls="detailComments">Comments</button>
+          <button type="button" role="tab" id="tabActivity" aria-selected="false" aria-controls="detailActivity">Activity</button>
+        </div>
+        <div id="detailComments" role="tabpanel" aria-labelledby="tabComments" style="padding-top:16px"></div>
+        <div id="detailActivity" role="tabpanel" aria-labelledby="tabActivity" class="hidden" style="padding-top:8px"></div>
+      </div>`
   });
 
   unsubscribers.push(mountComments(m.$('#detailComments'), t.firestoreId, { readOnly }));
   unsubscribers.push(mountActivityLog(m.$('#detailActivity'), t.firestoreId));
 
-  // Status buttons: moves that the workflow doesn't allow are dimmed, with the reason as a tooltip.
+  // Comments | Activity switcher
+  const tabs = { tabComments: '#detailComments', tabActivity: '#detailActivity' };
+  Object.entries(tabs).forEach(([tabId, panel]) => {
+    m.$('#' + tabId).addEventListener('click', () => {
+      Object.entries(tabs).forEach(([otherId, otherPanel]) => {
+        m.$('#' + otherId).setAttribute('aria-selected', String(otherId === tabId));
+        m.$(otherPanel).classList.toggle('hidden', otherId !== tabId);
+      });
+    });
+  });
+
+  // Status buttons: moves the workflow doesn't allow are dimmed, with the reason as a tooltip.
   m.$$('.status-track button').forEach(btn => {
     btn.addEventListener('click', async () => {
       if(await moveTicket(t, btn.dataset.status)) m.close();
     });
   });
 
-  // Every other action closes the dialog when it succeeds, so reopening shows fresh data.
+  // Every other action closes the panel when it succeeds, so reopening shows fresh data.
   const actions = {
     copy: () => {
       const text = `[${t.id}] ${t.title}`;
@@ -89,5 +122,5 @@ function statusButton(t, s){
   return html`<button type="button" data-status="${s.key}"
     class="${current ? 'active' : reason ? 'locked' : ''}"
     ${current ? html`aria-current="step"` : ''}
-    title="${reason || ''}">${s.label}</button>`;
+    title="${current ? 'Current status' : reason || `Move to ${s.label}`}">${reason ? icon('lock', 12) : statusIcon(s.key, 14)}${s.label}</button>`;
 }

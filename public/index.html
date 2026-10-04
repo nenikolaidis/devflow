@@ -5,9 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="color-scheme" content="light dark">
 <title>DEVFLOW — Ticket Board</title>
+<!-- Applies a saved light/dark choice before the page paints. -->
+<script src="js/theme-init.js"></script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <!-- Third-party scripts are pinned to exact versions with integrity hashes:
      if the CDN ever serves different code, the browser refuses to run it.
@@ -20,44 +25,59 @@
 </head>
 <body>
 
-<!-- ============ AUTH SCREEN ============ -->
+<!-- ============ SIGN IN / SIGN UP ============ -->
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
-    <h1>devflow</h1>
-    <p class="sub">Ticket board · sign in to continue</p>
-    <div class="auth-tabs" role="tablist" aria-label="Log in or sign up">
+    <div class="auth-brand">
+      <svg class="logo" width="34" height="34" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="var(--accent)"/><path d="M7 9h7M7 13h12M7 17h5" stroke="var(--on-accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div>
+        <h1>Sign in to devflow</h1>
+        <p class="sub">Your team's ticket board</p>
+      </div>
+    </div>
+    <div class="segmented auth-tabs" role="tablist" aria-label="Log in or sign up">
       <button type="button" role="tab" id="tabLogin" class="active" aria-selected="true">Log in</button>
-      <button type="button" role="tab" id="tabSignup" aria-selected="false">Sign up</button>
+      <button type="button" role="tab" id="tabSignup" aria-selected="false">Create account</button>
     </div>
     <div class="field"><label for="authEmail">Email</label><input type="email" id="authEmail" autocomplete="email" placeholder="you@company.com"></div>
-    <div class="field"><label for="authPassword">Password</label><input type="password" id="authPassword" autocomplete="current-password" placeholder="At least 10 characters"></div>
-    <div class="auth-forgot"><button type="button" class="link" id="forgotLink">Forgot password?</button></div>
+    <div class="field">
+      <div class="field-label-row">
+        <label for="authPassword">Password</label>
+        <button type="button" class="link" id="forgotLink">Forgot password?</button>
+      </div>
+      <input type="password" id="authPassword" autocomplete="current-password" placeholder="At least 10 characters">
+    </div>
     <div class="auth-error" id="authError" role="alert"></div>
-    <button type="button" class="primary full-width" id="authSubmit">Log in</button>
+    <button type="button" class="primary large full-width" id="authSubmit">Log in</button>
     <div class="auth-status" id="authStatus" aria-live="polite"></div>
+    <p class="auth-note">New accounts confirm their email, then an admin approves access.</p>
   </div>
 </div>
 
-<!-- ============ VERIFY EMAIL SCREEN ============ -->
+<!-- ============ VERIFY EMAIL ============ -->
 <div id="verifyScreen" class="auth-screen hidden">
-  <div class="auth-card pending-box">
-    <h1>devflow</h1>
-    <p class="sub screen-sub">Confirm your email</p>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <svg class="logo" width="34" height="34" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="var(--accent)"/><path d="M7 9h7M7 13h12M7 17h5" stroke="var(--on-accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><h1>Confirm your email</h1><p class="sub">One last step before you can join</p></div>
+    </div>
     <p class="screen-msg" id="verifyMsg"></p>
-    <button type="button" class="primary full-width stack-first" id="verifiedBtn">I've confirmed it — continue</button>
-    <button type="button" class="full-width stack" id="resendVerifyBtn">Resend email</button>
-    <button type="button" class="ghost full-width stack" id="signOutVerify">Sign out</button>
+    <button type="button" class="primary large full-width" id="verifiedBtn">I've confirmed it — continue</button>
+    <button type="button" class="large full-width" id="resendVerifyBtn">Resend email</button>
+    <button type="button" class="ghost full-width" id="signOutVerify">Sign out</button>
   </div>
 </div>
 
-<!-- ============ PENDING APPROVAL SCREEN ============ -->
+<!-- ============ PENDING APPROVAL ============ -->
 <div id="pendingScreen" class="auth-screen hidden">
-  <div class="auth-card pending-box">
-    <h1>devflow</h1>
-    <p class="sub screen-sub">Account created</p>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <svg class="logo" width="34" height="34" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="var(--accent)"/><path d="M7 9h7M7 13h12M7 17h5" stroke="var(--on-accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><h1>Waiting for approval</h1><p class="sub">Your account is ready</p></div>
+    </div>
     <p class="screen-msg" id="pendingMsg"></p>
-    <button type="button" class="primary full-width stack-first" id="requestAccessBtn">Request access</button>
-    <button type="button" class="full-width stack" id="signOutPending">Sign out</button>
+    <button type="button" class="primary large full-width" id="requestAccessBtn">Request access</button>
+    <button type="button" class="ghost full-width" id="signOutPending">Sign out</button>
   </div>
 </div>
 
@@ -65,98 +85,147 @@
 <div id="app" class="hidden">
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">devflow</span>
-      <span class="brand-tag">ticket board · by Nearchos Nikolaidis</span>
+      <svg class="logo" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="var(--accent)"/><path d="M7 9h7M7 13h12M7 17h5" stroke="var(--on-accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="brand-name">devflow</span>
+      <span class="brand-tag">by Nearchos Nikolaidis</span>
     </div>
-    <div class="topbar-actions">
-      <span class="role-badge" id="whoami"></span>
-      <button type="button" class="ghost" id="profileBtn">Profile</button>
-      <button type="button" class="ghost" id="accountBtn">Account</button>
+
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" id="navBoard" class="tab active" aria-selected="true" aria-controls="boardView">Board</button>
+      <button type="button" role="tab" id="navDashboard" class="tab" aria-selected="false" aria-controls="dashboardView">Dashboard</button>
+      <button type="button" role="tab" id="navTeam" class="tab hidden" aria-selected="false" aria-controls="teamView">Team</button>
+    </nav>
+
+    <div class="topbar-spacer"></div>
+
+    <label class="search">
+      <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+      <span class="sr-only">Search tickets</span>
+      <input type="search" id="searchInput" placeholder="Search tickets…" autocomplete="off">
+      <kbd aria-hidden="true">/</kbd>
+    </label>
+
+    <button type="button" class="primary" id="newTicketBtn">
+      <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+      <span class="btn-text">New ticket</span>
+    </button>
+
+    <button type="button" class="icon-btn" id="themeToggle" aria-label="Switch theme"></button>
+
+    <div class="menu-wrap">
+      <button type="button" class="avatar-btn" id="userMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenu" aria-label="Account menu">
+        <span id="userAvatar" class="avatar-slot"></span>
+        <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+      </button>
+      <div class="menu hidden" id="userMenu" role="menu" aria-label="Account">
+        <div class="menu-head">
+          <div class="menu-name" id="menuName"></div>
+          <div class="menu-sub" id="whoami"></div>
+        </div>
+        <button type="button" role="menuitem" id="profileBtn">My profile</button>
+        <button type="button" role="menuitem" id="accountBtn">Account &amp; password</button>
+        <button type="button" role="menuitem" id="systemThemeBtn">Use system theme</button>
+        <div class="menu-sep" role="separator"></div>
+        <button type="button" role="menuitem" id="signOutBtn" class="danger-text">Sign out</button>
+      </div>
     </div>
   </header>
 
-  <nav class="nav" role="tablist" aria-label="Sections">
-    <button type="button" role="tab" id="navBoard" class="active" aria-selected="true" aria-controls="boardView">Board</button>
-    <button type="button" role="tab" id="navDashboard" aria-selected="false" aria-controls="dashboardView">Dashboard</button>
-    <button type="button" role="tab" id="navTeam" class="hidden" aria-selected="false" aria-controls="teamView">Team</button>
-  </nav>
-
   <main>
-  <!-- BOARD VIEW -->
+  <!-- BOARD -->
   <section id="boardView" role="tabpanel" aria-labelledby="navBoard">
-    <div class="filterbar" role="search">
-      <input type="search" id="searchInput" aria-label="Search tickets" placeholder="Search tickets by title or ID...">
-      <select id="priorityFilter" aria-label="Filter by priority">
-        <option value="">All priorities</option>
+    <div class="toolbar" role="group" aria-label="Filters and view">
+      <select id="priorityFilter" class="pill-select" aria-label="Filter by priority">
+        <option value="">Priority</option>
         <option value="critical">Critical</option>
         <option value="high">High</option>
         <option value="medium">Medium</option>
         <option value="low">Low</option>
       </select>
-      <select id="labelFilter" aria-label="Filter by label">
-        <option value="">All labels</option>
+      <select id="labelFilter" class="pill-select" aria-label="Filter by label">
+        <option value="">Label</option>
       </select>
-      <select id="assigneeFilter" aria-label="Filter by owner">
-        <option value="">All assignees</option>
+      <select id="assigneeFilter" class="pill-select" aria-label="Filter by owner">
+        <option value="">Owner</option>
       </select>
-      <select id="sortSelect" aria-label="Sort tickets">
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <select id="sortSelect" class="pill-select solid" aria-label="Sort tickets">
         <option value="createdAt:desc">Newest first</option>
         <option value="createdAt:asc">Oldest first</option>
         <option value="priority:asc">Priority: high → low</option>
         <option value="dueDate:asc">Due date: soon first</option>
         <option value="title:asc">Title A–Z</option>
       </select>
-      <div class="subtoggle" role="group" aria-label="View">
-        <button type="button" id="viewKanbanBtn" class="active">Kanban</button>
-        <button type="button" id="viewTableBtn">Table</button>
+      <div class="toolbar-spacer"></div>
+      <div class="segmented" role="group" aria-label="View">
+        <button type="button" id="viewKanbanBtn" class="active" aria-pressed="true">
+          <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.25" y="2.5" width="3.5" height="7" rx="1"/><rect x="10.5" y="2.5" width="3.5" height="9" rx="1"/></svg>
+          Board
+        </button>
+        <button type="button" id="viewTableBtn" aria-pressed="false">
+          <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>
+          Table
+        </button>
       </div>
-      <button type="button" id="selectModeBtn" aria-pressed="false">Select</button>
-      <button type="button" id="archivedToggleBtn" aria-pressed="false" title="Show archived tickets alongside active ones">Archived</button>
-      <button type="button" class="primary push-right" id="newTicketBtn">+ New ticket</button>
+      <button type="button" class="btn-outline" id="selectModeBtn" aria-pressed="false">Select</button>
+      <button type="button" class="btn-outline" id="archivedToggleBtn" aria-pressed="false" title="Show archived tickets alongside active ones">
+        <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="3" rx="1"/><path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M6.5 9h3"/></svg>
+        Archived
+      </button>
     </div>
     <div class="board" id="board"></div>
     <div class="table-wrap hidden" id="ticketTable"></div>
   </section>
 
-  <!-- DASHBOARD VIEW -->
-  <section id="dashboardView" class="hidden" role="tabpanel" aria-labelledby="navDashboard">
-    <div class="dash-grid" id="dashStats"></div>
+  <!-- DASHBOARD -->
+  <section id="dashboardView" class="page hidden" role="tabpanel" aria-labelledby="navDashboard">
+    <div class="page-head"><h1>Dashboard</h1><span class="page-sub" id="dashSub"></span></div>
+    <div class="stat-grid" id="dashStats"></div>
     <div class="dash-panels" id="dashPanels"></div>
   </section>
 
-  <!-- TEAM VIEW (admin only) -->
-  <section id="teamView" class="team-view hidden" role="tabpanel" aria-labelledby="navTeam">
-    <h3>Pending requests</h3>
-    <div id="requestList"></div>
-    <div class="empty-note hidden" id="noRequests">No pending requests.</div>
+  <!-- TEAM (admins only) -->
+  <section id="teamView" class="page narrow-page hidden" role="tabpanel" aria-labelledby="navTeam">
+    <div class="page-head"><h1>Team</h1></div>
 
-    <h3>Team members</h3>
-    <div id="allowList"></div>
-    <div class="add-allow">
-      <input type="email" id="newAllowEmail" aria-label="Email to add" placeholder="teammate@company.com">
-      <select id="newAllowRole" aria-label="Role">
-        <option value="developer">Developer</option>
-        <option value="pm">Project manager</option>
-        <option value="admin">Administrator</option>
-      </select>
-      <button type="button" id="addAllowBtn">Add</button>
+    <div class="card-section">
+      <h2>Pending requests</h2>
+      <div id="requestList" class="row-list"></div>
+      <div class="empty-note hidden" id="noRequests">No pending requests.</div>
     </div>
 
-    <h3>Board settings</h3>
-    <div class="settings-box" id="settingsBox">
+    <div class="card-section">
+      <h2>Team members</h2>
+      <div id="allowList" class="row-list"></div>
+      <div class="add-row">
+        <input type="email" id="newAllowEmail" aria-label="Email to add" placeholder="teammate@company.com">
+        <select id="newAllowRole" aria-label="Role">
+          <option value="developer">Developer</option>
+          <option value="pm">Project manager</option>
+          <option value="admin">Administrator</option>
+        </select>
+        <button type="button" id="addAllowBtn">Add</button>
+      </div>
+    </div>
+
+    <div class="card-section" id="settingsBox">
+      <h2>Board settings</h2>
       <div class="field">
-        <label for="setWebhook">Discord webhook URL — stored in the database, not in the site's code</label>
-        <div class="add-allow flush">
+        <label for="setWebhook">Discord webhook URL</label>
+        <p class="field-hint">Stored in the database, not in the site's code. Only approved teammates can read it.</p>
+        <div class="add-row flush">
           <input type="text" id="setWebhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off">
           <button type="button" id="testWebhookBtn">Send test</button>
         </div>
       </div>
       <div class="field">
-        <label for="setStaleDays">Flag a ticket as stale after this many days with no activity (In progress / In review)</label>
+        <label for="setStaleDays">Stale after (days without activity)</label>
+        <p class="field-hint">Applies to tickets In progress or In review.</p>
         <input type="number" id="setStaleDays" class="narrow-input" min="1" max="365" step="1">
       </div>
       <fieldset class="field">
-        <legend>Work-in-progress limits per column (0 = no limit)</legend>
+        <legend>Work-in-progress limits per column</legend>
+        <p class="field-hint">0 means no limit. Columns over their limit turn red.</p>
         <div class="wip-inputs" id="setWipLimits"></div>
       </fieldset>
       <div class="modal-actions"><button type="button" class="primary" id="saveSettingsBtn">Save settings</button></div>

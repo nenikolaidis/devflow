@@ -82,17 +82,40 @@ export const ACTIVITY = {
 /* ---------------- PRIORITIES & LABELS ---------------- */
 export const PRIORITIES = ['critical', 'high', 'medium', 'low'];
 
+// Color of each priority's icon and chart bar (CSS variables from style.css).
 export const PRIORITY_COLOR = {
   critical: 'var(--red)',
-  high: 'var(--accent)',
-  medium: 'var(--blue)',
-  low: 'var(--teal)'
+  high: 'var(--text)',
+  medium: 'var(--text-2)',
+  low: 'var(--muted)'
+};
+
+// Color of each column's status icon and WIP bar.
+export const STATUS_COLOR = {
+  backlog: 'var(--muted)',
+  in_progress: 'var(--amber)',
+  in_review: 'var(--blue)',
+  done: 'var(--green)'
 };
 
 export const ALL_LABELS = [
   'bug', 'feature', 'security', 'maintenance', 'documentation', 'testing',
   'frontend', 'backend', 'database', 'analysis'
 ];
+
+// The small colored dot shown before each label.
+export const LABEL_COLOR = {
+  bug: 'var(--red)',
+  feature: 'var(--blue)',
+  security: 'var(--purple)',
+  maintenance: 'var(--muted)',
+  documentation: 'var(--teal)',
+  testing: 'var(--amber)',
+  frontend: 'var(--pink)',
+  backend: 'var(--green)',
+  database: 'var(--amber)',
+  analysis: 'var(--teal)'
+};
 
 /* ---------------- FIELD LIMITS (mirrored in firestore.rules) ---------------- */
 export const LIMITS = {

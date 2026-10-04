@@ -30,8 +30,9 @@ export function displayName(email){
 export function avatarHtml(email, size = 20){
   const font = Math.max(9, Math.round(size * 0.42));
   const box = `width:${size}px;height:${size}px;font-size:${font}px;`;
-  if(!email) return html`<span class="avatar" style="${box}">—</span>`;
+  if(!email) return html`<span class="avatar avatar-empty" style="${box}" title="Unassigned"></span>`;
   const label = displayName(email);
   const color = avatarColor(email);
-  return html`<span class="avatar" style="${box}background:${color}22;color:${color};" title="${label}">${initials(label)}</span>`;
+  // Tint background; initials mixed toward the text color so they stay readable in both themes.
+  return html`<span class="avatar" style="${box}background:${color}2E;color:color-mix(in srgb, ${color} 55%, var(--text));" title="${label}">${initials(label)}</span>`;
 }

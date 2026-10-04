@@ -31,9 +31,11 @@ export function mountActivityLog(container, fid){
   return watchActivity(fid, entries => {
     container.innerHTML = entries.length === 0
       ? html`<div class="comment-empty">No activity recorded yet.</div>`
-      : html`${entries.map(a => html`
-          <div class="comment activity-entry">
-            <div class="comment-head"><span>${describeActivity(a)}</span><span>${formatDateTime(a.createdAt)}</span></div>
-          </div>`)}`;
+      : html`<ol class="activity-list">${entries.map(a => html`
+          <li class="activity-entry">
+            <span class="activity-dot" aria-hidden="true"></span>
+            <span class="activity-text">${describeActivity(a)}</span>
+            <span class="activity-when">${formatDateTime(a.createdAt)}</span>
+          </li>`)}</ol>`;
   }, () => { container.innerHTML = html`<div class="comment-empty">Could not load activity.</div>`; });
 }

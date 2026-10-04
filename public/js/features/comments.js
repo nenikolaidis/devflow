@@ -14,7 +14,7 @@ import { LIMITS } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { formatDateTime } from '../core/format.js';
 import { canModerate, isMe } from '../core/permissions.js';
-import { displayName } from '../core/people.js';
+import { displayName, avatarHtml } from '../core/people.js';
 import { showToast, confirmDialog, promptDialog } from '../core/ui.js';
 
 /**
@@ -28,8 +28,11 @@ export function mountComments(container, fid, { readOnly = false } = {}){
     ${readOnly ? '' : html`
       <div class="comment-add">
         <label for="commentInput" class="sr-only">Add a comment</label>
-        <textarea id="commentInput" rows="2" maxlength="${LIMITS.COMMENT}" placeholder="Add a comment..."></textarea>
-        <button type="button" class="primary" id="postComment">Post</button>
+        <textarea id="commentInput" rows="2" maxlength="${LIMITS.COMMENT}" placeholder="Add a comment…"></textarea>
+        <div class="comment-add-actions">
+          <span>⌘/Ctrl + Enter to post</span>
+          <button type="button" class="primary small" id="postComment">Comment</button>
+        </div>
       </div>`}`;
   const list = container.querySelector('.comment-list');
   let docs = [];
@@ -94,13 +97,16 @@ function commentHtml(id, c, readOnly){
            ${moderator ? html`<div class="comment-body muted">${c.text}</div>` : ''}`
     : html`<div class="comment-body">${c.text}</div>`;
   const actions = html`
-    ${canEdit ? html`<button type="button" class="ghost small" data-action="edit" data-id="${id}">Edit</button>` : ''}
-    ${moderator ? html`<button type="button" class="ghost small" data-action="hide" data-id="${id}">${c.hidden ? 'Unhide' : 'Hide'}</button>` : ''}
-    ${canDelete ? html`<button type="button" class="ghost small" data-action="delete" data-id="${id}">Delete</button>` : ''}`;
+    ${canEdit ? html`<button type="button" data-action="edit" data-id="${id}">Edit</button>` : ''}
+    ${moderator ? html`<button type="button" data-action="hide" data-id="${id}">${c.hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+    ${canDelete ? html`<button type="button" data-action="delete" data-id="${id}">Delete</button>` : ''}`;
   return html`
     <div class="comment${c.hidden ? ' is-hidden' : ''}">
-      <div class="comment-head"><span>${displayName(c.author)}</span><span>${formatDateTime(c.createdAt)}${c.editedAt ? ' · edited' : ''}</span></div>
-      ${body}
-      ${(canEdit || moderator || canDelete) ? html`<div class="comment-actions">${actions}</div>` : ''}
+      ${avatarHtml(c.author, 28)}
+      <div class="comment-main">
+        <div class="comment-head"><strong>${displayName(c.author)}</strong> <span>· ${formatDateTime(c.createdAt)}${c.editedAt ? ' · edited' : ''}</span></div>
+        ${body}
+        ${(canEdit || moderator || canDelete) ? html`<div class="comment-actions">${actions}</div>` : ''}
+      </div>
     </div>`;
 }
