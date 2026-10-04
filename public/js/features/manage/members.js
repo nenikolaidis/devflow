@@ -88,10 +88,13 @@ function wireProjectMembers(root){
     delete members[email];
     save(members, `${displayName(email)} removed from ${p.name}`);
   });
+  // Picking a person or role counts as editing, so a live update doesn't reset the choice.
+  ['#addMemberEmail', '#addMemberRole'].forEach(sel => root.querySelector(sel).addEventListener('change', () => { root.dataset.dirty = '1'; }));
   root.querySelector('#addMemberBtn').addEventListener('click', () => {
     const email = root.querySelector('#addMemberEmail').value;
     if(!email){ showToast('Choose someone to add'); return; }
     const roleId = root.querySelector('#addMemberRole').value;
+    delete root.dataset.dirty; // before saving, so the update that follows redraws the list
     save({ ...p.members, [email]: roleId }, `${displayName(email)} added to ${p.name} as ${roleName(roleId)}`);
   });
 }

@@ -160,9 +160,15 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     await manage(admin, 'members');
     for(const [email, role] of [['pm@team.dev', 'pm'], ['dev@team.dev', 'developer'], ['dev2@team.dev', 'developer'], ['viewer@team.dev', 'viewer']]){
       await admin.waitForSelector(`#addMemberEmail option[value="${email}"]`);
-      await admin.select('#addMemberEmail', email);
-      await admin.select('#addMemberRole', role);
-      await admin.click('#addMemberBtn');
+      // Pick and add in one step: the section can redraw between separate steps on a slow machine.
+      await admin.evaluate((e, r) => {
+        for(const [sel, value] of [['#addMemberEmail', e], ['#addMemberRole', r]]){
+          const el = document.querySelector(sel);
+          el.value = value;
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        document.querySelector('#addMemberBtn').click();
+      }, email, role);
       await until(admin, e => document.querySelector(`#projectMembers [data-email="${e}"]`), email);
     }
     assert.equal((await admin.$$('#projectMembers .allow-row')).length, 5);
