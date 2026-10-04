@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- The demo may only load files from this site and connect to this site.
+     The Firebase SDK and the real database are out of reach by design:
+     everything runs in memory in demo/backend.js. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
+<base href="../">
+<title>devflow — live demo</title>
+<meta name="description" content="Try devflow, a real-time Kanban board for development teams, with sample data. Nothing is saved.">
+<script src="js/theme-init.js"></script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="demo/demo.css">
+<script type="module" src="demo/boot.js"></script>
+</head>
+<body>
+<p class="demo-loading" id="demoLoading">Loading the demo…</p>
+<noscript><p class="demo-loading">The devflow demo needs JavaScript.</p></noscript>
+</body>
+</html>

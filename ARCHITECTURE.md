@@ -80,6 +80,13 @@ public/js/
 └── integrations/
     ├── discord.js         posts ticket events to a Discord webhook
     └── email.js           assignment emails via EmailJS
+
+public/demo/               the public demo at /demo/ — the real app on sample data
+├── index.html             loads only from this site (its own CSP); no Firebase SDK
+├── boot.js                installs the stand-in, copies the app's markup from index.html, starts app.js
+├── backend.js             in-memory stand-in for the Firebase compat API the data layer uses
+├── seed.js                the sample team, projects, tickets and sprints
+└── demo.css               the "Live demo · Viewing as" strip
 ```
 
 ### Layering rules
@@ -103,6 +110,7 @@ Outside `public/` (never deployed):
 ```
 tests/firestore.rules.test.js   security-rules tests (Firestore emulator)
 tests/e2e/app.e2e.test.js       end-to-end test: headless Chrome against the emulators
+tests/e2e/demo.e2e.test.js      the public demo works, and never contacts Firebase
 scripts/weekly-summary.mjs      the Monday Discord summary (run by GitHub Actions)
 ```
 
@@ -349,6 +357,20 @@ and approving a project, switching projects, archive, views, access
 requests, shortcuts and sign-out. Part 2 seeds a board in the old
 single-board layout and runs **Upgrade now**. When you add a feature, add
 a step.
+
+**The demo test** (`tests/e2e/demo.e2e.test.js`) opens `/demo/`, creates
+and moves a ticket, switches between people with different roles, checks
+that reloading starts over, and fails if the page contacts anything other
+than this site and Google Fonts.
+
+**The public demo** (`public/demo/`) is the same app with a different data
+layer underneath: `demo/backend.js` defines `window.firebase` with the
+small part of the compat API that `data/` uses (collections, documents,
+queries, live listeners, batches, transactions, server timestamps and a
+signed-in user), all in memory. The app code doesn't know the difference,
+so new features appear in the demo automatically. If a feature starts using
+a Firestore feature the stand-in lacks (a new query operator, say), the
+demo test fails; add it to `backend.js`. Sample data lives in `demo/seed.js`.
 
 **Continuous integration** (`.github/workflows/`):
 

@@ -27,9 +27,10 @@ devflow/
 ├── public/                ← the website — the only folder that gets published
 │   ├── index.html
 │   ├── css/style.css
-│   └── js/
-│       ├── config.js      ← every value you might edit (Firebase, App Check, EmailJS)
-│       └── core/  data/  features/  integrations/
+│   ├── js/
+│   │   ├── config.js      ← every value you might edit (Firebase, App Check, EmailJS)
+│   │   └── core/  data/  features/  integrations/
+│   └── demo/              ← the public demo (sample data, no database)
 ├── firestore.rules        ← database security rules — the real security boundary
 ├── firestore.indexes.json ← database indexes
 ├── firebase.json          ← hosting, security headers, emulator ports

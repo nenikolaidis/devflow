@@ -4,6 +4,8 @@
 
 I built devflow to run day-to-day work on a development team: tickets move through a short, enforced workflow, everyone sees changes instantly, and the people who should approve work are the only ones who can close it. It runs entirely on Firebase's free tier and is hosted as static files, so there is no server to maintain.
 
+**[Try the live demo →](https://devflow-board-11146.web.app/demo/)** No sign-up: it opens with a sample team and projects, and you can switch between people with different roles. It runs entirely in your browser on sample data, so nothing is saved and it can't reach any real data.
+
 ![The devflow board in dark mode](docs/screenshots/board-dark.png)
 
 <p align="center">
@@ -64,7 +66,7 @@ All rules that matter — who can do what, and what the workflow allows — are 
 | **Sign-in** | Firebase Authentication (email + password, verified email required) |
 | **Security** | Firestore security rules — 53 automated tests cover them, project by project and role by role |
 | **Hosting** | Firebase Hosting with a strict Content-Security-Policy and other security headers |
-| **CI/CD** | GitHub Actions: security-rules tests and an end-to-end browser test (35 steps, including the upgrade to projects) on every push and pull request; deploys only when they pass |
+| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (35 steps, including the upgrade to projects, plus 9 for the public demo) on every push and pull request; deploys only when they pass |
 | **Scheduled jobs** | A GitHub Actions cron job for the weekly Discord summary (no paid Firebase plan needed) |
 
 The code is organised in layers — `core/` (no database code), `data/` (all Firestore access), `features/` (one file per screen) — and every piece of user content goes through an auto-escaping HTML template, so it can never run as code.
@@ -99,4 +101,4 @@ With `?emulators` in the address the app talks to the local emulators, so you ca
 
 ## License
 
-[MIT](LICENSE) © 2026 Nearchos Nikolaidis. You're welcome to use, adapt and build on devflow; please keep the copyright notice.
+[MIT](LICENSE.md) © 2026 Nearchos Nikolaidis. You're welcome to use, adapt and build on devflow; please keep the copyright notice.

@@ -1,0 +1,22 @@
+/* demo/demo.css — the strip at the top of the public demo. */
+.demo-bar{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px;
+  padding:7px 20px; font-size:13px; color:var(--text);
+  background:color-mix(in srgb, var(--accent) 12%, var(--panel));
+  border-bottom:1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.demo-pill{
+  padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:600; letter-spacing:.02em;
+  background:var(--accent); color:var(--on-accent);
+}
+.demo-text{ color:var(--muted); flex:1 1 260px; }
+.demo-person{ display:flex; align-items:center; gap:8px; font-weight:500; white-space:nowrap; }
+.demo-person select{ width:auto; min-height:30px; padding:3px 28px 3px 10px; font-size:13px; }
+.demo-link{ color:var(--text); font-weight:500; }
+.demo-loading{ padding:40px 20px; text-align:center; color:var(--muted); font-family:system-ui, sans-serif; }
+
+@media (max-width:700px){
+  .demo-bar{ padding:7px 16px; }
+  .demo-text{ flex-basis:100%; order:3; }
+  .demo-link{ display:none; }
+}

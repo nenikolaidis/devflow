@@ -64,6 +64,14 @@ What a visitor who isn't on your team can see: the sign-in page. Nothing
 else — no tickets, names, comments, settings or team list. And a teammate
 sees only the projects they've been added to.
 
+The **public demo** at `/demo/` is separate from all of this. It runs the
+same app on sample data kept in the visitor's browser memory, never loads
+the Firebase SDK, and has its own Content-Security-Policy that only allows
+connections to the site itself, so the browser blocks any request to
+Firebase or Google's database even if the code tried. A test
+(`tests/e2e/demo.e2e.test.js`) fails if the demo contacts anything other
+than the site and Google Fonts.
+
 ---
 
 ## Hardening checklist for your deployment
