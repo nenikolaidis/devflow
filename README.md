@@ -1,6 +1,6 @@
-# devflow
+# devflow — ticket tracking for development teams
 
-**A real-time Kanban board for small software teams — with real security, a clear workflow, and no backend to run.**
+**Plan, track and ship software work: projects, tickets, sprints and code reviews on a real-time board, with roles and security built in.**
 
 I built devflow to run day-to-day work on a development team: tickets move through a short, enforced workflow, everyone sees changes instantly, and the people who should approve work are the only ones who can close it. It runs entirely on Firebase's free tier and is hosted as static files, so there is no server to maintain.
 
