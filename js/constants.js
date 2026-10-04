@@ -29,7 +29,7 @@ export const PRIORITY_COLOR = {
 
 export const ALL_LABELS = [
   'bug', 'feature', 'security', 'maintenance', 'documentation', 'testing',
-  'frontend', 'backend', 'database'
+  'frontend', 'backend', 'database', 'analysis'
 ];
 
 export const TABLE_COLUMNS = [
@@ -79,5 +79,21 @@ export const TICKET_TEMPLATES = [
   {
     id: 'maintenance', name: 'Maintenance task', priority: 'low', labels: ['maintenance'],
     description: 'What needs maintaining\n\n\nWhy now\n\n\nRisk if skipped\n'
+  },
+  {
+    id: 'business_analysis', name: 'Business analysis', priority: 'medium', labels: ['analysis'],
+    description: 'Business objective\n\n\nStakeholders\n\n\nCurrent process (as-is)\n\n\nProposed process (to-be)\n\n\nRequirements (functional / non-functional)\n\n\nAcceptance criteria\n\n\nSuccess metrics / KPIs\n\n\nAssumptions & constraints\n\n\nRisks & dependencies\n'
   }
 ];
+
+// Board-wide settings stored in Firestore at config/settings (admins edit
+// them from the Team tab). These defaults apply until an admin saves.
+// wipLimits: status key -> max tickets in that column (0 = no limit).
+export const DEFAULT_SETTINGS = {
+  discordWebhookUrl: '',
+  staleDays: 5,
+  wipLimits: { backlog: 0, in_progress: 5, in_review: 3, done: 0 }
+};
+
+// Stages where a ticket sitting untouched counts as "stale".
+export const STALE_STATUSES = ['in_progress', 'in_review'];

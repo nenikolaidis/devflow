@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { renderDashboard } from './dashboard.js';
 import { renderAllowlist, renderRequests } from './team.js';
 import { renderBoardView } from './tickets.js';
+import { renderSettings } from './settings.js';
 
 export function switchTab(tab){
   state.currentTab = tab;
@@ -30,6 +31,7 @@ export function switchTab(tab){
   if(tab === 'team' && state.currentRole === 'admin'){
     renderAllowlist();
     renderRequests(state.requestsCache);
+    renderSettings();
   }
 }
 

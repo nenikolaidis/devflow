@@ -5,6 +5,7 @@ import { switchTab } from './nav.js';
 import { attachTicketsListener } from './tickets.js';
 import { attachAllowlistListener, attachRequestsListener } from './team.js';
 import { attachProfilesListener, ensureOwnProfile } from './profiles.js';
+import { attachSettingsListener } from './settings.js';
 
 /* ---------------- LOGIN / SIGNUP UI ---------------- */
 let authMode = 'login';
@@ -100,6 +101,7 @@ auth.onAuthStateChanged(async (user) => {
       attachTicketsListener();
       attachAllowlistListener();
       attachProfilesListener();
+      attachSettingsListener();
       ensureOwnProfile();
       if(isAdmin) attachRequestsListener();
     }else{

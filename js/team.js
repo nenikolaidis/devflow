@@ -1,6 +1,6 @@
 import { db } from './firebase-init.js';
 import { state } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, escapeHtml } from './utils.js';
 import { avatarHtml, displayName, openProfileModal } from './profiles.js';
 
 export function attachAllowlistListener(){
@@ -19,7 +19,7 @@ export function renderAllowlist(){
     const isSelf = u.id === state.currentUser.email.toLowerCase();
     row.innerHTML = `
       ${avatarHtml(u.id, 22)}
-      <span class="em">${displayName(u.id)}${isSelf ? ' (you)' : ''}</span>
+      <span class="em">${escapeHtml(displayName(u.id))}${isSelf ? ' (you)' : ''}</span>
       <select class="roleSelect" ${isSelf ? 'disabled' : ''}>
         <option value="developer" ${u.role==='developer'?'selected':''}>Developer</option>
         <option value="pm" ${u.role==='pm'?'selected':''}>Project manager</option>
@@ -75,7 +75,7 @@ export function renderRequests(requests){
     const row = document.createElement('div');
     row.className = 'request-row';
     row.innerHTML = `
-      <span class="em">${r.id}</span>
+      <span class="em">${escapeHtml(r.id)}</span>
       <select class="reqRole">
         <option value="developer">Developer</option>
         <option value="pm">Project manager</option>

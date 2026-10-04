@@ -22,13 +22,15 @@ devflow/
     ├── app.js            ← entry point, just loads the other modules
     ├── firebase-init.js  ← your Firebase config goes here (step 5)
     ├── notify.js         ← your EmailJS config goes here (step 9, optional)
-    ├── discord.js        ← your Discord webhook goes here (step 10, optional)
+    ├── discord.js        ← Discord notifications (webhook is set in the app, step 10)
+    ├── settings.js       ← board settings: webhook, WIP limits, stale threshold
+    ├── nav.js            ← tab switching
     ├── state.js          ← shared app state
     ├── constants.js      ← statuses, priorities, labels
     ├── utils.js          ← small helper functions
     ├── auth.js           ← login/signup/password/access requests
     ├── profiles.js       ← user profiles (name, username, bio, time zone)
-    ├── tickets.js         ← board, table view, ticket form, comments
+    ├── tickets.js        ← board, table view, ticket form, comments, workflow rules
     ├── dashboard.js      ← stats view
     └── team.js           ← allow list + access request management
 ```
@@ -128,18 +130,16 @@ If you skip this step, the app quietly does nothing when a ticket is assigned �
 
 ## 10. (Optional) Turn on Discord notifications
 
-This posts to a Discord channel whenever a ticket is **created**, **assigned**, or **deleted**, with an `@here` ping if the ticket is Critical priority. No account or API key needed beyond your own Discord server.
+This posts to a Discord channel whenever a ticket is **created**, **assigned**, **blocked**, **archived**, or **permanently deleted**, with an `@here` ping if the ticket is Critical priority.
 
 1. In Discord, go to your server → the channel you want notifications in → **Edit Channel** (gear icon) → **Integrations** → **Webhooks** → **New Webhook**.
 2. Give it a name/avatar if you like, then click **Copy Webhook URL**.
-3. Open `js/discord.js` and paste that URL into `DISCORD_WEBHOOK_URL`.
-4. Re-upload `js/discord.js` to GitHub. Try creating a test ticket — it should show up in the channel within a second or two.
+3. In Devflow, sign in as an admin and open **Team → Board settings**.
+4. Paste the URL into **Discord webhook URL**, click **Send test** to check it, then **Save settings**.
 
-**Security note**: this webhook URL lives in your site's public source code (anyone who views your page source can see it), and anyone who has it can post messages to that channel — there's no way to restrict it to your app the way EmailJS's public key can be domain-restricted. If that's a concern:
-- Keep the GitHub repo **private** (GitHub Pages still works from a private repo on paid plans; on free plans, private repos can't publish Pages sites, so weigh this against how sensitive the channel is).
-- Or accept the small risk for an internal tool — if it's ever abused, delete the webhook in Discord and create a new one (old URL immediately stops working).
+The URL is saved in Firestore (`config/settings`), **not** in the site's code, so it isn't visible to the public. Only approved teammates can read it (their browsers need it to post messages). If it's ever leaked or abused, delete the webhook in Discord, create a new one, and paste the new URL into Board settings — no code change or re-upload needed.
 
-If you skip this step, the app quietly does nothing on ticket create/assign/delete — no errors, no broken UI, just no Discord message.
+If you skip this step, the app quietly does nothing on these events — no errors, no broken UI, just no Discord message.
 
 ---
 
@@ -147,23 +147,32 @@ If you skip this step, the app quietly does nothing on ticket create/assign/dele
 
 - **Board** — kanban view with **4 stages**: Backlog → In progress → In review → Done. (Simplified from the earlier 6-stage version — old tickets in Todo/Code review/Testing display correctly under their new stage automatically; nothing needs migrating by hand.) Also a sortable **Table** view, both respecting the same filters.
 - **Ticket templates** — starting a new ticket, pick "Bug report," "Feature request," "Security issue," "Maintenance task," or blank; each pre-fills a structured description and sensible default priority/labels, fully editable afterward.
-- **Activity log** — every ticket has a read-only audit trail: created, status moves, (re)assignments, and edits, each with who and when. Nobody — not even admins — can edit or delete an entry; it's meant to be a trustworthy record.
-- **Kanban upgrades**: drag cards between columns, quick-edit (✏️ on a card) for priority/owner/labels without opening the full ticket, multi-select for bulk status changes or deletes (**Select** button), collapsible columns, sort-by dropdown (newest, oldest, priority, due date, title), and an assignee filter — on top of the live sync, per-column counts, priority colors, avatars, due-date flags, and labels that were already there.
+- **Ticket templates** also include **Business analysis** (objective, stakeholders, as-is / to-be process, requirements, acceptance criteria, KPIs, assumptions, risks), tagged with the `analysis` label.
+- **Activity log** — every ticket has a read-only audit trail: created, status moves, (re)assignments, edits, blocked/unblocked, archived/restored, each with who and when. Nobody — not even admins — can edit or delete an entry; it's meant to be a trustworthy record.
+- **Workflow rules** — moving to **In review** requires a reviewer; only the ticket's reviewer, a PM, or an admin can move it to **Done**. Enforced by `firestore.rules`, so it can't be bypassed from the browser console.
+- **Archive instead of delete** — admins/PMs archive tickets (hidden from board and dashboard, history kept). Use the **Archived** button on the board to show them; admins/PMs can **Restore**, and only admins can **Delete permanently** an archived ticket.
+- **Blocked flag** — anyone can mark a ticket blocked (a reason is required) or unblock it.
+- **Stale tickets & WIP limits** — set in **Team → Board settings**. Defaults: stale after 5 days; WIP limits of 5 for In progress and 3 for In review.
+- **Comment moderation** — authors can edit their own comments (shown as "edited"); admins/PMs can hide or unhide any comment.
+- **Ticket numbers** come from a shared counter (`meta/counters`), so two people creating tickets at the same moment never get the same `TASK-###` id. It's created automatically the first time someone makes a ticket.
+
+> **After updating the app**, paste the latest `firestore.rules` into Firebase (step 3) and click **Publish** — the new features depend on those rules.
+- **Kanban upgrades**: drag cards between columns, quick-edit (✏️ on a card) for priority/owner/labels without opening the full ticket, multi-select for bulk status changes or archiving (**Select** button), collapsible columns, sort-by dropdown (newest, oldest, priority, due date, title), and an assignee filter — on top of the live sync, per-column counts, priority colors, avatars, due-date flags, and labels that were already there.
 - **User profiles** — each teammate has a profile: name, username, bio, time zone, and auto-tracked last-active time, plus lists of tickets they're assigned to or created. Open your own via the **Profile** button (editable); view a teammate's from the Team tab (read-only). Avatars are initials with a consistent per-person color — no image uploads needed.
 - **Assignment emails** — optional, see step 9 above.
-- **Discord notifications** — optional, see step 10 above. Posts to a channel on ticket create/assign/delete, with an `@here` ping for Critical-priority tickets.
-- **Labels** — bug, feature, security, maintenance, documentation, testing, frontend, backend, database. Multi-select on any ticket.
+- **Discord notifications** — optional, see step 10 above. Posts to a channel on ticket create/assign/block/archive/delete, with an `@here` ping for Critical-priority tickets.
+- **Labels** — bug, feature, security, maintenance, documentation, testing, frontend, backend, database, analysis. Multi-select on any ticket.
 - **Assignee search** — Owner and Reviewer are a searchable dropdown pulled from your approved team roster (type to filter); you can still type a free-text name if someone doesn't have an account yet.
 - **Merge request / issue link** — an optional URL field on each ticket, shown as a clickable link above the comments section.
-- **Comments** — with delete (your own comments, or any comment if you're an Admin/PM), with a confirmation prompt first.
-- **Dashboard** — total/open/overdue ticket counts, completion rate, breakdowns by status and priority, and a per-owner table.
-- **Team tab** (admins only) — approve or deny access requests, add people directly, change anyone's role, remove them, or view their profile.
+- **Comments** — edit your own; delete your own (or any comment if you're an Admin/PM), with a confirmation prompt first; Admins/PMs can also hide/unhide comments.
+- **Dashboard** — total/open/overdue/blocked/stale ticket counts, completion rate, lists of blocked and stale tickets, breakdowns by status and priority, and a per-owner table.
+- **Team tab** (admins only) — approve or deny access requests, add people directly, change anyone's role, remove them, view their profile, and edit **Board settings** (Discord webhook, stale threshold, WIP limits).
 - **Account menu** — change your password in-app, or use "Forgot password?" on the login screen for a reset email.
 
 ## Notes
 
 - **Costs**: Firebase's free "Spark" plan comfortably covers a small team's ticket board — no credit card required.
-- **Roles**: Administrator and Project manager can delete tickets; everyone approved can create, view, edit, comment on, and move tickets, matching the access rules in your process doc.
+- **Roles**: Administrator and Project manager can archive/restore tickets, move any ticket to Done, and moderate comments; only Administrators can permanently delete an archived ticket. Everyone approved can create, view, edit, comment on, and move tickets (within the workflow rules).
 - **File structure**: the app was split from one big `index.html` into `css/style.css` plus focused JS modules under `js/` (see "Project structure" above) purely to make it easier to navigate and edit — the app's behavior is unchanged, plus one small bug fix: switching back to the Board tab now always shows the latest tickets, even if changes came in while you were on Dashboard or Team.
 - **If you already deployed an earlier (single-file) version**: this replaces `index.html` entirely and adds the `css/` and `js/` folders — delete the old single-file `index.html` from your repo first, or make sure the new one overwrites it, then re-upload everything together so no file is left stale.
 - **If you already deployed an earlier version**: re-publish `firestore.rules` (it now also adds a `profiles` collection and a per-ticket `activity` subcollection — both readable by any approved user, write rules as described in the file's comments), then replace every file in `js/`, `css/style.css`, and `index.html` together so nothing is left stale. Your tickets, allow list, and comments all carry over untouched — including tickets sitting in the old Todo/Code review/Testing stages, which will just display under their new stage without any manual fix-up.

@@ -76,15 +76,6 @@
       </select>
       <select id="labelFilter">
         <option value="">All labels</option>
-        <option value="bug">bug</option>
-        <option value="feature">feature</option>
-        <option value="security">security</option>
-        <option value="maintenance">maintenance</option>
-        <option value="documentation">documentation</option>
-        <option value="testing">testing</option>
-        <option value="frontend">frontend</option>
-        <option value="backend">backend</option>
-        <option value="database">database</option>
       </select>
       <select id="assigneeFilter">
         <option value="">All assignees</option>
@@ -101,6 +92,7 @@
         <button id="viewTableBtn">Table</button>
       </div>
       <button id="selectModeBtn">Select</button>
+      <button id="archivedToggleBtn" title="Show archived tickets alongside active ones">Archived</button>
       <button class="primary" id="newTicketBtn" style="margin-left:auto;">+ New ticket</button>
     </div>
     <div class="board" id="board"></div>
@@ -129,6 +121,26 @@
         <option value="admin">Administrator</option>
       </select>
       <button id="addAllowBtn">Add</button>
+    </div>
+
+    <h3>Board settings</h3>
+    <div class="settings-box">
+      <div class="field">
+        <label>Discord webhook URL — stored in the database, not in the site's code</label>
+        <div class="add-allow" style="margin-top:0;">
+          <input type="text" id="setWebhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off">
+          <button id="testWebhookBtn">Send test</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Flag a ticket as stale after this many days with no activity (In progress / In review)</label>
+        <input type="number" id="setStaleDays" min="1" step="1" style="width:100px;">
+      </div>
+      <div class="field">
+        <label>Work-in-progress limits per column (0 = no limit)</label>
+        <div class="wip-inputs" id="setWipLimits"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:4px;"><button class="primary" id="saveSettingsBtn">Save settings</button></div>
     </div>
   </div>
 </div>

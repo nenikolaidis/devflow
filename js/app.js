@@ -8,6 +8,7 @@ import './constants.js';
 import './utils.js';
 import './notify.js';
 import './discord.js';
+import './settings.js';
 import './dashboard.js';
 import './profiles.js';
 import './team.js';

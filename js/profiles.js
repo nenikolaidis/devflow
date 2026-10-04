@@ -37,7 +37,7 @@ export function avatarHtml(email, size){
   const p = state.profilesCache[normEmail(email)];
   const label = (p && p.name) ? p.name : email;
   const color = avatarColor(email);
-  return `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${font}px;background:${color}22;color:${color};" title="${escapeHtml(label)}">${initials(label)}</span>`;
+  return `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${font}px;background:${color}22;color:${color};" title="${escapeHtml(label)}">${escapeHtml(initials(label))}</span>`;
 }
 
 /* ---------------- SYNC ---------------- */
@@ -74,7 +74,7 @@ export function openProfileModal(targetEmail){
   const isSelf = email === normEmail(state.currentUser.email);
   const p = state.profilesCache[email] || {};
   const role = (state.allowlistCache.find(u => u.id === email) || {}).role || '—';
-  const assigned = state.tickets.filter(t => normEmail(t.owner) === email);
+  const assigned = state.tickets.filter(t => !t.archived && normEmail(t.owner) === email);
   const created = state.tickets.filter(t => normEmail(t.createdBy) === email);
   const color = avatarColor(email);
 
@@ -85,11 +85,11 @@ export function openProfileModal(targetEmail){
       <div class="modal-head"><h2>${isSelf ? 'My profile' : 'Profile'}</h2><button class="ghost" id="closeProfile">✕</button></div>
 
       <div class="profile-head">
-        <span class="avatar" style="width:56px;height:56px;font-size:20px;background:${color}22;color:${color};">${initials((p.name)||email)}</span>
+        <span class="avatar" style="width:56px;height:56px;font-size:20px;background:${color}22;color:${color};">${escapeHtml(initials((p.name)||email))}</span>
         <div>
-          <div class="profile-name">${escapeHtml(p.name) || email}</div>
+          <div class="profile-name">${escapeHtml(p.name || email)}</div>
           <div class="profile-sub">${p.username ? '@' + escapeHtml(p.username) + ' · ' : ''}${escapeHtml(email)}</div>
-          <span class="role-pill">${role}</span>
+          <span class="role-pill">${escapeHtml(role)}</span>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export function openProfileModal(targetEmail){
       ${assigned.length ? `
         <div class="profile-tickets">
           <h4>Assigned tickets</h4>
-          ${assigned.slice(0, 8).map(t => `<div class="mini-ticket" data-fid="${t.firestoreId}"><span class="card-id">${t.id}</span> ${escapeHtml(t.title)}</div>`).join('')}
+          ${assigned.slice(0, 8).map(t => `<div class="mini-ticket" data-fid="${escapeHtml(t.firestoreId)}"><span class="card-id">${escapeHtml(t.id)}</span> ${escapeHtml(t.title)}</div>`).join('')}
         </div>` : ''}
 
       ${isSelf ? `<div class="modal-actions"><button class="primary" id="saveProfile">Save profile</button></div>` : ''}

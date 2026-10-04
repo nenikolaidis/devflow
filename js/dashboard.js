@@ -1,11 +1,22 @@
 import { state } from './state.js';
 import { STATUSES, PRIORITIES, PRIORITY_COLOR, normalizeStatus } from './constants.js';
-import { escapeHtml, isOverdue } from './utils.js';
+import { escapeHtml, isOverdue, staleDays } from './utils.js';
+import { displayName } from './profiles.js';
+
+function ticketListHtml(rows, emptyText, detail){
+  if(rows.length === 0) return `<div class="empty-note">${emptyText}</div>`;
+  return rows.map(t => `<div class="mini-ticket" data-fid="${escapeHtml(t.firestoreId)}">
+      <span class="card-id">${escapeHtml(t.id)}</span>
+      <span class="mini-title">${escapeHtml(t.title)}</span>
+      <span class="mini-detail">${detail(t)}</span>
+    </div>`).join('');
+}
 
 export function renderDashboard(){
   const statsEl = document.getElementById('dashStats');
   const panelsEl = document.getElementById('dashPanels');
-  const tickets = state.tickets;
+  // Archived tickets are kept for history but don't count toward stats.
+  const tickets = state.tickets.filter(t => !t.archived);
 
   if(tickets.length === 0){
     statsEl.innerHTML = '';
@@ -18,11 +29,15 @@ export function renderDashboard(){
   const open = total - done;
   const overdue = tickets.filter(t => isOverdue(t.dueDate, t.status)).length;
   const completionRate = total ? Math.round((done/total)*100) : 0;
+  const blocked = tickets.filter(t => t.blocked && normalizeStatus(t.status) !== 'done');
+  const stale = tickets.map(t => ({ t, days: staleDays(t) })).filter(x => x.days).sort((a, b) => b.days - a.days);
 
   statsEl.innerHTML = `
     <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total tickets</div></div>
     <div class="stat-card"><div class="stat-num">${open}</div><div class="stat-label">Open</div></div>
     <div class="stat-card"><div class="stat-num red">${overdue}</div><div class="stat-label">Overdue</div></div>
+    <div class="stat-card"><div class="stat-num red">${blocked.length}</div><div class="stat-label">Blocked</div></div>
+    <div class="stat-card"><div class="stat-num">${stale.length}</div><div class="stat-label">Stale</div></div>
     <div class="stat-card"><div class="stat-num teal">${completionRate}%</div><div class="stat-label">Completion rate</div></div>
   `;
 
@@ -55,6 +70,14 @@ export function renderDashboard(){
           <div class="bar-track"><div class="bar-fill" style="width:${total ? (p.count/total*100) : 0}%; background:${p.color};"></div></div>
         </div>`).join('')}
     </div>
+    <div class="panel">
+      <h3>Blocked tickets</h3>
+      ${ticketListHtml(blocked, 'Nothing is blocked.', t => escapeHtml(t.blockedReason || ''))}
+    </div>
+    <div class="panel">
+      <h3>Stale tickets — no activity in a while</h3>
+      ${ticketListHtml(stale.map(x => x.t), 'No stale tickets.', t => `${staleDays(t)}d · ${escapeHtml(displayName(t.owner))}`)}
+    </div>
     <div class="panel" style="grid-column:1 / -1;">
       <h3>By owner</h3>
       <table class="owner-table">
@@ -63,4 +86,8 @@ export function renderDashboard(){
       </table>
     </div>
   `;
+
+  panelsEl.querySelectorAll('.mini-ticket').forEach(el => {
+    el.addEventListener('click', () => import('./tickets.js').then(m => m.openDetail(el.dataset.fid)));
+  });
 }

@@ -39,7 +39,7 @@
   .nav button:hover{ color:var(--text-primary); background:none; }
   .nav button.active{ color:var(--accent); border-bottom-color:var(--accent); }
 
-  select, input[type=text], input[type=email], input[type=password], input[type=date], textarea{
+  select, input[type=text], input[type=email], input[type=password], input[type=date], input[type=number], textarea{
     background:var(--surface); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius);
     padding:8px 10px; font-family:var(--font-sans); font-size:13px; outline:none;
   }
@@ -120,7 +120,6 @@
   .activity-entry .comment-head span:first-child{ color:var(--text-secondary); }
   .comment-add{ display:flex; gap:8px; margin-top:8px; }
   .comment-add textarea{ flex:1; }
-  .comment-delete{ margin-top:6px; }
 
   .combo{ position:relative; }
   .combo-list{ position:absolute; top:calc(100% + 2px); left:0; right:0; background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; max-height:170px; overflow-y:auto; z-index:20; box-shadow:0 8px 20px rgba(0,0,0,.35); }
@@ -232,6 +231,46 @@
     margin-bottom:6px; font-size:12px; cursor:pointer; display:flex; gap:8px; align-items:center;
   }
   .mini-ticket:hover{ background:var(--surface-hover); }
+
+  /* -------- Workflow: locked status buttons -------- */
+  .status-track button.locked{ opacity:.45; }
+
+  /* -------- Ticket flags: blocked / stale / archived -------- */
+  .card-flags{ display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+  .flag{ font-size:10px; padding:2px 7px; border-radius:20px; font-weight:600; font-family:var(--font-mono); white-space:nowrap; }
+  .flag-blocked{ background:var(--red-dim); color:var(--red); }
+  .flag-stale{ background:var(--accent-dim); color:var(--accent); }
+  .flag-archived{ background:var(--surface-hover); color:var(--text-muted); border:1px solid var(--border); }
+  .card.archived, table.ticket-table tr.archived{ opacity:.55; }
+  table.ticket-table td .flag{ margin-left:4px; }
+  .banner{ border-radius:8px; padding:10px 12px; font-size:12px; margin-bottom:14px; }
+  .banner div{ margin-top:4px; white-space:pre-wrap; }
+  .banner-blocked{ background:var(--red-dim); color:var(--red); border:1px solid var(--red); }
+  .banner-archived{ background:var(--surface); color:var(--text-secondary); border:1px dashed var(--border-strong); }
+
+  /* -------- WIP limits -------- */
+  .column.over-limit{ border-color:var(--red); }
+  .column.over-limit .column-head{ background:var(--red-dim); border-top-left-radius:10px; border-top-right-radius:10px; }
+  .column-count.wip.over{ background:var(--red); color:#241905; font-weight:700; }
+
+  /* -------- Archived toggle -------- */
+  #archivedToggleBtn.active{ background:var(--accent); color:#241905; border-color:var(--accent); font-weight:600; }
+
+  /* -------- Comment moderation -------- */
+  .comment-actions{ display:flex; gap:4px; margin-top:6px; }
+  .comment.is-hidden{ border-style:dashed; }
+  .comment-hidden{ font-size:12px; font-style:italic; color:var(--text-muted); }
+  .comment-body.muted{ color:var(--text-muted); margin-top:4px; }
+
+  /* -------- Dashboard ticket lists -------- */
+  .mini-title{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mini-detail{ font-size:11px; color:var(--text-muted); font-family:var(--font-mono); max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* -------- Team tab: board settings -------- */
+  .settings-box{ background:var(--bg-raised); border:1px solid var(--border); border-radius:8px; padding:14px; }
+  .wip-inputs{ display:flex; flex-wrap:wrap; gap:10px; }
+  .wip-input{ display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--text-secondary); }
+  .wip-input input{ width:90px; }
 
   .hidden{ display:none !important; }
 

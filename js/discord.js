@@ -1,37 +1,53 @@
 import { state } from './state.js';
 
 /* =========================================================
-   DISCORD WEBHOOK CONFIG — replace with your own
-   Discord: Server Settings → Integrations → Webhooks → New Webhook
-   → pick the channel → Copy Webhook URL → paste it below.
-   See SETUP.md for the full walkthrough and a security note about
-   this URL being visible in your site's source code.
+   DISCORD WEBHOOK — no longer stored in this file.
+   An admin pastes it into Team tab → Board settings, which saves it to
+   Firestore (config/settings). Only approved teammates can read it, so it
+   stays out of the public site source. See SETUP.md step 10.
 ========================================================= */
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1529151262237393048/xDGRd7zml6yL0wkPjrdtZbLMJe4FtiESNe8EnJVeFBk73yPwyOr2qJj6pZ2t8J-W2ycx";
-/* ========================================================= */
-
-const configured = DISCORD_WEBHOOK_URL && !DISCORD_WEBHOOK_URL.startsWith('YOUR_');
-
-if(!configured){
-  console.info('DevFlow: Discord webhook is not configured yet, so Discord notifications are disabled. See SETUP.md.');
-}
 
 const PRIORITY_HEX = { critical: 0xD9635B, high: 0xE8A33D, medium: 0x5B8DD9, low: 0x4FA98C };
 const NEUTRAL_HEX = 0x6E7060;
+const BLOCKED_HEX = 0xD9635B;
 
-async function post(payload){
-  if(!configured) return;
+export function isValidWebhookUrl(url){
+  return /^https:\/\/(?:ptb\.|canary\.)?(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url || '');
+}
+
+function webhookUrl(){
+  const url = state.settings && state.settings.discordWebhookUrl;
+  return isValidWebhookUrl(url) ? url : '';
+}
+
+async function post(payload, url){
+  url = url || webhookUrl();
+  if(!url) return false;
   try{
-    await fetch(DISCORD_WEBHOOK_URL, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-  }catch(e){ console.error('Discord notification failed to send:', e); }
+    return res.ok;
+  }catch(e){ console.error('Discord notification failed to send:', e); return false; }
 }
 
 function actorEmail(){ return state.currentUser ? state.currentUser.email : 'unknown'; }
 function pingFor(ticket){ return ticket.priority === 'critical' ? '@here' : undefined; }
+
+/** Sends a one-off message to check a webhook URL works. Returns true on success. */
+export function sendTestMessage(url){
+  return post({
+    embeds: [{
+      title: '✅ Devflow is connected',
+      description: 'Ticket notifications will be posted to this channel.',
+      color: NEUTRAL_HEX,
+      fields: [{ name: 'Set up by', value: actorEmail(), inline: false }],
+      timestamp: new Date().toISOString()
+    }]
+  }, url);
+}
 
 /** Posts a message when a new ticket is created. */
 export function notifyTicketCreated(ticket){
@@ -69,15 +85,46 @@ export function notifyTicketAssigned(ticket){
   });
 }
 
-/** Posts a message when one or more tickets are deleted (single delete or bulk delete). */
-export function notifyTicketsDeleted(tickets){
+/** Posts a message when a ticket is marked as blocked. */
+export function notifyTicketBlocked(ticket, reason){
+  post({
+    content: pingFor(ticket),
+    embeds: [{
+      title: `⛔ ${ticket.id} is blocked`,
+      description: ticket.title,
+      color: BLOCKED_HEX,
+      fields: [
+        { name: 'Reason', value: reason || '—', inline: false },
+        { name: 'Owner', value: ticket.owner || 'Unassigned', inline: true },
+        { name: 'Flagged by', value: actorEmail(), inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    }]
+  });
+}
+
+/** Posts a message when one or more tickets are archived (single or bulk). */
+export function notifyTicketsArchived(tickets){
   if(!tickets || tickets.length === 0) return;
-  const hasCritical = tickets.some(t => t.priority === 'critical');
   const list = tickets.map(t => `**${t.id}** — ${t.title}`).join('\n');
   post({
-    content: hasCritical ? '@here' : undefined,
     embeds: [{
-      title: tickets.length === 1 ? '🗑️ Ticket deleted' : `🗑️ ${tickets.length} tickets deleted`,
+      title: tickets.length === 1 ? '📦 Ticket archived' : `📦 ${tickets.length} tickets archived`,
+      description: list,
+      color: NEUTRAL_HEX,
+      fields: [{ name: 'Archived by', value: actorEmail(), inline: false }],
+      timestamp: new Date().toISOString()
+    }]
+  });
+}
+
+/** Posts a message when an archived ticket is permanently deleted. */
+export function notifyTicketsDeleted(tickets){
+  if(!tickets || tickets.length === 0) return;
+  const list = tickets.map(t => `**${t.id}** — ${t.title}`).join('\n');
+  post({
+    embeds: [{
+      title: tickets.length === 1 ? '🗑️ Ticket permanently deleted' : `🗑️ ${tickets.length} tickets permanently deleted`,
       description: list,
       color: NEUTRAL_HEX,
       fields: [{ name: 'Deleted by', value: actorEmail(), inline: false }],

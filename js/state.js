@@ -3,12 +3,13 @@
 // ES modules share the same object instance everywhere it's imported.
 export const state = {
   tickets: [],
-  filters: { search: '', priority: '', label: '', assignee: '' },
+  filters: { search: '', priority: '', label: '', assignee: '', showArchived: false },
   currentUser: null,
   currentRole: null,
   allowlistCache: [],
   requestsCache: [],
   profilesCache: {}, // email -> { name, username, bio, timezone, lastActive }
+  settings: null, // config/settings doc merged over DEFAULT_SETTINGS (see settings.js)
   currentTab: 'board',
   boardViewMode: 'kanban',
   tableSort: { key: 'createdAt', dir: 'desc' },
@@ -24,6 +25,7 @@ export const state = {
     ownRequest: null,
     comments: null,
     activity: null,
-    profiles: null
+    profiles: null,
+    settings: null
   }
 };

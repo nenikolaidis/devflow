@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { normalizeStatus } from './constants.js';
+import { normalizeStatus, DEFAULT_SETTINGS, STALE_STATUSES } from './constants.js';
 
 const toastEl = document.getElementById('toast');
 
@@ -33,7 +33,24 @@ export function isOverdue(dateStr, status){
   return new Date(dateStr) < new Date(new Date().toDateString());
 }
 
+/** Whole days since a Firestore timestamp / date, or null if unknown (e.g. a pending server timestamp). */
+export function daysSince(d){
+  if(!d) return null;
+  const dt = (d.toDate) ? d.toDate() : new Date(d);
+  if(isNaN(dt)) return null;
+  return Math.floor((Date.now() - dt.getTime()) / 86400000);
+}
+
+/** Days a ticket has sat untouched in In progress / In review, or 0 if it isn't stale. */
+export function staleDays(t){
+  if(t.archived || !STALE_STATUSES.includes(normalizeStatus(t.status))) return 0;
+  const limit = (state.settings && state.settings.staleDays > 0) ? state.settings.staleDays : DEFAULT_SETTINGS.staleDays;
+  const days = daysSince(t.lastActivityAt || t.createdAt);
+  return days !== null && days >= limit ? days : 0;
+}
+
 export function matchesFilters(t){
+  if(t.archived && !state.filters.showArchived) return false;
   const q = state.filters.search.trim().toLowerCase();
   if(q && !((t.title||'').toLowerCase().includes(q) || (t.id||'').toLowerCase().includes(q))) return false;
   if(state.filters.priority && t.priority !== state.filters.priority) return false;

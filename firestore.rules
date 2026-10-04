@@ -20,28 +20,90 @@ service cloud.firestore {
     function isAdminOrPM() {
       return isApproved() && (myRole() == 'admin' || myRole() == 'pm');
     }
+    // Which fields an update touches.
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
 
     // Tickets: any approved user can read/create/update.
-    // Only admins or PMs can delete (matches the process doc's access rules).
     match /tickets/{ticketId} {
-      allow read: if isApproved();
-      allow create: if isApproved();
-      allow update: if isApproved();
-      allow delete: if isAdminOrPM();
 
-      // Comments: any approved user can read and post.
-      // A comment can be deleted by its author, or by an admin/PM.
+      // Workflow rules for status moves:
+      // - "In review" needs a reviewer on the ticket.
+      // - "Done" can only be set by the ticket's reviewer, a PM, or an admin.
+      function statusMoveAllowed() {
+        let next = request.resource.data.get('status', '');
+        return (next != 'in_review' || request.resource.data.get('reviewer', '') != '')
+          && (next != 'done' || isAdminOrPM()
+              || resource.data.get('reviewer', '').lower() == myEmail());
+      }
+
+      allow read: if isApproved();
+
+      // New tickets start in Backlog, unarchived, created by the person
+      // actually signed in.
+      allow create: if isApproved()
+        && request.resource.data.createdBy.lower() == myEmail()
+        && request.resource.data.status == 'backlog'
+        && request.resource.data.get('archived', false) == false;
+
+      allow update: if isApproved()
+        // id, number and creator details can never change after creation
+        && !changedKeys().hasAny(['id', 'number', 'createdBy', 'createdAt'])
+        // only admins/PMs can archive or restore, or touch an archived ticket
+        && (!changedKeys().hasAny(['archived', 'archivedBy', 'archivedAt']) || isAdminOrPM())
+        && (resource.data.get('archived', false) == false || isAdminOrPM())
+        && (!changedKeys().hasAny(['status']) || statusMoveAllowed());
+
+      // Tickets are archived, not deleted. Only an admin can permanently
+      // delete one, and only after it has been archived.
+      allow delete: if isAdmin() && resource.data.get('archived', false) == true;
+
+      // Comments: any approved user can read and post (as themselves).
+      // The author can edit the text of their own comment (unless it was
+      // hidden). Admins/PMs can hide or unhide any comment. A comment can be
+      // deleted by its author, or by an admin/PM.
       match /comments/{commentId} {
-        allow read, create: if isApproved();
+        allow read: if isApproved();
+        allow create: if isApproved()
+          && request.resource.data.author.lower() == myEmail()
+          && request.resource.data.get('hidden', false) == false;
+        allow update: if isApproved() && (
+          (resource.data.author.lower() == myEmail()
+            && resource.data.get('hidden', false) == false
+            && changedKeys().hasOnly(['text', 'editedAt']))
+          || (isAdminOrPM() && changedKeys().hasOnly(['hidden', 'hiddenBy', 'hiddenAt']))
+        );
         allow delete: if isApproved() &&
           (resource.data.author.lower() == myEmail() || isAdminOrPM());
       }
 
       // Activity log: an append-only audit trail. Any approved user can
-      // read and add entries; nobody can edit or delete one, by design.
+      // read and add entries (as themselves); nobody can edit or delete
+      // one, by design.
       match /activity/{entryId} {
-        allow read, create: if isApproved();
+        allow read: if isApproved();
+        allow create: if isApproved() && request.resource.data.actor.lower() == myEmail();
       }
+    }
+
+    // Ticket number counter, used so two people creating tickets at the
+    // same moment never get the same TASK-### id. It only ever goes up.
+    match /meta/counters {
+      allow read: if isApproved();
+      allow create: if isApproved() && request.resource.data.ticketNumber is int;
+      allow update: if isApproved()
+        && request.resource.data.ticketNumber is int
+        && request.resource.data.ticketNumber > resource.data.ticketNumber;
+    }
+
+    // Board settings (Discord webhook URL, WIP limits, stale threshold).
+    // Approved users can read them; only admins can change them. Keeping
+    // the webhook here instead of in js/discord.js keeps it out of the
+    // public site source.
+    match /config/settings {
+      allow read: if isApproved();
+      allow write: if isAdmin();
     }
 
     // Allow list: a user can always read their own entry (so the app can

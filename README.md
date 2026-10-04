@@ -25,16 +25,27 @@ Setup takes approximately **10–15 minutes**.
 
 Manage work through a simple workflow:
 
-### Backlog → Todo → In Progress → Code Review → Testing → Done
+### Backlog → In progress → In review → Done
 
 Includes:
 
-- Ticket creation
+- Ticket creation, with templates (bug report, feature request, security issue, maintenance task, business analysis)
 - Ticket editing
 - Status changes
 - Search
 - Filtering
 - Priority tracking
+
+---
+
+### Project moderation
+
+- **Workflow rules** — a ticket needs a reviewer before it can move to In review, and only its reviewer, a PM, or an admin can move it to Done (enforced in the database rules, not just the UI)
+- **Archive instead of delete** — archived tickets keep their comments and activity log; admins/PMs can restore them, and only admins can permanently delete one
+- **Blocked flag** — mark a ticket blocked with a reason; it's highlighted on the board, the dashboard, and in Discord
+- **Stale tickets** — tickets with no activity in In progress / In review for a configurable number of days are flagged
+- **Work-in-progress limits** — set a maximum per column; the column turns red when it's over
+- **Comment moderation** — authors can edit their own comments; admins/PMs can hide inappropriate ones
 
 ---
 
@@ -45,6 +56,7 @@ Track project progress with:
 - Total tickets
 - Open tickets
 - Overdue tickets
+- Blocked and stale tickets
 - Completion rate
 - Status breakdown
 - Priority breakdown
@@ -63,6 +75,7 @@ Capabilities:
 - Add team members directly
 - Change user roles
 - Remove users
+- Configure board settings (Discord webhook, WIP limits, stale threshold)
 
 ---
 
