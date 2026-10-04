@@ -1,0 +1,15 @@
+# Firebase CLI
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Never commit credentials
+*service-account*.json
+*-credentials.json
+.env
+.env.*
+
+# Tooling / OS
+node_modules/
+.DS_Store

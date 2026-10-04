@@ -3,6 +3,9 @@ import { normalizeStatus, DEFAULT_SETTINGS, STALE_STATUSES } from './constants.j
 
 const toastEl = document.getElementById('toast');
 
+// Keep in sync with Firebase console → Authentication → Settings → Password policy.
+export const MIN_PASSWORD_LENGTH = 10;
+
 export function showToast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add('show');
@@ -62,6 +65,16 @@ export function matchesFilters(t){
   return true;
 }
 
+/** Returns the URL only if it's a plain http(s) link, otherwise ''. Blocks javascript:, data:, etc. */
+export function safeUrl(url){
+  const value = (url || '').trim();
+  if(!value) return '';
+  try{
+    const parsed = new URL(value);
+    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') ? parsed.href : '';
+  }catch(e){ return ''; }
+}
+
 export function initials(name){
   if(!name) return '—';
   const local = name.includes('@') ? name.split('@')[0] : name;
@@ -75,7 +88,7 @@ export function friendlyAuthError(e){
   if(code.includes('email-already-in-use')) return 'That email already has an account. Try logging in.';
   if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'Wrong email or password.';
   if(code.includes('user-not-found')) return 'No account with that email. Try signing up.';
-  if(code.includes('weak-password')) return 'Password should be at least 6 characters.';
+  if(code.includes('weak-password') || code.includes('password-does-not-meet-requirements')) return `Password should be at least ${MIN_PASSWORD_LENGTH} characters.`;
   if(code.includes('invalid-email')) return 'That email address looks invalid.';
   if(code.includes('requires-recent-login')) return 'Please sign out and log back in, then try again.';
   if(code.includes('too-many-requests')) return 'Too many attempts. Try again shortly.';

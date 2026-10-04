@@ -1,6 +1,6 @@
 import { auth, db } from './firebase-init.js';
 import { state } from './state.js';
-import { showToast, escapeHtml, friendlyAuthError } from './utils.js';
+import { showToast, escapeHtml, friendlyAuthError, MIN_PASSWORD_LENGTH } from './utils.js';
 import { switchTab } from './nav.js';
 import { attachTicketsListener } from './tickets.js';
 import { attachAllowlistListener, attachRequestsListener } from './team.js';
@@ -29,10 +29,18 @@ authSubmit.addEventListener('click', async () => {
   const password = document.getElementById('authPassword').value;
   authError.textContent = '';
   if(!email || !password){ authError.textContent = 'Enter an email and password.'; return; }
+  if(authMode === 'signup' && password.length < MIN_PASSWORD_LENGTH){
+    authError.textContent = `Password should be at least ${MIN_PASSWORD_LENGTH} characters.`; return;
+  }
   authSubmit.disabled = true; authStatus.textContent = 'Working…';
   try{
     if(authMode === 'login') await auth.signInWithEmailAndPassword(email, password);
-    else await auth.createUserWithEmailAndPassword(email, password);
+    else{
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      // New accounts must prove they own the address before they can be approved
+      // (otherwise anyone could register a teammate's email before they do).
+      await cred.user.sendEmailVerification();
+    }
   }catch(e){ authError.textContent = friendlyAuthError(e); }
   authSubmit.disabled = false; authStatus.textContent = '';
 });
@@ -47,6 +55,27 @@ document.getElementById('forgotLink').addEventListener('click', async () => {
 });
 
 document.getElementById('signOutPending').addEventListener('click', () => auth.signOut());
+document.getElementById('signOutVerify').addEventListener('click', () => auth.signOut());
+
+/* ---------------- EMAIL VERIFICATION (verify screen) ---------------- */
+document.getElementById('resendVerifyBtn').addEventListener('click', async () => {
+  try{
+    await state.currentUser.sendEmailVerification();
+    showToast('Verification email sent to ' + state.currentUser.email);
+  }catch(e){ showToast(friendlyAuthError(e)); }
+});
+
+document.getElementById('verifiedBtn').addEventListener('click', async () => {
+  const user = auth.currentUser;
+  if(!user) return;
+  try{
+    await user.reload();
+    if(!user.emailVerified){ showToast('Not confirmed yet — click the link in the email first'); return; }
+    // Refresh the ID token so Firestore's rules see email_verified = true.
+    await user.getIdToken(true);
+    await handleSignedIn(user);
+  }catch(e){ showToast(friendlyAuthError(e)); }
+});
 
 /* ---------------- ACCESS REQUEST (pending screen) ---------------- */
 document.getElementById('requestAccessBtn').addEventListener('click', async () => {
@@ -87,8 +116,20 @@ auth.onAuthStateChanged(async (user) => {
     showScreen('auth');
     return;
   }
+  await handleSignedIn(user);
+});
+
+/** Routes a signed-in user to the verify screen, the pending screen, or the app. */
+async function handleSignedIn(user){
+  detachAllListeners();
   state.currentUser = user;
   const email = (user.email || '').toLowerCase();
+  if(!user.emailVerified){
+    document.getElementById('verifyMsg').textContent =
+      `We sent a confirmation link to ${email}. Click it, then come back and press the button below. (Check your spam folder too.)`;
+    showScreen('verify');
+    return;
+  }
   try{
     const doc = await db.collection('allowlist').doc(email).get();
     if(doc.exists){
@@ -112,10 +153,11 @@ auth.onAuthStateChanged(async (user) => {
     authError.textContent = 'Could not verify access: ' + (e.message || e);
     showScreen('auth');
   }
-});
+}
 
 function showScreen(name){
   document.getElementById('authScreen').classList.toggle('hidden', name !== 'auth');
+  document.getElementById('verifyScreen').classList.toggle('hidden', name !== 'verify');
   document.getElementById('pendingScreen').classList.toggle('hidden', name !== 'pending');
   document.getElementById('app').classList.toggle('hidden', name !== 'app');
 }
@@ -138,7 +180,7 @@ function openAccountModal(){
       <div class="modal-head"><h2>Account</h2><button class="ghost" id="closeAcc">✕</button></div>
       <div class="field"><label>Signed in as</label><input type="text" value="${escapeHtml(state.currentUser.email)} · ${state.currentRole}" disabled></div>
       <div class="field"><label>Current password</label><input type="password" id="acc-current"></div>
-      <div class="field"><label>New password</label><input type="password" id="acc-new" placeholder="At least 6 characters"></div>
+      <div class="field"><label>New password</label><input type="password" id="acc-new" placeholder="At least ${MIN_PASSWORD_LENGTH} characters"></div>
       <div class="field"><label>Confirm new password</label><input type="password" id="acc-confirm"></div>
       <div class="auth-error" id="accError"></div>
       <div class="modal-actions">
@@ -160,7 +202,7 @@ function openAccountModal(){
     const errEl = overlay.querySelector('#accError');
     errEl.textContent = '';
     if(!current || !next){ errEl.textContent = 'Fill in both password fields.'; return; }
-    if(next.length < 6){ errEl.textContent = 'New password should be at least 6 characters.'; return; }
+    if(next.length < MIN_PASSWORD_LENGTH){ errEl.textContent = `New password should be at least ${MIN_PASSWORD_LENGTH} characters.`; return; }
     if(next !== confirm){ errEl.textContent = 'New passwords do not match.'; return; }
     try{
       const cred = firebase.auth.EmailAuthProvider.credential(state.currentUser.email, current);

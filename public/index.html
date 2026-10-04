@@ -3,14 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>DEVFLOW — Ticket Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- Third-party scripts are pinned to exact versions with integrity hashes:
+     if the CDN ever serves different code, the browser refuses to run it.
+     To upgrade, change the version and regenerate the hash — see SECURITY.md. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js" integrity="sha384-Q0LEW691FpfYRwf5Wm8RxncCU5jjPt8sOnvqNfKbvJpb7xXtN/i4KskWhPu5l13a" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js" integrity="sha384-oPlItlVibiTxBVDqjh1xyE8s39UbYx7Bl3JvPvp7DkJQTIleYXIgOpJEVvr+yMV2" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js" integrity="sha384-0P+MepEAg2VQffDzKBsMC7D2a3Qh0Qp2/nXeGk2Q2sQ880cb7scaK6d4qNvxFmM2" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-check-compat.js" integrity="sha384-Ybv3lGuy/hHZj1VLzE7e+sawyrFSbMuEQaKRSfC9W4Q8MK+k/zQKNrxNVagHhXAj" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js" integrity="sha384-SALc35EccAf6RzGw4iNsyj7kTPr33K7RoGzYu+7heZhT8s0GZouafRiCg1qy44AS" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -24,11 +30,23 @@
       <button id="tabSignup">Sign up</button>
     </div>
     <div class="field"><label>Email</label><input type="email" id="authEmail" placeholder="you@company.com"></div>
-    <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="At least 6 characters"></div>
+    <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="At least 10 characters"></div>
     <div class="auth-forgot"><a class="link" id="forgotLink">Forgot password?</a></div>
     <div class="auth-error" id="authError"></div>
     <button class="primary" id="authSubmit" style="width:100%;">Log in</button>
     <div class="auth-status" id="authStatus"></div>
+  </div>
+</div>
+
+<!-- ============ VERIFY EMAIL SCREEN ============ -->
+<div id="verifyScreen" class="auth-screen hidden">
+  <div class="auth-card pending-box">
+    <h1>devflow</h1>
+    <p class="sub" style="margin-bottom:18px;">Confirm your email</p>
+    <p style="font-size:13px; color:var(--text-secondary);" id="verifyMsg"></p>
+    <button class="primary" id="verifiedBtn" style="margin-top:16px; width:100%;">I've confirmed it — continue</button>
+    <button id="resendVerifyBtn" style="margin-top:10px; width:100%;">Resend email</button>
+    <button class="ghost" id="signOutVerify" style="margin-top:10px; width:100%;">Sign out</button>
   </div>
 </div>
 

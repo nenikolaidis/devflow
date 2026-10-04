@@ -1,7 +1,7 @@
 import { db } from './firebase-init.js';
 import { state } from './state.js';
 import { STATUSES, PRIORITIES, PRIORITY_COLOR, ALL_LABELS, TABLE_COLUMNS, normalizeStatus, TICKET_TEMPLATES } from './constants.js';
-import { showToast, escapeHtml, formatDate, formatDateTime, isOverdue, matchesFilters, staleDays } from './utils.js';
+import { showToast, escapeHtml, formatDate, formatDateTime, isOverdue, matchesFilters, staleDays, safeUrl } from './utils.js';
 import { renderDashboard } from './dashboard.js';
 import { avatarHtml, displayName } from './profiles.js';
 import { notifyAssignment } from './notify.js';
@@ -17,8 +17,9 @@ function myEmail(){ return ((state.currentUser && state.currentUser.email) || ''
 /** Returns why `t` can't move to `statusKey`, or null if the move is allowed. */
 function moveBlockedReason(t, statusKey){
   if(statusKey === 'in_review' && !t.reviewer) return `Add a reviewer to ${t.id} before moving it to In review`;
-  if(statusKey === 'done' && !isAdminOrPM() && (t.reviewer || '').toLowerCase() !== myEmail()){
-    return `Only ${t.id}'s reviewer, a PM, or an admin can move it to Done`;
+  if(statusKey === 'done' && !isAdminOrPM()){
+    if((t.reviewer || '').toLowerCase() !== myEmail()) return `Only ${t.id}'s reviewer, a PM, or an admin can move it to Done`;
+    if((t.owner || '').toLowerCase() === myEmail()) return `You own ${t.id}, so someone else (or a PM/admin) has to review and close it`;
   }
   return null;
 }
@@ -137,6 +138,7 @@ function describeActivity(entry){
     case 'created': return `${who} created this ticket`;
     case 'status_change': return `${who} moved status: ${statusLabel(entry.from)} → ${statusLabel(entry.to)}`;
     case 'assignment': return `${who} assigned this to ${displayName(entry.to)}`;
+    case 'reviewer': return entry.to ? `${who} set the reviewer to ${displayName(entry.to)}` : `${who} removed the reviewer`;
     case 'edit': return `${who} updated ${entry.summary}`;
     case 'blocked': return `${who} marked this blocked: ${entry.reason}`;
     case 'unblocked': return `${who} cleared the blocked flag`;
@@ -531,8 +533,8 @@ function ticketFormHtml(t){
         ${TICKET_TEMPLATES.map(tp => `<option value="${tp.id}">${tp.name}</option>`).join('')}
       </select>
     </div>` : ''}
-    <div class="field"><label>Title</label><input type="text" id="f-title" value="${t ? escapeHtml(t.title) : ''}" placeholder="Fix login page validation error"></div>
-    <div class="field"><label>Description — what, why, expected result</label><textarea id="f-desc" rows="4" placeholder="What needs to be done, why it's needed, expected result...">${t ? escapeHtml(t.description) : ''}</textarea></div>
+    <div class="field"><label>Title</label><input type="text" id="f-title" maxlength="200" value="${t ? escapeHtml(t.title) : ''}" placeholder="Fix login page validation error"></div>
+    <div class="field"><label>Description — what, why, expected result</label><textarea id="f-desc" rows="4" maxlength="20000" placeholder="What needs to be done, why it's needed, expected result...">${t ? escapeHtml(t.description) : ''}</textarea></div>
     <div class="row2">
       <div class="field"><label>Priority</label>
         <select id="f-priority">
@@ -545,7 +547,7 @@ function ticketFormHtml(t){
       ${comboHtml('f-owner', 'Owner', t ? t.owner : '', 'Search teammate...')}
       ${comboHtml('f-reviewer', 'Reviewer', t ? t.reviewer : '', 'Search teammate...')}
     </div>
-    <div class="field"><label>Merge request / issue link (optional)</label><input type="text" id="f-link" value="${t && t.linkUrl ? escapeHtml(t.linkUrl) : ''}" placeholder="https://github.com/org/repo/pull/123"></div>
+    <div class="field"><label>Merge request / issue link (optional)</label><input type="text" id="f-link" maxlength="2000" value="${t && t.linkUrl ? escapeHtml(t.linkUrl) : ''}" placeholder="https://github.com/org/repo/pull/123"></div>
     <div class="field"><label>Labels</label>
       <div class="label-check-group" id="f-labels">
         ${ALL_LABELS.map(l => `<label class="label-check"><input type="checkbox" value="${l}" ${labels.includes(l) ? 'checked':''}> ${l}</label>`).join('')}
@@ -591,6 +593,9 @@ export function openTicketForm(existing){
   overlay.querySelector('#saveForm').addEventListener('click', async () => {
     const title = overlay.querySelector('#f-title').value.trim();
     if(!title){ showToast('Title is required'); return; }
+    if(title.length > 200){ showToast('Title must be 200 characters or fewer'); return; }
+    const rawLink = overlay.querySelector('#f-link').value.trim();
+    if(rawLink && !safeUrl(rawLink)){ showToast('The link must start with https:// or http://'); return; }
     const labels = Array.from(overlay.querySelectorAll('#f-labels input:checked')).map(i => i.value);
     const data = {
       title,
@@ -599,19 +604,24 @@ export function openTicketForm(existing){
       dueDate: overlay.querySelector('#f-due').value,
       owner: overlay.querySelector('#f-owner').value.trim(),
       reviewer: overlay.querySelector('#f-reviewer').value.trim(),
-      linkUrl: overlay.querySelector('#f-link').value.trim(),
+      linkUrl: safeUrl(rawLink),
       labels
     };
     try{
       if(isEdit){
         const ownerChanged = data.owner && data.owner !== (existing.owner || '');
-        const otherFieldsChanged = ['title','description','priority','dueDate','reviewer','linkUrl'].some(k => (data[k] || '') !== (existing[k] || ''))
+        const reviewerChanged = data.reviewer !== (existing.reviewer || '');
+        const otherFieldsChanged = ['title','description','priority','dueDate','linkUrl'].some(k => (data[k] || '') !== (existing[k] || ''))
           || JSON.stringify(data.labels) !== JSON.stringify(existing.labels || []);
         await db.collection('tickets').doc(existing.firestoreId).update(data);
         if(ownerChanged){
           notifyAssignment({ ...existing, ...data });
           notifyTicketAssigned({ ...existing, ...data });
           logActivity(existing.firestoreId, { type: 'assignment', from: existing.owner || 'Unassigned', to: data.owner });
+        }
+        if(reviewerChanged){
+          // Logged separately so it's visible if someone makes themselves reviewer just to close a ticket.
+          logActivity(existing.firestoreId, { type: 'reviewer', from: existing.reviewer || '', to: data.reviewer });
         }
         if(otherFieldsChanged){
           logActivity(existing.firestoreId, { type: 'edit', summary: 'ticket details' });
@@ -672,12 +682,12 @@ export function openDetail(firestoreId){
              <button id="toggleBlocked">${t.blocked ? 'Unblock' : 'Mark blocked'}</button>
              <button id="editTicket">Edit</button>`}
       </div>
-      ${t.linkUrl ? `<div class="link-box"><a href="${escapeHtml(t.linkUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t.linkUrl)}</a><span style="font-size:11px; color:var(--text-muted);">open ↗</span></div>` : ''}
+      ${safeUrl(t.linkUrl) ? `<div class="link-box"><a href="${escapeHtml(safeUrl(t.linkUrl))}" target="_blank" rel="noopener noreferrer">${escapeHtml(t.linkUrl)}</a><span style="font-size:11px; color:var(--text-muted);">open ↗</span></div>` : ''}
       <div class="comments">
         <h4>Comments</h4>
         <div id="commentList"></div>
         ${readOnly ? '' : `<div class="comment-add">
-          <textarea id="commentInput" rows="2" placeholder="Add a comment..."></textarea>
+          <textarea id="commentInput" rows="2" maxlength="5000" placeholder="Add a comment..."></textarea>
           <button class="primary" id="postComment">Post</button>
         </div>`}
       </div>
@@ -738,6 +748,7 @@ export function openDetail(firestoreId){
     }
     const reason = (prompt(`What is blocking ${t.id}?`) || '').trim();
     if(!reason){ showToast('A reason is needed to mark a ticket blocked'); return; }
+    if(reason.length > 500){ showToast('Keep the reason under 500 characters'); return; }
     try{
       await ticketRef.update({
         blocked: true, blockedReason: reason, blockedBy: state.currentUser.email,
@@ -814,6 +825,7 @@ export function openDetail(firestoreId){
           if(next === null) return;
           const text = next.trim();
           if(!text){ showToast('A comment can\'t be empty — use Delete instead'); return; }
+          if(text.length > 5000){ showToast('Comments are limited to 5,000 characters'); return; }
           try{ await commentsRef.doc(btn.dataset.id).update({ text, editedAt: firebase.firestore.FieldValue.serverTimestamp() }); }
           catch(e){ showToast('Could not edit comment: ' + e.message); }
         });
@@ -842,6 +854,7 @@ export function openDetail(firestoreId){
     const input = overlay.querySelector('#commentInput');
     const text = input.value.trim();
     if(!text) return;
+    if(text.length > 5000){ showToast('Comments are limited to 5,000 characters'); return; }
     try{
       await commentsRef.add({
         text, author: state.currentUser.email, createdAt: firebase.firestore.FieldValue.serverTimestamp()

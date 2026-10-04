@@ -1,0 +1,35 @@
+# Deploys the site in public/ to Firebase Hosting on every push to main.
+#
+# One-time setup (see SECURITY.md → "Hosting on Firebase"):
+#   1. Create a service account key for Firebase Hosting deploys.
+#   2. Save it in GitHub → Settings → Secrets and variables → Actions as
+#      FIREBASE_SERVICE_ACCOUNT.
+#
+# Firestore rules are NOT deployed from here — publish them yourself with
+# `firebase deploy --only firestore:rules` so a rules change is always a
+# deliberate step.
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-hosting-live
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: devflow-board-11146
+          channelId: live

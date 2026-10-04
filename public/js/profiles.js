@@ -94,9 +94,9 @@ export function openProfileModal(targetEmail){
       </div>
 
       ${isSelf ? `
-        <div class="field"><label>Name</label><input type="text" id="p-name" value="${escapeHtml(p.name)}" placeholder="Your full name"></div>
-        <div class="field"><label>Username</label><input type="text" id="p-username" value="${escapeHtml(p.username)}" placeholder="jsmith"></div>
-        <div class="field"><label>Bio</label><textarea id="p-bio" rows="2" placeholder="A short line about what you work on">${escapeHtml(p.bio)}</textarea></div>
+        <div class="field"><label>Name</label><input type="text" id="p-name" maxlength="100" value="${escapeHtml(p.name)}" placeholder="Your full name"></div>
+        <div class="field"><label>Username</label><input type="text" id="p-username" maxlength="50" value="${escapeHtml(p.username)}" placeholder="jsmith"></div>
+        <div class="field"><label>Bio</label><textarea id="p-bio" rows="2" maxlength="500" placeholder="A short line about what you work on">${escapeHtml(p.bio)}</textarea></div>
         <div class="field"><label>Time zone</label>
           <select id="p-tz">${TIMEZONES.map(tz => `<option value="${tz}" ${p.timezone===tz?'selected':''}>${tz}</option>`).join('')}</select>
         </div>

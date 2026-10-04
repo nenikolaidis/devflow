@@ -1,6 +1,16 @@
 rules_version = '2';
+
+// Devflow security rules. These are the real security boundary: the
+// browser code can be read and changed by anyone, so every permission and
+// every data check that matters is enforced here. See SECURITY.md.
+//
+// Deploy: `firebase deploy --only firestore:rules`, or paste this file into
+// Firebase console → Firestore → Rules → Publish.
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    /* ---------------- WHO IS ASKING ---------------- */
 
     function isSignedIn() {
       return request.auth != null;
@@ -8,8 +18,13 @@ service cloud.firestore {
     function myEmail() {
       return request.auth.token.email.lower();
     }
+    // Firebase lets anyone register any address without proving they own
+    // it, so nothing beyond "who am I" is allowed until the email is verified.
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
     function isApproved() {
-      return isSignedIn() && exists(/databases/$(database)/documents/allowlist/$(myEmail()));
+      return isVerified() && exists(/databases/$(database)/documents/allowlist/$(myEmail()));
     }
     function myRole() {
       return get(/databases/$(database)/documents/allowlist/$(myEmail())).data.role;
@@ -20,91 +35,176 @@ service cloud.firestore {
     function isAdminOrPM() {
       return isApproved() && (myRole() == 'admin' || myRole() == 'pm');
     }
+
+    /* ---------------- SMALL HELPERS ---------------- */
+
     // Which fields an update touches.
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
+    // Optional string field: missing, or a string no longer than `max`.
+    function optString(d, field, max) {
+      return !(field in d) || (d[field] is string && d[field].size() <= max);
+    }
+    // When an update sets a "...By" field, it must name the person signed in.
+    function setByMe(field) {
+      return !changedKeys().hasAny([field])
+        || !(field in request.resource.data)
+        || request.resource.data[field].lower() == myEmail();
+    }
 
-    // Tickets: any approved user can read/create/update.
+    /* ---------------- TICKETS ---------------- */
+
     match /tickets/{ticketId} {
 
+      function ticketFields() {
+        return ['id', 'number', 'title', 'description', 'priority', 'dueDate',
+                'owner', 'reviewer', 'linkUrl', 'labels', 'status',
+                'archived', 'archivedBy', 'archivedAt',
+                'blocked', 'blockedReason', 'blockedBy', 'blockedAt',
+                'createdBy', 'createdAt', 'lastActivityAt'];
+      }
+
+      // Shape and size checks on the ticket as it will be stored.
+      // (Old stage names are still accepted so legacy tickets stay editable.)
+      function validTicket(d) {
+        return d.title is string && d.title.size() > 0 && d.title.size() <= 200
+          && d.priority in ['critical', 'high', 'medium', 'low']
+          && d.status in ['backlog', 'in_progress', 'in_review', 'done', 'todo', 'code_review', 'testing']
+          && optString(d, 'description', 20000)
+          && optString(d, 'owner', 200)
+          && optString(d, 'reviewer', 200)
+          && optString(d, 'linkUrl', 2000)
+          && (d.get('linkUrl', '') == '' || d.linkUrl.matches('^https?://.+'))
+          && optString(d, 'dueDate', 10)
+          && (d.get('dueDate', '') == '' || d.dueDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
+          && d.get('labels', []) is list && d.get('labels', []).size() <= 20
+          && d.get('archived', false) is bool
+          && d.get('blocked', false) is bool
+          && optString(d, 'blockedReason', 500);
+      }
+
       // Workflow rules for status moves:
-      // - "In review" needs a reviewer on the ticket.
-      // - "Done" can only be set by the ticket's reviewer, a PM, or an admin.
+      // - only the four current stages can be moved into
+      // - "In review" needs a reviewer on the ticket
+      // - "Done" can only be set by a PM/admin, or by the ticket's reviewer
+      //   when that reviewer isn't also the owner (no closing your own work)
       function statusMoveAllowed() {
-        let next = request.resource.data.get('status', '');
-        return (next != 'in_review' || request.resource.data.get('reviewer', '') != '')
+        let next = request.resource.data.status;
+        return next in ['backlog', 'in_progress', 'in_review', 'done']
+          && (next != 'in_review' || request.resource.data.get('reviewer', '') != '')
           && (next != 'done' || isAdminOrPM()
-              || resource.data.get('reviewer', '').lower() == myEmail());
+              || (resource.data.get('reviewer', '').lower() == myEmail()
+                  && resource.data.get('owner', '').lower() != myEmail()));
       }
 
       allow read: if isApproved();
 
       // New tickets start in Backlog, unarchived, created by the person
-      // actually signed in.
+      // signed in, and must take their number from the shared counter in
+      // the same transaction — so two tickets can never share a TASK id.
       allow create: if isApproved()
+        && request.resource.data.keys().hasOnly(ticketFields())
+        && validTicket(request.resource.data)
         && request.resource.data.createdBy.lower() == myEmail()
         && request.resource.data.status == 'backlog'
-        && request.resource.data.get('archived', false) == false;
+        && request.resource.data.get('archived', false) == false
+        && request.resource.data.get('blocked', false) == false
+        && request.resource.data.number is int
+        && request.resource.data.number == getAfter(/databases/$(database)/documents/meta/counters).data.ticketNumber
+        && request.resource.data.id.matches('^TASK-[0-9]+$');
 
       allow update: if isApproved()
-        // id, number and creator details can never change after creation
+        && changedKeys().hasOnly(ticketFields())
+        && validTicket(request.resource.data)
+        // id, number and creator details never change after creation
         && !changedKeys().hasAny(['id', 'number', 'createdBy', 'createdAt'])
         // only admins/PMs can archive or restore, or touch an archived ticket
         && (!changedKeys().hasAny(['archived', 'archivedBy', 'archivedAt']) || isAdminOrPM())
         && (resource.data.get('archived', false) == false || isAdminOrPM())
+        && setByMe('archivedBy')
+        && setByMe('blockedBy')
         && (!changedKeys().hasAny(['status']) || statusMoveAllowed());
 
       // Tickets are archived, not deleted. Only an admin can permanently
       // delete one, and only after it has been archived.
       allow delete: if isAdmin() && resource.data.get('archived', false) == true;
 
-      // Comments: any approved user can read and post (as themselves).
-      // The author can edit the text of their own comment (unless it was
-      // hidden). Admins/PMs can hide or unhide any comment. A comment can be
-      // deleted by its author, or by an admin/PM.
+      // Comments: approved users post as themselves. Authors can edit the
+      // text of their own (unless hidden). Admins/PMs can hide/unhide any.
+      // A comment can be deleted by its author, or by an admin/PM.
       match /comments/{commentId} {
+        function validText(d) {
+          return d.text is string && d.text.size() > 0 && d.text.size() <= 5000;
+        }
         allow read: if isApproved();
         allow create: if isApproved()
-          && request.resource.data.author.lower() == myEmail()
-          && request.resource.data.get('hidden', false) == false;
-        allow update: if isApproved() && (
+          && request.resource.data.keys().hasOnly(['text', 'author', 'createdAt'])
+          && validText(request.resource.data)
+          && request.resource.data.author.lower() == myEmail();
+        allow update: if isApproved() && validText(request.resource.data) && (
           (resource.data.author.lower() == myEmail()
             && resource.data.get('hidden', false) == false
             && changedKeys().hasOnly(['text', 'editedAt']))
-          || (isAdminOrPM() && changedKeys().hasOnly(['hidden', 'hiddenBy', 'hiddenAt']))
+          || (isAdminOrPM()
+            && changedKeys().hasOnly(['hidden', 'hiddenBy', 'hiddenAt'])
+            && request.resource.data.get('hidden', false) is bool
+            && setByMe('hiddenBy'))
         );
         allow delete: if isApproved() &&
           (resource.data.author.lower() == myEmail() || isAdminOrPM());
       }
 
-      // Activity log: an append-only audit trail. Any approved user can
-      // read and add entries (as themselves); nobody can edit or delete
-      // one, by design.
+      // Activity log: an append-only audit trail. Approved users add
+      // entries as themselves; nobody can edit or delete one, by design.
       match /activity/{entryId} {
         allow read: if isApproved();
-        allow create: if isApproved() && request.resource.data.actor.lower() == myEmail();
+        allow create: if isApproved()
+          && request.resource.data.keys().hasOnly(['type', 'from', 'to', 'summary', 'reason', 'actor', 'createdAt'])
+          && request.resource.data.type in ['created', 'status_change', 'assignment', 'reviewer', 'edit',
+                                            'blocked', 'unblocked', 'archived', 'restored']
+          && request.resource.data.actor.lower() == myEmail()
+          && optString(request.resource.data, 'from', 200)
+          && optString(request.resource.data, 'to', 200)
+          && optString(request.resource.data, 'summary', 200)
+          && optString(request.resource.data, 'reason', 500);
       }
     }
 
-    // Ticket number counter, used so two people creating tickets at the
-    // same moment never get the same TASK-### id. It only ever goes up.
+    /* ---------------- TICKET NUMBER COUNTER ---------------- */
+
+    // Shared counter behind TASK-### ids. It only ever goes up.
     match /meta/counters {
       allow read: if isApproved();
-      allow create: if isApproved() && request.resource.data.ticketNumber is int;
+      allow create: if isApproved()
+        && request.resource.data.keys().hasOnly(['ticketNumber'])
+        && request.resource.data.ticketNumber is int;
       allow update: if isApproved()
+        && request.resource.data.keys().hasOnly(['ticketNumber'])
         && request.resource.data.ticketNumber is int
         && request.resource.data.ticketNumber > resource.data.ticketNumber;
     }
 
-    // Board settings (Discord webhook URL, WIP limits, stale threshold).
-    // Approved users can read them; only admins can change them. Keeping
-    // the webhook here instead of in js/discord.js keeps it out of the
-    // public site source.
+    /* ---------------- BOARD SETTINGS ---------------- */
+
+    // Discord webhook URL, WIP limits, stale threshold. Approved users can
+    // read them; only admins can change them. Keeping the webhook here
+    // keeps it out of the site's source code.
     match /config/settings {
+      function validSettings(d) {
+        return d.keys().hasOnly(['discordWebhookUrl', 'staleDays', 'wipLimits', 'updatedBy', 'updatedAt'])
+          && optString(d, 'discordWebhookUrl', 300)
+          && (d.get('discordWebhookUrl', '') == ''
+              || d.discordWebhookUrl.matches('^https://(ptb[.]|canary[.])?(discord|discordapp)[.]com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$'))
+          && d.get('staleDays', 5) is int && d.get('staleDays', 5) >= 1 && d.get('staleDays', 5) <= 365
+          && d.get('wipLimits', {}) is map && d.get('wipLimits', {}).size() <= 10;
+      }
       allow read: if isApproved();
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() && validSettings(request.resource.data);
+      allow delete: if isAdmin();
     }
+
+    /* ---------------- TEAM ---------------- */
 
     // Allow list: a user can always read their own entry (so the app can
     // tell them "pending approval"). Any approved user can read the full
@@ -113,25 +213,34 @@ service cloud.firestore {
     match /allowlist/{email} {
       allow read: if isSignedIn() && myEmail() == email;
       allow read: if isApproved();
-      allow write: if isAdmin();
+      allow create, update: if isAdmin()
+        && email == email.lower()
+        && request.resource.data.keys().hasOnly(['role', 'addedBy', 'addedAt'])
+        && request.resource.data.role in ['developer', 'pm', 'admin'];
+      allow delete: if isAdmin();
     }
 
-    // Access requests: a signed-in user can create/read only their own
-    // request (used to power "Request access" on the pending screen).
-    // Admins can read and delete any request (delete = approve or deny,
-    // both happen from the Team tab).
+    // Access requests: a verified user can create/read only their own
+    // request (the "Request access" button). Admins can read and delete
+    // any request (delete = approve or deny, both from the Team tab).
     match /accessRequests/{email} {
-      allow create, read: if isSignedIn() && myEmail() == email;
+      allow create: if isVerified() && myEmail() == email
+        && request.resource.data.keys().hasOnly(['email', 'requestedAt'])
+        && request.resource.data.email == email;
+      allow read: if isSignedIn() && myEmail() == email;
       allow read, delete: if isAdmin();
     }
 
-    // Profiles: any approved teammate can view anyone's profile (name,
-    // username, bio, time zone, last active — used for avatars, the
-    // assignee dropdown, and the Team/Profile views). You can only ever
-    // write your own profile document.
+    // Profiles: any approved teammate can view anyone's profile. Only
+    // approved users can write, and only their own profile.
     match /profiles/{email} {
       allow read: if isApproved();
-      allow write: if isSignedIn() && myEmail() == email;
+      allow write: if isApproved() && myEmail() == email
+        && request.resource.data.keys().hasOnly(['name', 'username', 'bio', 'timezone', 'lastActive', 'createdAt'])
+        && optString(request.resource.data, 'name', 100)
+        && optString(request.resource.data, 'username', 50)
+        && optString(request.resource.data, 'bio', 500)
+        && optString(request.resource.data, 'timezone', 64);
     }
   }
 }
