@@ -14,6 +14,7 @@ import { labelNames } from '../core/settings.js';
 import { canModerate } from '../core/permissions.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { columnCount, wipLimit } from '../core/workflow.js';
+import { sprintLabel, openSprintManager, activeSprint } from './sprints.js';
 import { matchesFilters, sortTickets, priorityBadge, labelList, dueBadge, ticketFlags, findTicket, checklistBadge } from './ticket-common.js';
 import { renderTable } from './table.js';
 import { openDetail } from './ticket-detail.js';
@@ -27,12 +28,29 @@ const boardEl = $('board');
 export function renderBoardView(){
   populateAssigneeFilter();
   populateLabelFilter();
+  populateSprintFilter();
+  $('manageSprintsBtn').classList.toggle('hidden', !canModerate());
   if(state.boardViewMode === 'kanban') renderKanban(); else renderTable();
 }
 
 /* ---------------- FILTER BAR ---------------- */
 
 $('typeFilter').innerHTML = html`<option value="">Type</option>${TICKET_TYPES.map(t => html`<option value="${t.key}">${t.label}</option>`)}`;
+
+/** Sprints change live, so the list is rebuilt on each render. */
+function populateSprintFilter(){
+  const sel = $('sprintFilter');
+  const current = sel.value;
+  const active = activeSprint();
+  sel.innerHTML = html`<option value="">Sprint</option>
+    ${active ? html`<option value="${active.id}">Current: ${active.name}</option>` : ''}
+    ${state.sprints.filter(s => s !== active).slice().reverse().map(s => html`<option value="${s.id}">${sprintLabel(s)}</option>`)}
+    <option value="__none__">No sprint</option>`;
+  if(Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+  else if(current){ sel.value = ''; state.filters.sprint = ''; }
+  markActive(sel);
+}
+$('manageSprintsBtn').addEventListener('click', openSprintManager);
 
 /** Labels come from Board settings, so the list is rebuilt on each render. */
 function populateLabelFilter(){
@@ -62,7 +80,7 @@ $('searchInput').addEventListener('input', e => {
   if(state.currentTab !== 'board') $('navBoard').click();
   else renderBoardView();
 });
-[['typeFilter', 'type'], ['priorityFilter', 'priority'], ['labelFilter', 'label'], ['assigneeFilter', 'assignee']].forEach(([id, key]) => {
+[['sprintFilter', 'sprint'], ['typeFilter', 'type'], ['priorityFilter', 'priority'], ['labelFilter', 'label'], ['assigneeFilter', 'assignee']].forEach(([id, key]) => {
   $(id).addEventListener('change', e => { state.filters[key] = e.target.value; markActive(e.target); renderBoardView(); });
 });
 
@@ -79,14 +97,7 @@ document.querySelectorAll('.quick-filters .quick').forEach(btn => {
   });
 });
 
-// "/" focuses search (unless you're typing somewhere or a dialog is open).
-document.addEventListener('keydown', e => {
-  if(e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
-  const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]');
-  if(typing || document.querySelector('.modal-overlay') || $('app').classList.contains('hidden')) return;
-  e.preventDefault();
-  $('searchInput').focus();
-});
+// Keyboard shortcuts ("/" for search, N for new ticket…) live in shortcuts.js.
 $('sortSelect').addEventListener('change', e => {
   const [key, dir] = e.target.value.split(':');
   state.tableSort = { key, dir };
@@ -127,8 +138,18 @@ function toggleCollapsed(statusKey){
 /* ---------------- KANBAN ---------------- */
 
 function renderKanban(){
+  if(!state.ticketsLoaded){ boardEl.innerHTML = skeletonHtml().toString(); return; }
   boardEl.innerHTML = '';
   STATUSES.forEach(status => boardEl.appendChild(renderColumn(status)));
+}
+
+/** Placeholder columns shown until the first tickets arrive. */
+function skeletonHtml(){
+  return html`${STATUSES.map((s, i) => html`
+    <section class="column skeleton" aria-hidden="true">
+      <div class="column-head"><div class="column-head-row">${statusIcon(s.key)}<h2 class="column-title">${s.label}</h2></div></div>
+      <div class="column-body">${[0, 1, 2].slice(0, 3 - (i % 2)).map(() => html`<div class="card skeleton-card"><span class="sk sk-id"></span><span class="sk sk-title"></span><span class="sk sk-meta"></span></div>`)}</div>
+    </section>`)}<span class="sr-only" role="status">Loading tickets…</span>`;
 }
 
 function renderColumn(status){
@@ -164,7 +185,7 @@ function renderColumn(status){
 
   const body = document.createElement('div');
   body.className = 'column-body';
-  const filtering = ['search', 'type', 'priority', 'label', 'assignee', 'quick'].some(k => state.filters[k]);
+  const filtering = ['search', 'sprint', 'type', 'priority', 'label', 'assignee', 'quick'].some(k => state.filters[k]);
   if(tickets.length === 0) body.innerHTML = html`<div class="column-empty">${filtering ? 'No matching tickets' : 'No tickets'}</div>`;
   tickets.forEach(t => body.appendChild(renderCard(t)));
 

@@ -389,3 +389,40 @@ describe('ticket types, labels and profiles', () => {
     await assertFails(setDoc(doc(as('dev'), 'profiles', USERS.dev), { name: 'Dev', availability: 'on the moon' }));
   });
 });
+
+/* ------------------------------------------------------------------ */
+describe('sprints', () => {
+  const sprint = (extra = {}) => ({ name: 'Sprint 1', goal: 'Ship v1', start: '2026-10-05', end: '2026-10-18', status: 'active', createdBy: USERS.pm, createdAt: serverTimestamp(), ...extra });
+  it('PMs and admins can create sprints, developers cannot', async () => {
+    await assertSucceeds(setDoc(doc(as('pm'), 'sprints/s1'), sprint()));
+    await assertFails(setDoc(doc(as('dev'), 'sprints/s2'), sprint()));
+  });
+  it('a sprint must end on or after it starts', async () => {
+    await assertFails(setDoc(doc(as('admin'), 'sprints/s3'), sprint({ start: '2026-10-18', end: '2026-10-05' })));
+  });
+  it('everyone approved can read sprints and plan tickets into one', async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'sprints/s1'), sprint()));
+    await assertSucceeds(getDoc(doc(as('dev'), 'sprints/s1')));
+    await assertSucceeds(updateDoc(doc(as('dev'), 'tickets/t1'), { sprintId: 's1' }));
+  });
+});
+
+/* ------------------------------------------------------------------ */
+describe('mentions and notifications', () => {
+  const note = (by, to, extra = {}) => ({ to, by, type: 'mention', ticketFid: 't1', ticketId: 'TASK-001', ticketTitle: 'Fix login', text: 'Can you check?', createdAt: serverTimestamp(), read: false, ...extra });
+  it('comments can carry a mentions list', async () => {
+    await assertSucceeds(addDoc(collection(as('dev'), 'tickets/t1/comments'), { text: '@Dev Two look', author: USERS.dev, createdAt: serverTimestamp(), mentions: [USERS.dev2] }));
+  });
+  it('you can notify an approved teammate, as yourself', async () => {
+    await assertSucceeds(setDoc(doc(as('dev'), 'notifications/n1'), note(USERS.dev, USERS.dev2)));
+    await assertFails(setDoc(doc(as('dev'), 'notifications/n2'), note(USERS.pm, USERS.dev2)));        // pretending
+    await assertFails(setDoc(doc(as('dev'), 'notifications/n3'), note(USERS.dev, 'stranger@x.dev'))); // not on the team
+  });
+  it('only the recipient can read or mark it read', async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'notifications/n1'), note(USERS.dev, USERS.dev2)));
+    await assertSucceeds(getDoc(doc(as('dev2'), 'notifications/n1')));
+    await assertFails(getDoc(doc(as('pm'), 'notifications/n1')));
+    await assertSucceeds(updateDoc(doc(as('dev2'), 'notifications/n1'), { read: true }));
+    await assertFails(updateDoc(doc(as('dev2'), 'notifications/n1'), { text: 'changed' }));
+  });
+});

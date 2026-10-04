@@ -77,6 +77,8 @@ export function matchesFilters(t){
   if(q && !((t.title || '').toLowerCase().includes(q) || (t.id || '').toLowerCase().includes(q))) return false;
   if(f.priority && t.priority !== f.priority) return false;
   if(f.type && typeOf(t) !== f.type) return false;
+  if(f.sprint === '__none__' && t.sprintId) return false;
+  if(f.sprint && f.sprint !== '__none__' && t.sprintId !== f.sprint) return false;
   if(f.quick === 'mine' && !isMe(t.owner)) return false;
   if(f.quick === 'review' && !(isMyReview(t) && normalizeStatus(t.status) === STATUS.IN_REVIEW)) return false;
   if(f.quick === 'blocked' && !t.blocked) return false;
@@ -97,6 +99,7 @@ export function sortTickets(rows, sort){
       case 'labels': return (t.labels || []).join(',');
       case 'type': return typeInfo(typeOf(t)).label;
       case 'reviewers': return reviewersOf(t).join(',');
+      case 'sprintId': { const s = state.sprints.find(x => x.id === t.sprintId); return s ? s.start : ''; }
       case 'status': return STATUSES.findIndex(s => s.key === normalizeStatus(t.status));
       case 'priority': return PRIORITIES.indexOf(t.priority);
       case 'createdAt': return t.createdAt && t.createdAt.toMillis ? t.createdAt.toMillis() : Number.MAX_SAFE_INTEGER;

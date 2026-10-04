@@ -58,6 +58,7 @@ on(EVENTS.TICKETS_CHANGED, () => {
 });
 on(EVENTS.PROFILES_CHANGED, renderCurrentTab);           // names/avatars appear everywhere
 on(EVENTS.SETTINGS_CHANGED, renderCurrentTab);           // WIP limits, stale threshold
+on(EVENTS.SPRINTS_CHANGED, renderCurrentTab);            // sprint filter, dashboard sprint panel
 on(EVENTS.TEAM_CHANGED, () => {
   if(state.currentTab === 'board') renderBoardView();    // assignee filter
   if(state.currentTab === 'team' && isAdmin()) renderAllowlist();

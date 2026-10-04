@@ -15,7 +15,8 @@ export function getSettings(){
     staleDays: Number.isFinite(s.staleDays) && s.staleDays > 0 ? s.staleDays : DEFAULT_SETTINGS.staleDays,
     wipLimits: { ...DEFAULT_SETTINGS.wipLimits, ...(s.wipLimits || {}) },
     labels: Array.isArray(s.labels) && s.labels.length ? s.labels : DEFAULT_SETTINGS.labels,
-    dodItems: Array.isArray(s.dodItems) ? s.dodItems : DEFAULT_SETTINGS.dodItems
+    dodItems: Array.isArray(s.dodItems) ? s.dodItems : DEFAULT_SETTINGS.dodItems,
+    weeklySummary: s.weeklySummary === true
   };
 }
 

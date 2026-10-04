@@ -56,3 +56,31 @@ export function availabilityBadge(email){
   const a = availabilityOf(email);
   return html`<span class="availability"><span class="label-dot" style="background:${a.color}"></span>${a.label}</span>`;
 }
+
+/**
+ * Team members matching what someone typed, best matches first.
+ * Matches the display name and the part of the email before "@" — not
+ * the domain, which everyone on a team usually shares.
+ * @param {string} query
+ * @param {{ exclude?: string[] }} opts  emails to leave out (e.g. yourself, already picked)
+ */
+export function matchPeople(query, { exclude = [] } = {}){
+  const q = (query || '').trim().toLowerCase();
+  const skip = exclude.map(normEmail);
+  const scored = state.allowlist
+    .filter(u => !skip.includes(u.id))
+    .map(u => {
+      const name = displayName(u.id).toLowerCase();
+      const local = u.id.split('@')[0];
+      const score = !q ? 4
+        : name === q || local === q || u.id === q ? 0
+        : name.startsWith(q) || local.startsWith(q) ? 1
+        : name.split(/\s+/).some(w => w.startsWith(q)) ? 2
+        : name.includes(q) || local.includes(q) ? 3
+        : -1;
+      return { u, score, name };
+    })
+    .filter(x => x.score >= 0)
+    .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name));
+  return scored.map(x => x.u);
+}

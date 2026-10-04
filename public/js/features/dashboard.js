@@ -11,6 +11,7 @@ import { icon, typeIcon } from '../core/icons.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { isOverdue, staleDays } from '../core/workflow.js';
 import { openDetail } from './ticket-detail.js';
+import { activeSprint, sprintProgress, daysLeft } from './sprints.js';
 
 const subEl = document.getElementById('dashSub');
 const statsEl = document.getElementById('dashStats');
@@ -69,6 +70,7 @@ export function renderDashboard(){
   const maxOpen = Math.max(1, ...ownerRows.map(([, v]) => v.open));
 
   panelsEl.innerHTML = html`
+    ${sprintPanel()}
     <section class="panel">
       <h2>Tickets by status</h2>
       <div class="stacked-bar" role="img" aria-label="${byStatus.map(s => `${s.label} ${s.count}`).join(', ')}">
@@ -125,6 +127,35 @@ export function renderDashboard(){
             <td class="load"><div class="bar-track" aria-hidden="true"><div class="bar-fill" style="width:${(v.open / maxOpen) * 100}%;background:var(--accent)"></div></div></td>
           </tr>`)}</tbody>
         </table>
+      </div>
+    </section>`;
+}
+
+/** The active sprint: goal, dates, days left, progress, and its tickets by status. */
+function sprintPanel(){
+  const s = activeSprint();
+  if(!s) return '';
+  const p = sprintProgress(s);
+  const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+  const left = daysLeft(s);
+  return html`
+    <section class="panel panel-wide sprint-panel">
+      <div class="sprint-panel-head">
+        <div>
+          <h2>${s.name}</h2>
+          ${s.goal ? html`<p class="sprint-goal">${s.goal}</p>` : ''}
+        </div>
+        <div class="sprint-meta">
+          <span>${formatDate(s.start)} – ${formatDate(s.end)}</span>
+          <span class="${left < 0 ? 'overdue-text' : ''}">${left > 1 ? `${left} days left` : left === 1 ? '1 day left' : left === 0 ? 'Last day' : `Ended ${-left} day${left === -1 ? '' : 's'} ago`}</span>
+        </div>
+      </div>
+      <div class="sprint-progress">
+        <div class="bar-track tall" role="img" aria-label="${p.done} of ${p.total} tickets done"><div class="bar-fill" style="width:${pct}%;background:var(--green)"></div></div>
+        <strong>${pct}%</strong><span class="muted-text">${p.done} of ${p.total} done</span>
+      </div>
+      <div class="legend legend-inline">
+        ${STATUSES.map(st => html`<div class="legend-item"><span class="label-dot" style="background:${STATUS_COLOR[st.key]}"></span><span>${st.label}</span><strong>${p.tickets.filter(t => normalizeStatus(t.status) === st.key).length}</strong></div>`)}
       </div>
     </section>`;
 }

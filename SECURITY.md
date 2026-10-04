@@ -1,163 +1,146 @@
-# Devflow — security guide
+# Security
 
-How Devflow is protected, and the one-time settings an admin needs to
-apply in GitHub, Firebase and Google Cloud. Work through the checklist
-top to bottom; each step says where to click.
-
-## How the protection works
-
-| Layer | What it protects | Where it lives |
-|---|---|---|
-| **Firestore rules** | All data: who can read/write what, and what shape the data must have | `firestore.rules` |
-| **Verified email** | Stops someone registering a teammate's address before they do | Rules + `public/js/auth.js` |
-| **No secrets in the repo** | The repo is public; webhook and keys live in Firestore/GitHub secrets | GitHub settings |
-| **Firebase Hosting headers** | Limits which scripts/connections the page can use; blocks framing; asks search engines not to index | `firebase.json` |
-| **Pinned scripts (SRI)** | If a CDN is ever tampered with, the browser refuses the changed script | `public/index.html` |
-| **API key restriction + App Check** | Only your site can call your Firebase project | Google Cloud / Firebase console |
-
-The Firebase config in `public/js/config.js` (API key, project id)
-is **not a secret** — every Firebase web app sends it to the browser.
-Security comes from the rules and the restrictions below, not from hiding it.
-
-What a non-member can see: the login page at your site's address. Nothing
-else — no tickets, names, comments or team list.
+devflow runs entirely in the browser and talks straight to Firebase, so
+its security has to hold even when someone reads — or rewrites — the
+JavaScript. This document explains how that works, what you need to
+configure when you deploy your own copy, and how to report a problem.
 
 ---
 
-## Checklist
+## Reporting a vulnerability
 
-### 1. Rotate the Discord webhook (urgent)
+If you find a security issue, please **don't open a public issue**. Use
+GitHub's private reporting instead: this repository → **Security** →
+**Report a vulnerability**. I'll acknowledge it as soon as I can and credit
+you in the fix if you'd like.
 
-The old webhook URL is in this repo's public git history. Anyone can still read it there, so it must be deleted in Discord.
+---
 
-1. Discord → your channel → **Edit Channel → Integrations → Webhooks** → delete the old webhook.
-2. Create a new one and copy its URL.
-3. After deploying (step 5), sign in as an admin → **Team → Board settings** → paste it → **Send test** → **Save settings**.
+## How devflow is protected
 
-The new URL is stored in Firestore, never in the code.
+### The principle
 
-### 2. GitHub repo settings (public repo)
+The browser code is public and can be modified by anyone, so it's never
+trusted. **Every permission and every data check that matters is enforced by
+Firestore security rules** (`firestore.rules`), which run on Google's
+servers. The UI mirrors those rules only to explain *why* something isn't
+allowed.
 
-The repo is **public on purpose**, as a portfolio piece. That's safe because
-nothing secret is in the code: the Firebase config isn't a secret, the
-Discord webhook lives in Firestore, and all data is protected by the rules.
-What people can see is *how* Devflow is built, never your tickets, comments
-or team.
+### The layers
 
-1. **Settings → Pages** → under *Build and deployment*, set **Source** to **None**. The app now runs on Firebase Hosting, and the old Pages copy would be outdated.
-2. **Settings → Branches → Add branch ruleset** (or *branch protection rule*) for `main`:
-   - Require a pull request before merging
-   - Block force pushes
-   - Restrict deletions
-3. **Settings → Code security**: turn on **Dependabot alerts**, **Secret scanning** and **Push protection** (free for public repos). Push protection blocks a push if it contains something that looks like a key or webhook URL.
-4. **Settings → Collaborators**: only people who should be able to *change* the code (anyone can read it).
-5. Rules for a public repo:
-   - Never commit webhook URLs, service-account keys, `.env` files or real ticket data.
-   - The EmailJS public key in `public/js/config.js` is designed to be public. In EmailJS → **Account → Security**, add your site's domain to the allowed list so others can't send email with it.
+| Layer | Protects against | Where |
+|---|---|---|
+| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 69 automated tests |
+| **Verified email + allowlist** | Someone registering a teammate's address before they do; strangers signing up and reading data | Rules (`email_verified`, `allowlist`) + `features/auth.js` |
+| **Escaping everywhere** | Cross-site scripting from ticket titles, comments, names, links | `core/html.js` (auto-escaping templates), `core/markdown.js` (escapes before formatting), `safeUrl()` (only `http(s)` links) |
+| **Content-Security-Policy** | Injected scripts, data sent to unknown servers, the app being framed | `firebase.json` headers |
+| **Subresource Integrity** | A compromised CDN serving altered Firebase/EmailJS scripts | `integrity` hashes in `public/index.html` |
+| **Security headers** | Clickjacking, MIME sniffing, leaking URLs, indexing by search engines | `firebase.json` (HSTS, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `noindex`) |
+| **No secrets in the repo** | Credentials leaking from a public repository | Webhook stored in Firestore; deploy and summary keys in GitHub Secrets |
+| **API key restriction + App Check** | Your Firebase project being called from anywhere other than your site | Google Cloud / Firebase console (checklist below) |
+| **CI gate** | A change that breaks the rules or the app reaching production | GitHub Actions run the rules tests and the browser test before every deploy |
 
-### 3. Require verified emails — and verify your own account
+### What the rules enforce
 
-The rules now only let **verified** email addresses in. Accounts created
-before this change are probably unverified, **including yours**.
+- **Access:** only signed-in users with a **verified** email who are on the **allowlist** can read or write anything (apart from requesting access for themselves).
+- **Tickets:** every field is type- and size-checked; links must be `http(s)`; unknown fields are rejected; `id`, `number`, `createdBy` and `createdAt` never change; new tickets must take their number from a shared counter in the same transaction, so ids can't collide.
+- **Workflow:** *In review* needs at least one reviewer. *Done* can only be set by a PM/admin, or by a listed reviewer who isn't the ticket's owner. If a Definition of Done is configured, every item must be ticked first — for everyone.
+- **Archive and delete:** only admins/PMs archive or restore; only admins permanently delete, and only archived tickets.
+- **Comments, mentions, activity:** posted as yourself only; comments are capped at 5,000 characters; the activity log can never be edited or deleted.
+- **Notifications:** sent as yourself, only to approved teammates; only the recipient can read them or mark them read.
+- **Sprints and settings:** sprints are managed by admins/PMs; roles, the allowlist and board settings by admins only; the Discord webhook must be a Discord URL.
+- **Profiles:** you can only write your own, and every field is size-limited.
 
-1. Open the site and sign in. You'll see **"Confirm your email"**.
-2. Click **Resend email**, open the link in your inbox, then click **I've confirmed it — continue**.
-3. Tell your teammates they'll see the same screen once.
+### What's public, and what isn't
 
-### 4. Firebase Authentication settings
+The repository is public: anyone can read *how* devflow works. The
+Firebase web config in `public/js/config.js` (API key, project id) is not a
+secret — every Firebase web app sends it to the browser.
+
+What a visitor who isn't on your team can see: the sign-in page. Nothing
+else — no tickets, names, comments, settings or team list.
+
+---
+
+## Hardening checklist for your deployment
+
+Work through this once after [SETUP.md](SETUP.md). Each step says where to
+click. Replace `<project-id>` with your Firebase project id.
+
+### 1. Keep secrets out of the repository
+
+- Never commit Discord webhook URLs, service-account keys, `.env` files or real ticket data. The webhook belongs in **Team → Board settings**; keys belong in **GitHub → Settings → Secrets**.
+- If a webhook or key was ever committed, treat it as leaked: delete it (Discord → channel → Integrations → Webhooks, or Google Cloud → the service account → Keys) and create a new one. Removing it from the code doesn't remove it from git history.
+- The EmailJS public key is designed to be public. In EmailJS → **Account → Security**, allow only your site's domain.
+
+### 2. GitHub repository settings
+
+1. **Settings → Code security**: turn on **Dependabot alerts**, **Secret scanning**, **Push protection** and **Private vulnerability reporting**.
+2. **Settings → Branches → Add branch ruleset** for `main`: require a pull request before merging, require the *Tests* status check, block force pushes, restrict deletions.
+3. **Settings → Collaborators**: only people who should be able to change the code.
+4. If you previously used GitHub Pages, set **Settings → Pages → Source** to **None** so an old copy isn't served.
+
+### 3. Firebase Authentication
 
 Firebase console → **Authentication → Settings**:
 
-1. **Password policy** → enable **Require enforcement**; set minimum length **10** (matches `MIN_PASSWORD_LENGTH` in `public/js/config.js`). Optionally require upper/lower case and a number.
-2. **User actions** → keep **Email enumeration protection** **on** (stops attackers checking which emails have accounts).
-3. **Authorized domains** → keep `devflow-board-11146.web.app`, `devflow-board-11146.firebaseapp.com` and `localhost`. **Remove** `nenikolaidis.github.io` once the move is done.
+1. **Password policy** → **Require enforcement**, minimum length **10** (matches `MIN_PASSWORD_LENGTH` in `public/js/config.js`).
+2. **User actions** → keep **Email enumeration protection** on.
+3. **Authorized domains** → keep only `<project-id>.web.app`, `<project-id>.firebaseapp.com`, any custom domain you use, and `localhost`.
 
-### 5. Host on Firebase Hosting (deploys from GitHub)
+Accounts created before email verification was required must confirm their email once: they'll see a **Confirm your email** screen on their next sign-in.
 
-One-time setup on your computer (needs [Node.js](https://nodejs.org)):
+### 4. Restrict the API key to your site
+
+Google Cloud console → your project → **APIs & Services → Credentials** →
+**Browser key (auto created by Firebase)**:
+
+1. **Application restrictions → Websites**: `https://<project-id>.web.app/*`, `https://<project-id>.firebaseapp.com/*` (and `http://localhost/*` only if you develop against the real project).
+2. **API restrictions → Restrict key**: Identity Toolkit API, Token Service API, Cloud Firestore API, Firebase Installations API, Firebase App Check API.
+3. **Save** (changes take a few minutes).
+
+### 5. Turn on App Check
+
+App Check proves requests come from your site, so someone with a stolen sign-in can't script against your project.
+
+1. Create a **reCAPTCHA v3** key for your site's domains (Google Cloud → **Security → reCAPTCHA**).
+2. Firebase console → **App Check → Apps** → your web app → **reCAPTCHA v3** → paste the **secret key**.
+3. Put the **site key** in `APP_CHECK_RECAPTCHA_SITE_KEY` in `public/js/config.js`; commit and push.
+4. Watch **App Check → APIs → Cloud Firestore** for a day or two. When nearly all requests are verified, click **Enforce**.
+
+### 6. Least-privilege keys
+
+- The **deploy** key created by `firebase init hosting:github` can only deploy hosting.
+- The **weekly summary** key should have only the **Cloud Datastore Viewer** role — read-only. Don't give it Editor or Owner.
+- Rotate either key from Google Cloud → IAM → Service Accounts → Keys if it may have leaked, then update the GitHub secret.
+
+### 7. Rules and indexes are deployed deliberately
+
+CI never deploys `firestore.rules`. After changing them:
 
 ```bash
-npm install -g firebase-tools
-firebase login
-cd devflow
-firebase deploy --only hosting,firestore:rules
+npm test               # rules tests + browser test
+npm run deploy:rules   # publishes rules and indexes
 ```
 
-Your site is now at **https://devflow-board-11146.web.app**.
+Deploy rules **before** code that depends on them.
 
-(If `npm install -g` fails with a permission error, skip it and type
-`npx firebase-tools` wherever these steps say `firebase`.)
+### 8. Budget alert
 
-Automatic deploys on every push to `main` (`.github/workflows/deploy.yml`):
-
-1. Run `firebase init hosting:github` in the repo folder and follow the prompts for **nenikolaidis/devflow.github.io**. It creates a deploy-only service account and saves it as a GitHub secret. Say **No** when it offers to overwrite `firebase.json` or the workflow files.
-2. In GitHub → **Settings → Secrets and variables → Actions**, check there's a secret called `FIREBASE_SERVICE_ACCOUNT_DEVFLOW_BOARD_11146` (the workflows use that name).
-3. Push to `main` → GitHub → **Actions** tab shows the security-rules tests, then the deploy. If a test fails, nothing is deployed.
-
-Firestore **rules are not deployed automatically**, on purpose. After
-changing `firestore.rules`, run the tests and then deploy them:
-
-```bash
-npm test              # needs Java 11+ installed locally
-npm run deploy:rules
-```
-
-(Or paste the file into Firebase console → Firestore → Rules → Publish.)
-
-### 6. Restrict the API key to your site
-
-Google Cloud console → select project **devflow-board-11146** →
-**APIs & Services → Credentials** → click the **Browser key (auto created by Firebase)**:
-
-1. **Application restrictions** → **Websites**, and add:
-   - `https://devflow-board-11146.web.app/*`
-   - `https://devflow-board-11146.firebaseapp.com/*`
-   - `http://localhost/*` (only if you test locally)
-2. **API restrictions** → **Restrict key** → tick:
-   - Identity Toolkit API
-   - Token Service API
-   - Cloud Firestore API
-   - Firebase Installations API
-   - Firebase App Check API
-3. **Save**. Changes take a few minutes to apply.
-
-### 7. Turn on App Check (recommended)
-
-App Check proves requests come from your site, so a script run against
-your project with a stolen login can't use it.
-
-1. Google Cloud console → **Security → reCAPTCHA** (or [google.com/recaptcha/admin](https://www.google.com/recaptcha/admin)) → create a **reCAPTCHA v3** key for `devflow-board-11146.web.app` and `devflow-board-11146.firebaseapp.com`.
-2. Firebase console → **App Check → Apps** → your web app → **reCAPTCHA v3** → paste the **secret key** → Save.
-3. Paste the **site key** into `APP_CHECK_RECAPTCHA_SITE_KEY` in `public/js/config.js`, commit, and let it deploy.
-4. Firebase console → **App Check → APIs** → watch **Cloud Firestore** metrics for a day or two. When nearly all requests show as *verified*, click **Enforce**. (Enforcing earlier would lock out anyone still on the old page.)
-
-### 8. Budget alert (cheap insurance)
-
-Google Cloud console → **Billing → Budgets & alerts** → create a budget of
-e.g. $1 with email alerts. On the free Spark plan nothing is charged, but
-the alert tells you if usage ever spikes.
+Google Cloud console → **Billing → Budgets & alerts** → a $1 budget with email alerts. The free plan doesn't charge, but you'll know if usage ever spikes.
 
 ---
 
 ## Ongoing habits
 
-- **Review the Team tab monthly.** Remove people who've left (Team → Remove). Removing them from the allowlist cuts their access immediately, even if they're still signed in.
-- **Never commit credentials** (service account keys, `.env` files). `.gitignore` blocks the common names.
-- **Changing `firestore.rules`?** Add or update a test in `tests/firestore.rules.test.js`, run `npm test`, then deploy the rules right after the matching code.
-- **Upgrading a CDN script** (Firebase SDK or EmailJS) in `public/index.html`: change the version in the URL, then regenerate its integrity hash:
+- **Review the Team tab regularly.** Removing someone from the allowlist cuts their access immediately, even if they're signed in.
+- **Changing the rules?** Add a test to `tests/firestore.rules.test.js` for the new behaviour — both what's allowed and what's refused.
+- **Upgrading a CDN script** in `public/index.html`: change the version, then regenerate its hash and paste `sha384-<output>` into `integrity`:
 
   ```bash
   curl -s <script-url> | openssl dgst -sha384 -binary | openssl base64 -A
   ```
 
-  and put `sha384-<output>` in the script's `integrity` attribute. A wrong hash means the script is blocked and the app won't load, so check the browser console after deploying.
-- **Adding a new external service** (another CDN, API or webhook domain)? Add its domain to the `Content-Security-Policy` header in `firebase.json`, or the browser will block it.
-
-## What the rules enforce (summary)
-
-- Only **verified, approved** users can read or write anything (except their own access request).
-- **Tickets:** fields are type- and size-checked; links must be `http(s)`; ids come from a shared counter checked by the rules; `id`, `number`, `createdBy` and `createdAt` can't change.
-- **Workflow:** In review needs a reviewer; Done can only be set by a PM/admin, or by the reviewer if they aren't also the owner.
-- **Archive:** only admins/PMs archive or restore; only admins permanently delete, and only archived tickets.
-- **Comments and activity:** posted as yourself only; activity can't be edited or deleted; comments are capped at 5,000 characters.
-- **Team and settings:** only admins change roles, the allowlist or board settings; profiles are self-only and size-limited.
+  A wrong hash stops the app loading — check the browser console after deploying.
+- **Adding an external service** (another CDN, API or webhook domain)? Allow its domain in the `Content-Security-Policy` in `firebase.json`, or the browser will block it.
+- **Rendering user content?** Always through `html\`\`` (or `renderMarkdown` for descriptions). Never build markup by concatenating strings.

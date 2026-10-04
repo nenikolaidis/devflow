@@ -1,0 +1,32 @@
+# Posts a weekly summary of the board to Discord every Monday morning.
+#
+# One-time setup (SETUP.md → "Weekly Discord summary"):
+#   1. Create a Google Cloud service account with the "Cloud Datastore
+#      Viewer" role (read-only) and download its JSON key.
+#   2. Save the whole JSON as a repository secret named
+#      WEEKLY_SUMMARY_SERVICE_ACCOUNT.
+#   3. In the app: Team → Board settings → turn on "Weekly Discord summary".
+# Until then the job runs, finds nothing to do, and succeeds quietly.
+name: Weekly Discord summary
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"   # Mondays 07:00 UTC
+  workflow_dispatch:        # "Run workflow" button in the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/weekly-summary.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.WEEKLY_SUMMARY_SERVICE_ACCOUNT }}

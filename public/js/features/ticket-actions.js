@@ -23,7 +23,7 @@ import {
 
 function fail(what, e){
   console.error(what, e);
-  showToast(isPermissionError(e) ? `${what}: you don't have permission for that.` : `${what}: ${e.message}`);
+  showToast(isPermissionError(e) ? `${what}: you don't have permission for that.` : `${what}: ${e.message}`, 'error');
   return false;
 }
 
@@ -148,7 +148,7 @@ export async function createTicket(fields){
 
 const EDIT_FIELD_NAMES = {
   title: 'title', description: 'description', priority: 'priority', type: 'type',
-  dueDate: 'due date', linkUrl: 'link', labels: 'labels'
+  dueDate: 'due date', linkUrl: 'link', labels: 'labels', sprintId: 'sprint'
 };
 
 /**

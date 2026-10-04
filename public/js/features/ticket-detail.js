@@ -18,6 +18,7 @@ import { moveBlockedReason, isOverdue, dodMissing } from '../core/workflow.js';
 import { openModal, showToast } from '../core/ui.js';
 import { findTicket, priorityWithLabel, labelList, dueBadge, typeWithLabel, visibleLabels } from './ticket-common.js';
 import { openTicketForm } from './ticket-form.js';
+import { sprintById, sprintLabel } from './sprints.js';
 import { mountComments } from './comments.js';
 import { mountActivityLog } from './activity-log.js';
 import { moveTicket, toggleBlocked, archiveTickets, restoreTicket, deleteTicketPermanently, toggleChecklistItem, toggleDodItem } from './ticket-actions.js';
@@ -68,6 +69,7 @@ export function openDetail(firestoreId){
           ? reviewers.map(r => html`<span class="person-chip static">${avatarHtml(r, 20)}${displayName(r)}</span>`)
           : html`<span class="muted">No reviewers yet</span>`}</dd>
         <dt>Due date</dt><dd>${t.dueDate ? html`${dueBadge(t)}${isOverdue(t) ? html`<span class="flag flag-overdue">Overdue</span>` : ''}` : html`<span class="muted">No due date</span>`}</dd>
+        <dt>Sprint</dt><dd>${sprintById(t.sprintId) ? sprintLabel(sprintById(t.sprintId)) : html`<span class="muted">Not planned</span>`}</dd>
         <dt>Labels</dt><dd>${visibleLabels(t).length ? labelList(t.labels, { boxed: true }) : html`<span class="muted">None</span>`}</dd>
         <dt>Created</dt><dd>${t.createdBy ? displayName(t.createdBy) : '—'}${t.createdAt ? html`<span class="muted">· ${formatDateTime(t.createdAt)}</span>` : ''}</dd>
       </dl>
@@ -107,7 +109,7 @@ export function openDetail(firestoreId){
       </div>`
   });
 
-  unsubscribers.push(mountComments(m.$('#detailComments'), t.firestoreId, { readOnly }));
+  unsubscribers.push(mountComments(m.$('#detailComments'), t, { readOnly }));
   unsubscribers.push(mountActivityLog(m.$('#detailActivity'), t.firestoreId));
 
   // Comments | Activity switcher

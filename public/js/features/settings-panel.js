@@ -29,6 +29,7 @@ export function renderSettings({ force = false } = {}){
   const s = getSettings();
   $('setWebhook').value = s.discordWebhookUrl;
   $('setStaleDays').value = s.staleDays;
+  $('setWeeklySummary').checked = s.weeklySummary;
   $('setWipLimits').innerHTML = html`${STATUSES.map(st => html`
     <label class="wip-input">${st.label}
       <input type="number" min="0" step="1" data-status="${st.key}" value="${s.wipLimits[st.key] || 0}">
@@ -137,6 +138,7 @@ $('saveSettingsBtn').addEventListener('click', async () => {
       staleDays: Number.isFinite(staleDays) && staleDays > 0 && staleDays <= 365 ? staleDays : DEFAULT_SETTINGS.staleDays,
       wipLimits,
       labels: cleanLabels,
+      weeklySummary: $('setWeeklySummary').checked,
       dodItems: cleanDod,
       // The ids firestore.rules checks before a ticket can move to Done.
       dodRequired: cleanDod.map(d => d.id)

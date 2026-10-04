@@ -1,155 +1,92 @@
-# Devflow
+# devflow
 
-A lightweight real-time team Kanban board with authentication, role-based access control, live collaboration, dashboards, and ticket discussions.
+**A real-time Kanban board for small software teams — with real security, a clear workflow, and no backend to run.**
 
-Devflow turns a simple board into a multi-user project management app:
+I built devflow to run day-to-day work on a development team: tickets move through a short, enforced workflow, everyone sees changes instantly, and the people who should approve work are the only ones who can close it. It runs entirely on Firebase's free tier and is hosted as static files, so there is no server to maintain.
 
-- Team members log in with email and password
-- Only approved users can access the workspace
-- Tickets sync instantly between users
-- Admins control team access and roles
-- Everyone can collaborate through comments and updates
+![The devflow board in dark mode](docs/screenshots/board-dark.png)
 
-Built with:
-
-- **Firebase** — authentication, database, real-time synchronization, and hosting
-- **GitHub** — source code, with automatic deploys to Firebase Hosting
-
-Setup takes approximately **20–30 minutes** — see [SETUP.md](SETUP.md), then [SECURITY.md](SECURITY.md).
+<p align="center">
+  <img src="docs/screenshots/ticket-panel-dark.png" width="49%" alt="A ticket open in the side panel, with a checklist, Definition of Done and a comment that mentions a teammate">
+  <img src="docs/screenshots/dashboard-light.png" width="49%" alt="The dashboard in light mode, with the active sprint, breakdowns and workload">
+</p>
 
 ---
 
-## Features
+## What it does
 
-### Kanban Board
+**Plan and track work**
+- Kanban board — *Backlog → In progress → In review → Done* — plus a sortable table view
+- Ticket **types** (Task, Bug, Feature, Security, Maintenance, Business analysis, Research), each with its own icon and template
+- **Sprints** with goals and dates; filter the board by sprint and follow progress on the dashboard
+- **Checklists** in descriptions (`- [ ] item`) that you tick right in the ticket; progress shows on the card
+- Admin-managed **labels**, priorities, due dates, links to pull requests
+- **My work**: everything assigned to you, waiting for your review, or recently finished
 
-Manage work through a simple workflow:
+**Keep the process honest**
+- A ticket needs at least one **reviewer** (up to five) before *In review*
+- Only a reviewer who isn't the owner — or a PM/admin — can move it to *Done*
+- An optional **Definition of Done** every ticket must tick before it can close — for everyone, admins included
+- **Work-in-progress limits**, **stale** detection and a **blocked** flag with a reason
+- An **activity log** on every ticket that nobody can edit or delete
+- Tickets are **archived**, not deleted, so history is never lost by accident
 
-### Backlog → In progress → In review → Done
+**Work together**
+- Live sync: every change appears for everyone instantly
+- **@mentions** in comments, with an in-app notification bell
+- Optional **Discord** messages (new, assigned, ready for review, blocked, mentions) and a **weekly summary** posted every Monday
+- Optional **email** to a ticket's new owner
 
-Includes:
+**Feels good to use**
+- Light and dark themes (follows your system setting), keyboard shortcuts (`?` lists them), works on phones
+- Accessible: real buttons and labels, keyboard focus you can see, screen-reader announcements
 
-- Ticket creation, with templates (bug report, feature request, security issue, maintenance task, business analysis)
-- Ticket editing
-- Status changes
-- Search
-- Filtering
-- Priority tracking
-
----
-
-### Ticket types, labels and checklists
-
-- **Types**: Task, Bug, Feature, Security, Maintenance, Business analysis, Research — each with its own icon and template
-- **Labels** (topic areas like frontend or backend) are managed by admins in Team → Board settings
-- **Checklists**: `- [ ] item` lines in a description become tickable, with progress shown on the card
-- **Multiple reviewers**: up to 5 per ticket; any of them (except the owner) can close it
-- **My work**: one page with tickets assigned to you, reviews waiting for you, and what you finished recently
-- **Quick filters**: Mine, To review, Blocked, Stale
-- **Profiles**: job title, status (Available / Busy / Away) and each teammate's local time
-
----
-
-### Project moderation
-
-- **Workflow rules** — a ticket needs a reviewer before it can move to In review, and only its reviewer, a PM, or an admin can move it to Done (enforced in the database rules, not just the UI)
-- **Archive instead of delete** — archived tickets keep their comments and activity log; admins/PMs can restore them, and only admins can permanently delete one
-- **Blocked flag** — mark a ticket blocked with a reason; it's highlighted on the board, the dashboard, and in Discord
-- **Stale tickets** — tickets with no activity in In progress / In review for a configurable number of days are flagged
-- **Work-in-progress limits** — set a maximum per column; the column turns red when it's over
-- **Comment moderation** — authors can edit their own comments; admins/PMs can hide inappropriate ones
-- **Definition of Done** — an optional checklist set by admins that every ticket must complete before Done (enforced by the database)
+All rules that matter — who can do what, and what the workflow allows — are enforced by the database, not just the UI.
 
 ---
 
-### Look and feel
+## How it's built
 
-- Light and dark themes — follows your computer's setting, with a toggle in the top bar
-- Tickets open in a side panel, so the board stays in view
-- Works on phones: columns swipe sideways, filters scroll in one row
-- Keyboard friendly: `/` jumps to search, Esc closes panels, Enter opens a focused ticket
+| | |
+|---|---|
+| **Front end** | Plain HTML, CSS and JavaScript modules — no framework, no build step |
+| **Data & sync** | Cloud Firestore with live listeners |
+| **Sign-in** | Firebase Authentication (email + password, verified email required) |
+| **Security** | Firestore security rules — 69 automated tests cover them |
+| **Hosting** | Firebase Hosting with a strict Content-Security-Policy and other security headers |
+| **CI/CD** | GitHub Actions: security-rules tests and an end-to-end browser test on every push and pull request; deploys only when they pass |
+| **Scheduled jobs** | A GitHub Actions cron job for the weekly Discord summary (no paid Firebase plan needed) |
 
----
-
-### Dashboard
-
-Track project progress with:
-
-- Total tickets
-- Open tickets
-- Overdue tickets
-- Blocked and stale tickets
-- Completion rate
-- Status breakdown
-- Priority breakdown
-- Per-owner workload view
+The code is organised in layers — `core/` (no database code), `data/` (all Firestore access), `features/` (one file per screen) — and every piece of user content goes through an auto-escaping HTML template, so it can never run as code.
 
 ---
 
-### Team Management
+## Documentation
 
-Admins can manage access from the Team tab.
-
-Capabilities:
-
-- Approve new users
-- Deny access requests
-- Add team members directly
-- Change user roles
-- Remove users
-- Configure board settings (Discord webhook, WIP limits, stale threshold)
+| Read this | If you want to… |
+|---|---|
+| **[GUIDE.md](GUIDE.md)** | use devflow day to day — tickets, workflow, sprints, mentions, shortcuts |
+| **[SETUP.md](SETUP.md)** | run your own copy for your team (about 30 minutes) |
+| **[SECURITY.md](SECURITY.md)** | understand how it's protected, and harden your deployment |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | understand or change the code — structure, data model, conventions |
 
 ---
 
-### Collaboration
+## Running it locally
 
-Approved users can:
-
-- Create tickets
-- Edit ticket details
-- Move tickets between stages
-- Comment on tickets
-- See changes instantly
-
----
-
-### Authentication
-
-Users can:
-
-- Register with email/password (email must be verified)
-- Sign in securely
-- Change their password
-- Reset forgotten passwords through email
-
----
-
-## Requirements
-
-You need:
-
-- A Google account
-- A GitHub account
-- A Firebase account
-- [Node.js](https://nodejs.org) on the computer you deploy from (for the Firebase CLI)
-
-No credit card is required.
-
----
-
-## For developers
-
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — how the code is organised, the data model, roles and permissions, and how to make common changes.
-- **[SECURITY.md](SECURITY.md)** — how the app is protected and the one-time hardening checklist.
-- **[SETUP.md](SETUP.md)** — setting up your own copy from scratch.
-
-The site is plain HTML, CSS and JavaScript modules in `public/` (no build step). Development tools are optional:
+You only need this if you want to work on the code. Requirements: [Node.js](https://nodejs.org) 20+, Java 11+ (for the Firebase emulators) and Google Chrome (for the browser test).
 
 ```bash
-npm install          # emulators, test runner, deploy scripts (needs Node 20+, Java 11+)
-npm test             # automated tests for the Firestore security rules
-npm run emulators    # local throwaway Firebase
+npm install          # development tools only — nothing here is deployed
+npm test             # security-rules tests + end-to-end browser test
+npm run emulators    # local, throwaway Firebase (Auth + Firestore)
 npm run serve        # then open http://localhost:5050/?emulators
 ```
 
-Every pull request and push to `main` runs the tests on GitHub Actions; `main` deploys to Firebase Hosting only when they pass.
+With `?emulators` in the address the app talks to the local emulators, so you can't touch real data.
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Nearchos Nikolaidis. You're welcome to use, adapt and build on devflow; please keep the copyright notice.

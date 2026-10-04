@@ -32,6 +32,10 @@ export const refs = {
   profiles: () => db.collection(COLLECTIONS.PROFILES),
   profile: (email) => db.collection(COLLECTIONS.PROFILES).doc(normEmail(email)),
   counters: () => db.collection(COLLECTIONS.META).doc(DOCS.COUNTERS),
+  sprints: () => db.collection(COLLECTIONS.SPRINTS),
+  sprint: (id) => db.collection(COLLECTIONS.SPRINTS).doc(id),
+  notifications: () => db.collection(COLLECTIONS.NOTIFICATIONS),
+  notification: (id) => db.collection(COLLECTIONS.NOTIFICATIONS).doc(id),
   settings: () => db.collection(COLLECTIONS.CONFIG).doc(DOCS.SETTINGS)
 };
 
@@ -145,8 +149,11 @@ export function deleteTicket(fid){
 
 /* ---------------- COMMENTS ---------------- */
 
-export async function addComment(fid, text){
-  await refs.comments(fid).add({ text, author: me(), createdAt: serverTime() });
+/** Posts a comment. `mentions` = emails of teammates @mentioned in it. */
+export async function addComment(fid, text, mentions = []){
+  const comment = { text, author: me(), createdAt: serverTime() };
+  if(mentions.length) comment.mentions = mentions;
+  await refs.comments(fid).add(comment);
   touchTicket(fid);
 }
 
@@ -163,6 +170,47 @@ export function setCommentHidden(fid, commentId, hidden){
 
 export function deleteComment(fid, commentId){
   return refs.comments(fid).doc(commentId).delete();
+}
+
+/* ---------------- SPRINTS ---------------- */
+
+/** Creates (no id) or updates a sprint. Admins/PMs only. */
+export function saveSprint(id, fields){
+  if(id) return refs.sprint(id).update(fields);
+  return refs.sprints().add({ ...fields, createdBy: me(), createdAt: serverTime() });
+}
+
+/** Deletes a sprint and takes its tickets out of it (one batch). */
+export async function deleteSprint(id){
+  const batch = db.batch();
+  state.tickets.filter(t => t.sprintId === id).forEach(t => batch.update(refs.ticket(t.firestoreId), { sprintId: deleteField() }));
+  batch.delete(refs.sprint(id));
+  await batch.commit();
+}
+
+/* ---------------- NOTIFICATIONS ---------------- */
+
+/** One "you were mentioned" notification per teammate (never to yourself). */
+export async function notifyMentions(t, emails, text){
+  const batch = db.batch();
+  emails.filter(e => normEmail(e) !== normEmail(me())).forEach(to => {
+    batch.set(refs.notifications().doc(), {
+      to: normEmail(to), by: me(), type: 'mention',
+      ticketFid: t.firestoreId, ticketId: t.id, ticketTitle: String(t.title || '').slice(0, 200),
+      text: text.slice(0, 300), createdAt: serverTime(), read: false
+    });
+  });
+  await batch.commit();
+}
+
+export function markNotificationRead(id){
+  return refs.notification(id).update({ read: true });
+}
+
+export async function markAllNotificationsRead(){
+  const batch = db.batch();
+  state.notifications.filter(n => !n.read).forEach(n => batch.update(refs.notification(n.id), { read: true }));
+  await batch.commit();
 }
 
 /* ---------------- TEAM & ACCESS ---------------- */

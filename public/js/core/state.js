@@ -18,11 +18,14 @@ export const state = {
   accessRequests: [],      // [{ id: email, email, requestedAt }] (admins only)
   profiles: {},            // email -> { name, username, bio, timezone, lastActive }
   settings: null,          // config/settings doc; read via data/settings.js getSettings()
+  sprints: [],             // [{ id, name, goal, start, end, status }]
+  notifications: [],       // my notifications, newest first
+  ticketsLoaded: false,    // false until the first tickets snapshot (shows the loading state)
 
   /* ---- UI-only state ---- */
   currentTab: 'board',     // 'board' | 'mywork' | 'dashboard' | 'team'
   boardViewMode: 'kanban', // 'kanban' | 'table'
-  filters: { search: '', type: '', priority: '', label: '', assignee: '', quick: '', showArchived: false },
+  filters: { search: '', type: '', priority: '', label: '', assignee: '', quick: '', sprint: '', showArchived: false },
   tableSort: { key: 'createdAt', dir: 'desc' },
   selectMode: false,
   selectedIds: new Set(),  // firestoreIds picked in multi-select

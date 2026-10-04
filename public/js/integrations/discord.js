@@ -102,6 +102,22 @@ export function notifyReviewRequested(ticket, reviewerNames){
   });
 }
 
+/** Posts a message when someone @mentions teammates in a comment. */
+export function notifyMentioned(ticket, names, text){
+  post({
+    embeds: [{
+      title: `💬 ${ticket.id}: ${ticket.title}`,
+      description: text.length > 300 ? text.slice(0, 297) + '…' : text,
+      color: NEUTRAL_HEX,
+      fields: [
+        { name: 'Mentioned', value: names.join(', '), inline: true },
+        { name: 'By', value: actorEmail(), inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    }]
+  });
+}
+
 /** Posts a message when a ticket is marked as blocked. */
 export function notifyTicketBlocked(ticket, reason){
   post({

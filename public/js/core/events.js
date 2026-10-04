@@ -13,13 +13,17 @@ export const EVENTS = {
   TEAM_CHANGED: 'team-changed',          // allowlist
   REQUESTS_CHANGED: 'requests-changed',  // access requests
   PROFILES_CHANGED: 'profiles-changed',
-  SETTINGS_CHANGED: 'settings-changed'
+  SETTINGS_CHANGED: 'settings-changed',
+  SPRINTS_CHANGED: 'sprints-changed',
+  NOTIFICATIONS_CHANGED: 'notifications-changed'
 };
 
 const listeners = {};
 
+/** Subscribes to an event. Returns a function that unsubscribes. */
 export function on(event, handler){
   (listeners[event] = listeners[event] || []).push(handler);
+  return () => { listeners[event] = listeners[event].filter(h => h !== handler); };
 }
 
 export function emit(event, payload){

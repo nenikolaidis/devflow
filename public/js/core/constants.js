@@ -26,7 +26,9 @@ export const COLLECTIONS = {
   ACCESS_REQUESTS: 'accessRequests',
   PROFILES: 'profiles',        // doc id = lowercase email
   META: 'meta',
-  CONFIG: 'config'
+  CONFIG: 'config',
+  SPRINTS: 'sprints',
+  NOTIFICATIONS: 'notifications' // to = recipient's email
 };
 export const DOCS = {
   COUNTERS: 'counters',        // meta/counters  → { ticketNumber }
@@ -142,6 +144,13 @@ export const DEFAULT_LABELS = [
   { name: 'design', color: 'purple' }
 ];
 
+/* ---------------- SPRINTS ---------------- */
+export const SPRINT_STATUSES = [
+  { key: 'planned', label: 'Planned' },
+  { key: 'active', label: 'Active' },
+  { key: 'closed', label: 'Closed' }
+];
+
 /* ---------------- REVIEWERS ---------------- */
 export const MAX_REVIEWERS = 5;
 
@@ -172,7 +181,10 @@ export const LIMITS = {
   LABEL_NAME: 24,
   MAX_LABELS: 30,
   DOD_ITEM: 120,
-  MAX_DOD_ITEMS: 10
+  MAX_DOD_ITEMS: 10,
+  SPRINT_NAME: 60,
+  SPRINT_GOAL: 300,
+  MAX_MENTIONS: 10
 };
 
 /* ---------------- TABLE VIEW ---------------- */
@@ -185,6 +197,7 @@ export const TABLE_COLUMNS = [
   { key: 'owner', label: 'Owner' },
   { key: 'reviewers', label: 'Reviewers' },
   { key: 'labels', label: 'Labels' },
+  { key: 'sprintId', label: 'Sprint' },
   { key: 'dueDate', label: 'Due' }
 ];
 
@@ -252,5 +265,6 @@ export const DEFAULT_SETTINGS = {
   staleDays: 5,
   wipLimits: { backlog: 0, in_progress: 5, in_review: 3, done: 0 },
   labels: DEFAULT_LABELS,
-  dodItems: []
+  dodItems: [],
+  weeklySummary: false
 };

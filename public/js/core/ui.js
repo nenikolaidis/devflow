@@ -12,16 +12,28 @@
 import { html } from './html.js';
 import { icon } from './icons.js';
 
-/* ---------------- TOAST ---------------- */
-const toastEl = document.getElementById('toast');
-let toastTimer = null;
+/* ---------------- TOASTS ---------------- */
+const toastStack = document.getElementById('toast');
+const MAX_TOASTS = 4;
 
-export function showToast(message){
-  toastEl.textContent = message;
-  toastEl.classList.add('show');
-  clearTimeout(toastTimer);
-  // Longer messages stay up a little longer.
-  toastTimer = setTimeout(() => toastEl.classList.remove('show'), Math.min(6000, 2200 + message.length * 25));
+/**
+ * Shows a short message in the bottom corner. Several stack up.
+ * @param {string} message
+ * @param {'info'|'success'|'error'} [type]  guessed from the text when omitted
+ */
+export function showToast(message, type){
+  type = type || (/could not|failed|error|permission|denied/i.test(message) ? 'error'
+    : /created|saved|updated|moved|sent|copied|archived|restored|approved|added|posted/i.test(message) ? 'success' : 'info');
+  const item = document.createElement('div');
+  item.className = `toast-item toast-${type}`;
+  item.innerHTML = html`${icon(type === 'error' ? 'alert' : type === 'success' ? 'check' : 'info', 16)}<span></span><button type="button" class="toast-close" aria-label="Dismiss">${icon('x', 12)}</button>`.toString();
+  item.querySelector('span').textContent = message;
+  const remove = () => { item.classList.add('leaving'); setTimeout(() => item.remove(), 180); };
+  item.querySelector('.toast-close').addEventListener('click', remove);
+  toastStack.appendChild(item);
+  while(toastStack.children.length > MAX_TOASTS) toastStack.firstElementChild.remove();
+  // Longer messages, and errors, stay up longer.
+  setTimeout(remove, Math.min(9000, (type === 'error' ? 5000 : 2600) + message.length * 25));
 }
 
 /* ---------------- MODAL ---------------- */

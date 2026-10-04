@@ -14,13 +14,14 @@ import { refs } from './api.js';
 import { state } from '../core/state.js';
 import { emit, EVENTS } from '../core/events.js';
 import { showToast } from '../core/ui.js';
+import { normEmail } from '../core/permissions.js';
 
 let unsubscribers = [];
 
-function listen(query, onSnapshot, label){
+function listen(query, onSnapshot, label, { quiet = false } = {}){
   unsubscribers.push(query.onSnapshot(onSnapshot, err => {
     console.error(`${label} sync error:`, err);
-    showToast(`${label} sync error: ${err.message}`);
+    if(!quiet) showToast(`${label} sync error: ${err.message}`, 'error');
   }));
 }
 
@@ -30,8 +31,20 @@ export function startSync({ isAdmin }){
 
   listen(refs.tickets().orderBy('createdAt', 'desc'), snap => {
     state.tickets = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+    state.ticketsLoaded = true;
     emit(EVENTS.TICKETS_CHANGED);
   }, 'Tickets');
+
+  listen(refs.sprints(), snap => {
+    state.sprints = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    emit(EVENTS.SPRINTS_CHANGED);
+  }, 'Sprints');
+
+  // Needs the composite index in firestore.indexes.json (to + createdAt).
+  listen(refs.notifications().where('to', '==', normEmail(state.currentUser.email)).orderBy('createdAt', 'desc').limit(30), snap => {
+    state.notifications = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    emit(EVENTS.NOTIFICATIONS_CHANGED);
+  }, 'Notifications', { quiet: true }); // non-essential: don't toast if the index isn't deployed yet
 
   listen(refs.allowlist(), snap => {
     state.allowlist = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -67,6 +80,9 @@ export function stopSync(){
   state.accessRequests = [];
   state.profiles = {};
   state.settings = null;
+  state.sprints = [];
+  state.notifications = [];
+  state.ticketsLoaded = false;
 }
 
 /* ---------------- SHORT-LIVED LISTENERS ---------------- */

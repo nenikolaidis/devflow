@@ -17,10 +17,11 @@ import { html } from '../core/html.js';
 import { icon } from '../core/icons.js';
 import { safeUrl, capitalize } from '../core/format.js';
 import { normEmail } from '../core/permissions.js';
-import { displayName, avatarHtml, profileOf } from '../core/people.js';
+import { displayName, avatarHtml, profileOf, matchPeople } from '../core/people.js';
 import { labelNames, labelColor } from '../core/settings.js';
 import { openModal, showToast, confirmDialog } from '../core/ui.js';
 import { createTicket, saveTicketChanges } from './ticket-actions.js';
+import { sprintOptions } from './sprints.js';
 
 /* ---------------- TEAMMATE SEARCH (shared) ---------------- */
 
@@ -30,10 +31,9 @@ function availabilityNote(email){
   return a && a.key !== 'available' ? a.label : '';
 }
 
-/** Team members matching `query`, excluding `skip` emails. */
+/** Team members matching `query`, best first, excluding `skip` emails. */
 function searchTeam(query, skip = []){
-  const q = query.toLowerCase();
-  return state.allowlist.filter(u => !skip.includes(u.id) && (u.id.includes(q) || displayName(u.id).toLowerCase().includes(q)));
+  return matchPeople(query, { exclude: skip });
 }
 
 function optionHtml(u){
@@ -63,13 +63,18 @@ function wireDropdown(input, list, render, onPick){
 
 /* ---------------- OWNER (one person) ---------------- */
 
+/**
+ * One-person picker. The box shows the person's name; the stored value
+ * (their email, or free text) lives in data-value — read it with
+ * teammateValue().
+ */
 function teammateField(id, label, value){
   return html`
     <div class="field">
       <label for="${id}">${label}</label>
       <div class="combo">
         <input type="text" class="combo-input" id="${id}" autocomplete="off" maxlength="200"
-          value="${value || ''}" placeholder="Search teammate..." role="combobox"
+          value="${value ? displayName(value) : ''}" data-value="${value || ''}" placeholder="Search teammate..." role="combobox"
           aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-list">
         <div class="combo-list hidden" id="${id}-list" role="listbox"></div>
       </div>
@@ -79,13 +84,22 @@ function teammateField(id, label, value){
 /** Typing filters the team; free text (someone without an account) is still allowed. */
 function wireTeammateField(modal, id){
   const input = modal.$('#' + id);
+  // Typing replaces the stored value with what was typed (free text or an email).
+  input.addEventListener('input', () => { input.dataset.value = input.value.trim(); });
   wireDropdown(input, modal.$('#' + id + '-list'), q => {
-    const matches = searchTeam(q);
+    // Showing a picked name? List everyone rather than filtering by it.
+    const matches = searchTeam(q === displayName(input.dataset.value) ? '' : q);
     return html`
       <div class="combo-item" role="option" data-val="">— Unassigned —</div>
       ${matches.map(optionHtml)}
       ${matches.length === 0 ? html`<div class="combo-empty">No teammate matches — you can still type a free-text name</div>` : ''}`;
-  }, val => { input.value = val; });
+  }, val => { input.dataset.value = val; input.value = val ? displayName(val) : ''; });
+}
+
+/** The stored value of a teammateField: a lowercase email, free text, or ''. */
+function teammateValue(modal, id){
+  const v = (modal.$('#' + id).dataset.value || '').trim();
+  return v.includes('@') ? normEmail(v) : v;
 }
 
 /* ---------------- REVIEWERS (several people) ---------------- */
@@ -172,6 +186,12 @@ const checkedLabels = (modal, groupId) => modal.$$(`#${groupId} input:checked`).
 
 /* ---------------- NEW / EDIT TICKET ---------------- */
 
+/** New tickets go into the sprint the board is filtered to, if any. */
+function defaultSprint(){
+  const f = state.filters.sprint;
+  return f && f !== '__none__' ? f : '';
+}
+
 /** Opens the full ticket form. Pass a ticket to edit it, or null to create one. */
 export function openTicketForm(existing){
   const t = existing || {};
@@ -198,7 +218,11 @@ export function openTicketForm(existing){
         <div class="field"><label for="f-due">Due date</label>
           <input type="date" id="f-due" value="${t.dueDate || ''}"></div>
       </div>
-      ${teammateField('f-owner', 'Owner', t.owner)}
+      <div class="row2">
+        ${teammateField('f-owner', 'Owner', t.owner)}
+        <div class="field"><label for="f-sprint">Sprint</label>
+          <select id="f-sprint">${sprintOptions(isEdit ? t.sprintId : defaultSprint())}</select></div>
+      </div>
       ${reviewersField('f-reviewers')}
       <div class="field"><label for="f-link">Merge request / issue link (optional)</label>
         <input type="text" id="f-link" maxlength="${LIMITS.LINK}" value="${t.linkUrl || ''}" placeholder="https://github.com/org/repo/pull/123"></div>
@@ -236,7 +260,6 @@ export function openTicketForm(existing){
     if(!title){ showToast('Title is required'); m.$('#f-title').focus(); return; }
     const rawLink = m.$('#f-link').value.trim();
     if(rawLink && !safeUrl(rawLink)){ showToast('The link must start with https:// or http://'); m.$('#f-link').focus(); return; }
-    const owner = m.$('#f-owner').value.trim();
 
     const fields = {
       title,
@@ -244,8 +267,9 @@ export function openTicketForm(existing){
       type: m.$('#f-type').value,
       priority: m.$('#f-priority').value,
       dueDate: m.$('#f-due').value,
-      owner: owner.includes('@') ? normEmail(owner) : owner,
+      owner: teammateValue(m, 'f-owner'),
       reviewers: getReviewers(),
+      sprintId: m.$('#f-sprint').value,
       linkUrl: safeUrl(rawLink),
       labels: checkedLabels(m, 'f-labels')
     };
@@ -282,11 +306,10 @@ export function openQuickEdit(t){
   wireTeammateField(m, 'qe-owner');
   m.$('.qe-cancel').addEventListener('click', () => m.close());
   m.$('.qe-save').addEventListener('click', async () => {
-    const owner = m.$('#qe-owner').value.trim();
     const ok = await saveTicketChanges(t, {
       type: m.$('#qe-type').value,
       priority: m.$('#qe-priority').value,
-      owner: owner.includes('@') ? normEmail(owner) : owner,
+      owner: teammateValue(m, 'qe-owner'),
       labels: checkedLabels(m, 'qe-labels')
     });
     if(ok) m.close();

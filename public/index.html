@@ -111,6 +111,17 @@
       <span class="btn-text">New ticket</span>
     </button>
 
+    <div class="menu-wrap">
+      <button type="button" class="icon-btn bell-btn" id="notifBtn" aria-haspopup="true" aria-expanded="false" aria-controls="notifPanel" aria-label="Notifications">
+        <svg class="icon" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5V7a4 4 0 0 1 8 0v4.5l1 1.5H3Z"/><path d="M6.5 14.5a1.6 1.6 0 0 0 3 0"/></svg>
+        <span class="bell-badge hidden" id="notifCount"></span>
+      </button>
+      <div class="menu notif-panel hidden" id="notifPanel" role="region" aria-label="Notifications">
+        <div class="notif-head"><strong>Notifications</strong><button type="button" class="link" id="notifMarkAll">Mark all read</button></div>
+        <div id="notifList" class="notif-list"></div>
+      </div>
+    </div>
+
     <button type="button" class="icon-btn" id="themeToggle" aria-label="Switch theme"></button>
 
     <div class="menu-wrap">
@@ -143,6 +154,9 @@
         <button type="button" class="quick" data-quick="stale" aria-pressed="false">Stale</button>
       </div>
       <span class="toolbar-divider" aria-hidden="true"></span>
+      <select id="sprintFilter" class="pill-select" aria-label="Filter by sprint">
+        <option value="">Sprint</option>
+      </select>
       <select id="typeFilter" class="pill-select" aria-label="Filter by type">
         <option value="">Type</option>
       </select>
@@ -169,19 +183,26 @@
       </select>
       <div class="toolbar-spacer"></div>
       <div class="segmented" role="group" aria-label="View">
-        <button type="button" id="viewKanbanBtn" class="active" aria-pressed="true">
+        <button type="button" id="viewKanbanBtn" class="active" aria-pressed="true" aria-label="Board view" title="Board view">
           <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.25" y="2.5" width="3.5" height="7" rx="1"/><rect x="10.5" y="2.5" width="3.5" height="9" rx="1"/></svg>
-          Board
+          <span class="btn-label">Board</span>
         </button>
-        <button type="button" id="viewTableBtn" aria-pressed="false">
+        <button type="button" id="viewTableBtn" aria-pressed="false" aria-label="Table view" title="Table view">
           <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>
-          Table
+          <span class="btn-label">Table</span>
         </button>
       </div>
-      <button type="button" class="btn-outline" id="selectModeBtn" aria-pressed="false">Select</button>
-      <button type="button" class="btn-outline" id="archivedToggleBtn" aria-pressed="false" title="Show archived tickets alongside active ones">
+      <button type="button" class="btn-outline hidden" id="manageSprintsBtn" title="Create and manage sprints" aria-label="Sprints">
+        <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M2.5 7h11M5.5 2v3M10.5 2v3"/></svg>
+        <span class="btn-label">Sprints</span>
+      </button>
+      <button type="button" class="btn-outline" id="selectModeBtn" aria-pressed="false" title="Select several tickets" aria-label="Select">
+        <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="2.5"/><path d="m5.5 8 1.8 1.8L10.8 6"/></svg>
+        <span class="btn-label">Select</span>
+      </button>
+      <button type="button" class="btn-outline" id="archivedToggleBtn" aria-pressed="false" title="Show archived tickets alongside active ones" aria-label="Archived">
         <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="3" rx="1"/><path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M6.5 9h3"/></svg>
-        Archived
+        <span class="btn-label">Archived</span>
       </button>
     </div>
     <div class="board" id="board"></div>
@@ -257,6 +278,13 @@
         <p class="field-hint">0 means no limit. Columns over their limit turn red.</p>
         <div class="wip-inputs" id="setWipLimits"></div>
       </fieldset>
+      <div class="field">
+        <label class="toggle-row" for="setWeeklySummary">
+          <input type="checkbox" id="setWeeklySummary">
+          <span><strong>Weekly Discord summary</strong>
+            <span class="field-hint">Every Monday morning, post a summary of the week (done, in progress, blocked, overdue, sprint progress) to the Discord channel above. Needs the one-time setup in SETUP.md.</span></span>
+        </label>
+      </div>
       <div class="modal-actions"><button type="button" class="primary" id="saveSettingsBtn">Save settings</button></div>
     </div>
   </section>

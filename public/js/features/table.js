@@ -9,6 +9,7 @@ import { statusIcon } from '../core/icons.js';
 import { displayName, avatarHtml } from '../core/people.js';
 import { matchesFilters, sortTickets, priorityWithLabel, labelList, dueBadge, ticketFlags, typeWithLabel, checklistBadge } from './ticket-common.js';
 import { openDetail } from './ticket-detail.js';
+import { sprintById } from './sprints.js';
 
 const container = document.getElementById('ticketTable');
 
@@ -55,6 +56,7 @@ function rowHtml(t){
     <td><span class="cell-inline">${avatarHtml(t.owner, 20)}${displayName(t.owner)}</span></td>
     <td>${reviewersOf(t).length ? html`<span class="avatar-stack">${reviewersOf(t).map(r => avatarHtml(r, 22))}</span>` : html`<span class="muted-text">—</span>`}</td>
     <td><span class="cell-inline">${(t.labels || []).length ? labelList(t.labels) : '—'}</span></td>
+    <td>${sprintById(t.sprintId) ? sprintById(t.sprintId).name : html`<span class="muted-text">—</span>`}</td>
     <td>${t.dueDate ? dueBadge(t) : html`<span class="muted-text">—</span>`}</td>
   </tr>`;
 }

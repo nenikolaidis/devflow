@@ -1,9 +1,9 @@
-# Devflow — architecture
+# Architecture
 
-How the code is organised, where data lives, and how to change things
-safely. Read this before your first change.
+How devflow's code is organised, where its data lives, and how to change
+it safely. If you're about to make your first change, read this first.
 
-Devflow is a static site (plain HTML, CSS and JavaScript modules — no
+devflow is a static site (plain HTML, CSS and JavaScript modules — no
 build step) that talks directly to Firebase from the browser:
 
 - **Firebase Authentication** — email/password sign-in, verified emails
@@ -22,22 +22,22 @@ and explain *why* something isn't allowed.
 
 ```
 public/js/
-├── app.js                 entry point — imports features/auth.js (which pulls in everything)
+├── app.js                 entry point — imports auth, top bar, notifications and shortcuts (which pull in everything)
 ├── config.js              every editable value: Firebase config, App Check key, EmailJS, password length
 ├── theme-init.js          tiny non-module script in <head>: applies a saved light/dark choice before paint
 │
 ├── core/                  building blocks — no Firestore calls
 │   ├── constants.js       roles, statuses, collection names, labels, templates, limits, defaults
 │   ├── state.js           the shared in-memory state object
-│   ├── events.js          tiny pub/sub: on(EVENT, fn) / emit(EVENT)
+│   ├── events.js          tiny pub/sub: on(EVENT, fn) → unsubscribe, emit(EVENT)
 │   ├── html.js            html`` safe templates (auto-escaping), escapeHtml, raw
 │   ├── icons.js           inline SVG icons: icon(name), statusIcon, priorityIcon, typeIcon, logo
 │   ├── markdown.js        safe description formatting + checklist helpers
 │   ├── theme.js           light/dark: follow the system, toggle, remember the choice
-│   ├── ui.js              showToast, openModal, confirmDialog, promptDialog
+│   ├── ui.js              showToast (stacked, typed), openModal (dialog or side panel), confirmDialog, promptDialog
 │   ├── format.js          dates, safeUrl, initials, friendly error messages
 │   ├── permissions.js     myEmail, isMe, isAdmin, canModerate
-│   ├── people.js          displayName, avatarHtml (from profiles in state)
+│   ├── people.js          displayName, avatarHtml, matchPeople (search), local time, availability
 │   ├── settings.js        getSettings() — board settings with defaults
 │   └── workflow.js        move rules (reviewers, Definition of Done), WIP limits, stale & overdue
 │
@@ -50,14 +50,17 @@ public/js/
 │   ├── auth.js            login/signup, verify-email & pending screens, account dialog, the gate
 │   ├── nav.js             tab switching; repaints the visible tab on data events
 │   ├── topbar.js          account menu (avatar) and the theme toggle
+│   ├── notifications.js   the bell: @mention notifications
+│   ├── shortcuts.js       keyboard shortcuts and the "?" help dialog
 │   ├── board.js           filter bar, Kanban columns, cards, drag & drop, bulk actions
 │   ├── table.js           table view
 │   ├── ticket-common.js   badges, chips, filtering, sorting shared by board/table
 │   ├── ticket-detail.js   the ticket side panel
 │   ├── ticket-form.js     new/edit form, quick edit, teammate picker
 │   ├── ticket-actions.js  move / archive / block / save — with toasts & notifications
-│   ├── comments.js        comment thread with edit / hide / delete
+│   ├── comments.js        comment thread with edit / hide / delete and the @mention picker
 │   ├── activity-log.js    read-only audit trail
+│   ├── sprints.js         sprint helpers and the "Sprints" manager dialog
 │   ├── my-work.js         "My work" tab: assigned to me, waiting for my review, recently done
 │   ├── dashboard.js       stats and lists
 │   ├── profiles.js        profile dialog
@@ -82,6 +85,16 @@ features/  →  integrations/  →  core/
 - Features may import other features "downward" (board → ticket-detail →
   ticket-form), but **never in a circle**. For "something changed, whoever
   cares should repaint", use `core/events.js` instead of an import.
+
+---
+
+Outside `public/` (never deployed):
+
+```
+tests/firestore.rules.test.js   security-rules tests (Firestore emulator)
+tests/e2e/app.e2e.test.js       end-to-end test: headless Chrome against the emulators
+scripts/weekly-summary.mjs      the Monday Discord summary (run by GitHub Actions)
+```
 
 ---
 
@@ -136,10 +149,11 @@ Email addresses used as document ids are always **lowercase**.
 | `archived`, `archivedBy`, `archivedAt` | | admins/PMs only |
 | `createdBy`, `createdAt` | | never change |
 | `lastActivityAt` | timestamp | bumped on any activity; drives "stale" |
+| `sprintId` | string | id of a `sprints` document, or empty |
 
 Subcollections:
 
-- **`comments/{autoId}`** — `text` (≤ 5,000), `author`, `createdAt`, optional `editedAt`, `hidden`, `hiddenBy`, `hiddenAt`.
+- **`comments/{autoId}`** — `text` (≤ 5,000), `author`, `createdAt`, optional `mentions` (emails, ≤ 10), `editedAt`, `hidden`, `hiddenBy`, `hiddenAt`.
 - **`activity/{autoId}`** — append-only: `type` (see `ACTIVITY` in `core/constants.js`), `actor`, `createdAt`, optional `from`, `to`, `summary`, `reason`.
 
 ### Other collections
@@ -149,7 +163,9 @@ Subcollections:
 | `accessRequests/{email}` | `email`, `requestedAt` | the verified user themselves; admins delete |
 | `profiles/{email}` | `name`, `username`, `bio`, `title`, `availability` (`available`·`busy`·`away`), `timezone`, `lastActive`, `createdAt` | the user themselves |
 | `meta/counters` | `ticketNumber` (only ever increases) | any approved user, inside the create transaction |
-| `config/settings` | `discordWebhookUrl`, `staleDays`, `wipLimits{status: n}`, `labels[{name, color}]`, `dodItems[{id, text}]`, `dodRequired[id]` (what the rules check), `updatedBy`, `updatedAt` | admins |
+| `config/settings` | `discordWebhookUrl`, `staleDays`, `wipLimits{status: n}`, `labels[{name, color}]`, `dodItems[{id, text}]`, `dodRequired[id]` (what the rules check), `weeklySummary` (bool), `updatedBy`, `updatedAt` | admins |
+| `sprints/{autoId}` | `name`, `goal`, `start`, `end` (`YYYY-MM-DD`), `status` (`planned`·`active`·`closed`), `createdBy`, `createdAt` | admins / PMs |
+| `notifications/{autoId}` | `to`, `by`, `type` (`mention`), `ticketFid`, `ticketId`, `ticketTitle`, `text`, `createdAt`, `read` | sender creates (as themselves, to a teammate); only the recipient reads, marks read or deletes. Queried by `to` + `createdAt` — index in `firestore.indexes.json` |
 
 ---
 
@@ -162,6 +178,7 @@ Subcollections:
 | Move to Done | only as one of the ticket's reviewers, and not if also its owner | ✓ | ✓ |
 | …and when a Definition of Done is set | only once every item is ticked | same | same |
 | Archive / restore tickets, hide comments | | ✓ | ✓ |
+| Create, edit, delete sprints | | ✓ | ✓ |
 | Permanently delete an archived ticket | | | ✓ |
 | Approve people, change roles, board settings | | | ✓ |
 
@@ -185,6 +202,10 @@ update `tests/firestore.rules.test.js`.
 - **No `alert` / `confirm` / `prompt`.** Use `confirmDialog` /
   `promptDialog` / `openModal` from `core/ui.js` — they handle Esc,
   focus, and screen readers.
+- **Toasts:** `showToast(message, 'success' | 'error' | 'info')`. They stack
+  in the bottom-left corner, clear of the ticket panel and the bulk bar.
+- **Subscribing to events from a dialog?** Keep the function `on()`
+  returns and call it in the dialog's `onClose` (see `sprints.js`).
 - **Firestore only in `data/`.** Add a function to `data/api.js` rather
   than calling `db` from a feature.
 - **Names, not strings:** `ROLES.ADMIN`, `STATUS.DONE`, `COLLECTIONS.TICKETS`,
@@ -227,20 +248,42 @@ block it. Pin CDN scripts with an `integrity` hash (see SECURITY.md).
 
 ## Local development and tests
 
-Needs [Node.js](https://nodejs.org) 20+ and Java 11+ (for the emulators).
+Needs [Node.js](https://nodejs.org) 20+, Java 11+ (for the emulators) and
+Google Chrome (for the browser test; set `CHROME_PATH` if it's somewhere
+unusual).
 
 ```bash
 npm install            # dev tools only — nothing here is deployed
-npm test               # security-rules tests against a local Firestore emulator
+npm test               # both suites below
+npm run test:rules     # 69 security-rules tests against the Firestore emulator
+npm run test:e2e       # end-to-end: headless Chrome drives the real app against the emulators
 npm run emulators      # local Auth + Firestore (throwaway data, project "demo-devflow")
 npm run serve          # serves public/ at http://localhost:5050
+npm run summary:preview  # prints the weekly Discord summary (with emulators running and
+                         # FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 set)
 ```
 
 Open **http://localhost:5050/?emulators** to use the app against the
-local emulators. Create test users in the Auth emulator and add them to
-`allowlist` in the Firestore emulator; real data is never touched.
+local emulators. Sign up in the app (the Auth emulator accepts any
+address; use its REST API to mark an email verified — see how
+`tests/e2e/app.e2e.test.js` creates users), then add yourself to
+`allowlist` in the Firestore emulator. Real data is never touched.
 
-**Continuous integration** (`.github/workflows/`): every pull request and
-every push to `main` runs `npm test`. Pull requests get a preview link;
-pushes to `main` deploy to Firebase Hosting only if the tests pass.
-Firestore rules are deployed by hand (`npm run deploy:rules`).
+**The end-to-end test** (`tests/e2e/app.e2e.test.js`) signs in as an admin,
+a developer, an unverified user and an outsider, and walks through the
+main flows in order: templates and escaping, workflow locks, reviewers,
+blocking, comments and @mentions, notifications, settings, sprints,
+checklists and the Definition of Done, archive, views, team approval,
+shortcuts and sign-out. When you add a feature, add a step.
+
+**Continuous integration** (`.github/workflows/`):
+
+| Workflow | When | Does |
+|---|---|---|
+| `deploy.yml` | push to `main` | runs both test suites; deploys hosting only if they pass |
+| `firebase-hosting-pull-request.yml` | pull request | runs both test suites; posts a preview link (not for Dependabot) |
+| `weekly-summary.yml` | Mondays 07:00 UTC, or manually | posts the weekly summary to Discord |
+
+Firestore rules and indexes are deployed by hand (`npm run deploy:rules`).
+Dependabot (`.github/dependabot.yml`) groups dependency updates into one
+pull request a week.

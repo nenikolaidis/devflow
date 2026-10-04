@@ -1,23 +1,29 @@
 {
   "name": "devflow",
   "private": true,
-  "description": "Real-time team Kanban board on Firebase. The site itself is plain files in public/ — these packages are only for local development and tests.",
+  "description": "Real-time team Kanban board on Firebase, by Nearchos Nikolaidis. The site itself is plain files in public/ \u2014 these packages are only for local development, tests and the weekly summary job.",
   "type": "module",
   "scripts": {
-    "test": "npm run test:rules",
+    "test": "npm run test:rules && npm run test:e2e",
     "test:rules": "firebase emulators:exec --only firestore --project demo-devflow \"node --test tests/*.test.js\"",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-devflow",
     "serve": "http-server public -p 5050 -c-1 -s",
     "deploy": "firebase deploy --only hosting",
-    "deploy:rules": "firebase deploy --only firestore:rules"
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes",
+    "summary:preview": "node scripts/weekly-summary.mjs --dry-run --force",
+    "test:e2e": "firebase emulators:exec --only auth,firestore --project demo-devflow \"node --test --test-concurrency=1 tests/e2e/*.test.js\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",
     "firebase": "^11.0.0",
+    "firebase-admin": "^13.10.0",
     "firebase-tools": "^14.0.0",
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "puppeteer-core": "^24.43.1"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "license": "MIT",
+  "author": "Nearchos Nikolaidis"
 }

@@ -1,0 +1,29 @@
+# Dependabot keeps the development tools (package.json) and the GitHub
+# Actions used by the workflows up to date. Updates are grouped into one
+# pull request per week per ecosystem, so they don't pile up.
+# Nothing here is part of the deployed site — public/ has no npm packages.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      dev-tools:
+        patterns: ["*"]
+    ignore:
+      # Deep dependencies of firebase-tools that Dependabot can't update on
+      # their own; they update when firebase-tools does.
+      - dependency-name: "uuid"
+      - dependency-name: "@grpc/grpc-js"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]

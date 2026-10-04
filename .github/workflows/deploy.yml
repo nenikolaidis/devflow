@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   test:
-    name: Security rules tests
+    name: Tests (security rules + browser)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
-      - run: npm test
+      - run: npm test   # rules tests, then the end-to-end browser test (Chrome is preinstalled on ubuntu-latest)
 
   deploy:
     name: Deploy to Firebase Hosting
