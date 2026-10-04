@@ -112,3 +112,22 @@ You need:
 - [Node.js](https://nodejs.org) on the computer you deploy from (for the Firebase CLI)
 
 No credit card is required.
+
+---
+
+## For developers
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — how the code is organised, the data model, roles and permissions, and how to make common changes.
+- **[SECURITY.md](SECURITY.md)** — how the app is protected and the one-time hardening checklist.
+- **[SETUP.md](SETUP.md)** — setting up your own copy from scratch.
+
+The site is plain HTML, CSS and JavaScript modules in `public/` (no build step). Development tools are optional:
+
+```bash
+npm install          # emulators, test runner, deploy scripts (needs Node 20+, Java 11+)
+npm test             # automated tests for the Firestore security rules
+npm run emulators    # local throwaway Firebase
+npm run serve        # then open http://localhost:5050/?emulators
+```
+
+Every pull request and push to `main` runs the tests on GitHub Actions; `main` deploys to Firebase Hosting only when they pass.

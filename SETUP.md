@@ -15,36 +15,28 @@ Total setup time: about 20–30 minutes, one time only.
 
 ```
 devflow/
-├── firebase.json          ← Firebase Hosting config + security headers
+├── firebase.json          ← Firebase Hosting config, security headers, emulator ports
 ├── .firebaserc            ← which Firebase project to deploy to
-├── firestore.rules        ← database security rules (step 3)
-├── .github/workflows/
-│   └── deploy.yml         ← auto-deploy to Firebase Hosting on push to main
+├── firestore.rules        ← database security rules (the real security boundary)
+├── package.json           ← dev tools only: emulators, tests, deploy scripts
+├── tests/                 ← automated tests for firestore.rules
+├── .github/workflows/     ← run tests + deploy on push / pull request
+├── ARCHITECTURE.md        ← how the code is organised (start here as a developer)
 ├── SECURITY.md            ← security checklist
-└── public/                ← everything in here is the website (only this folder is published)
-    ├── index.html         ← markup only
-    ├── robots.txt         ← asks search engines not to index the site
-    ├── css/
-    │   └── style.css      ← all styling
+└── public/                ← the website (only this folder is published)
+    ├── index.html
+    ├── css/style.css
     └── js/
-        ├── app.js            ← entry point, just loads the other modules
-        ├── firebase-init.js  ← your Firebase config (step 5) + optional App Check key
-        ├── notify.js         ← your EmailJS config goes here (step 9, optional)
-        ├── discord.js        ← Discord notifications (webhook is set in the app, step 10)
-        ├── settings.js       ← board settings: webhook, WIP limits, stale threshold
-        ├── nav.js            ← tab switching
-        ├── state.js          ← shared app state
-        ├── constants.js      ← statuses, priorities, labels, templates
-        ├── utils.js          ← small helper functions
-        ├── auth.js           ← login/signup/email verification/access requests
-        ├── profiles.js       ← user profiles (name, username, bio, time zone)
-        ├── tickets.js        ← board, table view, ticket form, comments, workflow rules
-        ├── dashboard.js      ← stats view
-        └── team.js           ← allow list + access request management
+        ├── config.js      ← every value you might edit: Firebase, App Check, EmailJS
+        ├── app.js         ← entry point
+        ├── core/          ← shared building blocks (no database code)
+        ├── data/          ← all Firestore reads, writes and live listeners
+        ├── features/      ← one file per screen or part of a screen
+        └── integrations/  ← Discord and email notifications
 ```
 
-Keep this folder structure — the files reference each other by relative
-path (e.g. `js/app.js` imports `./tickets.js`).
+ARCHITECTURE.md explains each file. Keep the folder structure — files
+import each other by relative path.
 
 ---
 
@@ -87,7 +79,7 @@ Rules only let admins add other people — so you need to add yourself directly,
      appId: "1:123456789:web:abcdef"
    };
    ```
-4. Open `public/js/firebase-init.js` and replace the values in `firebaseConfig` with yours. Also put your project id in `.firebaserc`, `.github/workflows/deploy.yml`, and the `frame-src` part of the `Content-Security-Policy` in `firebase.json` (`https://<project-id>.firebaseapp.com`).
+4. Open `public/js/config.js` and replace the values in `FIREBASE_CONFIG` with yours. Also put your project id in `.firebaserc`, `.github/workflows/deploy.yml`, and the `frame-src` part of the `Content-Security-Policy` in `firebase.json` (`https://<project-id>.firebaseapp.com`).
 
 ## 6. Deploy to Firebase Hosting
 
@@ -107,8 +99,8 @@ already an authorized login domain, so there's nothing to add in Firebase.
 
 1. Create a GitHub repository (public is fine — nothing secret is in the code) and push this folder to it.
 2. In the folder, run `firebase init hosting:github` and follow the prompts. It creates a deploy-only service account and stores it as a GitHub secret. Say **No** when asked to overwrite `firebase.json` or the workflow files.
-3. Make sure the secret is called `FIREBASE_SERVICE_ACCOUNT` (GitHub → **Settings → Secrets and variables → Actions**), or update the name in `.github/workflows/deploy.yml`.
-4. From now on, every push to `main` deploys the site (watch it in the **Actions** tab). Rules changes are deployed by hand with `firebase deploy --only firestore:rules`, so they're always a deliberate step.
+3. The CLI names the secret `FIREBASE_SERVICE_ACCOUNT_<PROJECT_ID>` (GitHub → **Settings → Secrets and variables → Actions**). Make sure both workflow files in `.github/workflows/` use that name.
+4. From now on, every push to `main` runs the security-rules tests and, if they pass, deploys the site (watch it in the **Actions** tab). Pull requests get the same tests plus a temporary preview link. Rules changes are deployed by hand with `npm run deploy:rules`, so they're always a deliberate step.
 
 ## 8. Try it
 
@@ -137,8 +129,8 @@ Without this step, everything else works fine — tickets just won't email anyon
    Example body: `{{actor_email}} assigned you to {{ticket_id}}: {{ticket_title}}. View it here: {{board_url}}`
 4. Save the template and note its **Template ID**.
 5. **Account → API Keys** — copy your **Public Key**.
-6. Open `public/js/notify.js` and fill in `EMAILJS_PUBLIC_KEY`, `EMAILJS_SERVICE_ID`, and `EMAILJS_TEMPLATE_ID` with the three values above.
-7. Commit and push `public/js/notify.js` (it deploys automatically). Assigning someone to a ticket (via the new-ticket form, the Edit button, or the ✏️ quick-edit on a card) now emails them — as long as their account email looks like a real email address (it always will, since assignees come from your team's actual login emails).
+6. Open `public/js/config.js` and fill in `publicKey`, `serviceId` and `templateId` in the `EMAILJS` block with the three values above.
+7. Commit and push `public/js/config.js` (it deploys automatically). Assigning someone to a ticket (via the new-ticket form, the Edit button, or the ✏️ quick-edit on a card) now emails them — as long as their account email looks like a real email address (it always will, since assignees come from your team's actual login emails).
 
 If you skip this step, the app quietly does nothing when a ticket is assigned — no errors, no broken UI, just no email.
 
@@ -193,6 +185,6 @@ If you skip this step, the app quietly does nothing on these events — no error
 - **File structure**: the app was split from one big `index.html` into `css/style.css` plus focused JS modules under `js/` (see "Project structure" above) purely to make it easier to navigate and edit — the app's behavior is unchanged, plus one small bug fix: switching back to the Board tab now always shows the latest tickets, even if changes came in while you were on Dashboard or Team.
 - **If you already deployed an earlier (single-file) version**: this replaces `index.html` entirely and adds the `css/` and `js/` folders — delete the old single-file `index.html` from your repo first, or make sure the new one overwrites it, then re-upload everything together so no file is left stale.
 - **If you already deployed an earlier version**: re-publish `firestore.rules` (it now also adds a `profiles` collection and a per-ticket `activity` subcollection — both readable by any approved user, write rules as described in the file's comments), then replace every file in `js/`, `css/style.css`, and `index.html` together so nothing is left stale. Your tickets, allow list, and comments all carry over untouched — including tickets sitting in the old Todo/Code review/Testing stages, which will just display under their new stage without any manual fix-up.
-- **Emails and Discord messages are both optional and safe to skip**: if `public/js/notify.js` is left with placeholder values or no Discord webhook is saved in Board settings, the app just quietly does nothing for that channel — nothing else breaks.
+- **Emails and Discord messages are both optional and safe to skip**: if the EmailJS values in `public/js/config.js` are left as placeholders or no Discord webhook is saved in Board settings, the app just quietly does nothing for that channel — nothing else breaks.
 - **Losing admin access**: you can always fix roles directly in the Firestore console under the `allowlist` collection.
 - **This is not the same as a real Jira/GitHub Issues setup** — there's no audit log, webhooks, or Git integration. It's a lightweight tool matching your documented process.

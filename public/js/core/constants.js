@@ -1,23 +1,85 @@
+/* =========================================================
+   core/constants.js — fixed names and lists used across the app.
+   No imports, no side effects. If you rename anything here that is
+   also stored in Firestore (roles, statuses, collection names), update
+   firestore.rules too.
+========================================================= */
+
+/* ---------------- ROLES ---------------- */
+export const ROLES = {
+  ADMIN: 'admin',
+  PM: 'pm',
+  DEVELOPER: 'developer'
+};
+export const ROLE_LABELS = {
+  [ROLES.DEVELOPER]: 'Developer',
+  [ROLES.PM]: 'Project manager',
+  [ROLES.ADMIN]: 'Administrator'
+};
+
+/* ---------------- FIRESTORE PATHS ---------------- */
+export const COLLECTIONS = {
+  TICKETS: 'tickets',
+  COMMENTS: 'comments',        // subcollection of a ticket
+  ACTIVITY: 'activity',        // subcollection of a ticket
+  ALLOWLIST: 'allowlist',      // doc id = lowercase email
+  ACCESS_REQUESTS: 'accessRequests',
+  PROFILES: 'profiles',        // doc id = lowercase email
+  META: 'meta',
+  CONFIG: 'config'
+};
+export const DOCS = {
+  COUNTERS: 'counters',        // meta/counters  → { ticketNumber }
+  SETTINGS: 'settings'         // config/settings → board settings
+};
+
+/* ---------------- WORKFLOW STAGES ---------------- */
+export const STATUS = {
+  BACKLOG: 'backlog',
+  IN_PROGRESS: 'in_progress',
+  IN_REVIEW: 'in_review',
+  DONE: 'done'
+};
 export const STATUSES = [
-  { key: 'backlog', label: 'Backlog' },
-  { key: 'in_progress', label: 'In progress' },
-  { key: 'in_review', label: 'In review' },
-  { key: 'done', label: 'Done' }
+  { key: STATUS.BACKLOG, label: 'Backlog' },
+  { key: STATUS.IN_PROGRESS, label: 'In progress' },
+  { key: STATUS.IN_REVIEW, label: 'In review' },
+  { key: STATUS.DONE, label: 'Done' }
 ];
 
-// Older boards used 6 stages. Any ticket still carrying one of these
-// values reads (and sorts) as its mapped stage below — no migration
-// script needed, tickets "heal" the next time they're touched, and the
-// original value is never overwritten unless someone actively edits it.
+// Older boards used 6 stages. Tickets still carrying one of these values
+// read (and sort) as the mapped stage — no migration needed.
 const STATUS_ALIASES = {
-  todo: 'backlog',
-  code_review: 'in_review',
-  testing: 'in_review'
+  todo: STATUS.BACKLOG,
+  code_review: STATUS.IN_REVIEW,
+  testing: STATUS.IN_REVIEW
 };
 export function normalizeStatus(status){
   return STATUS_ALIASES[status] || status;
 }
+export function statusLabel(status){
+  const key = normalizeStatus(status);
+  return (STATUSES.find(s => s.key === key) || {}).label || status || '';
+}
 
+// Stages where a ticket sitting untouched counts as "stale".
+export const STALE_STATUSES = [STATUS.IN_PROGRESS, STATUS.IN_REVIEW];
+
+/* ---------------- ACTIVITY LOG ENTRY TYPES ---------------- */
+// Must match the list in firestore.rules (activity → create).
+export const ACTIVITY = {
+  CREATED: 'created',
+  STATUS_CHANGE: 'status_change',
+  ASSIGNMENT: 'assignment',
+  REVIEWER: 'reviewer',
+  EDIT: 'edit',
+  BLOCKED: 'blocked',
+  UNBLOCKED: 'unblocked',
+  ARCHIVED: 'archived',
+  RESTORED: 'restored'
+};
+
+/* ---------------- PRIORITIES & LABELS ---------------- */
 export const PRIORITIES = ['critical', 'high', 'medium', 'low'];
 
 export const PRIORITY_COLOR = {
@@ -32,6 +94,19 @@ export const ALL_LABELS = [
   'frontend', 'backend', 'database', 'analysis'
 ];
 
+/* ---------------- FIELD LIMITS (mirrored in firestore.rules) ---------------- */
+export const LIMITS = {
+  TITLE: 200,
+  DESCRIPTION: 20000,
+  LINK: 2000,
+  COMMENT: 5000,
+  BLOCKED_REASON: 500,
+  PROFILE_NAME: 100,
+  PROFILE_USERNAME: 50,
+  PROFILE_BIO: 500
+};
+
+/* ---------------- TABLE VIEW ---------------- */
 export const TABLE_COLUMNS = [
   { key: 'id', label: 'ID' },
   { key: 'title', label: 'Title' },
@@ -43,6 +118,7 @@ export const TABLE_COLUMNS = [
   { key: 'dueDate', label: 'Due' }
 ];
 
+/* ---------------- PEOPLE ---------------- */
 // A small fixed palette so each person's initials-avatar gets a
 // consistent, distinct-looking color without needing uploaded images.
 export const AVATAR_COLORS = [
@@ -59,6 +135,7 @@ export const FALLBACK_TIMEZONES = [
   'Australia/Sydney', 'Pacific/Auckland'
 ];
 
+/* ---------------- TICKET TEMPLATES ---------------- */
 // Starting points for the "New ticket" form. Picking one pre-fills the
 // description scaffold plus a sensible default priority/labels; the
 // person can still edit everything afterward.
@@ -86,14 +163,12 @@ export const TICKET_TEMPLATES = [
   }
 ];
 
-// Board-wide settings stored in Firestore at config/settings (admins edit
-// them from the Team tab). These defaults apply until an admin saves.
+/* ---------------- BOARD SETTINGS DEFAULTS ---------------- */
+// Stored in Firestore at config/settings (admins edit them in the Team
+// tab). These defaults apply until an admin saves.
 // wipLimits: status key -> max tickets in that column (0 = no limit).
 export const DEFAULT_SETTINGS = {
   discordWebhookUrl: '',
   staleDays: 5,
   wipLimits: { backlog: 0, in_progress: 5, in_review: 3, done: 0 }
 };
-
-// Stages where a ticket sitting untouched counts as "stale".
-export const STALE_STATUSES = ['in_progress', 'in_review'];

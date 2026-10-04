@@ -1,14 +1,12 @@
-# Deploys the site in public/ to Firebase Hosting on every push to main.
+# On every push to main: run the security-rules tests, and only if they
+# pass, deploy public/ to Firebase Hosting.
 #
-# One-time setup (see SECURITY.md → "Hosting on Firebase"):
-#   1. Create a service account key for Firebase Hosting deploys.
-#   2. Save it in GitHub → Settings → Secrets and variables → Actions as
-#      FIREBASE_SERVICE_ACCOUNT.
+# Uses the FIREBASE_SERVICE_ACCOUNT_DEVFLOW_BOARD_11146 secret created by
+# `firebase init hosting:github` (GitHub → Settings → Secrets → Actions).
 #
 # Firestore rules are NOT deployed from here — publish them yourself with
-# `firebase deploy --only firestore:rules` so a rules change is always a
-# deliberate step.
-name: Deploy to Firebase Hosting
+# `npm run deploy:rules` so a rules change is always a deliberate step.
+name: Test and deploy
 
 on:
   push:
@@ -23,13 +21,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: Security rules tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4    # the Firestore emulator needs Java
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test
+
   deploy:
+    name: Deploy to Firebase Hosting
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEVFLOW_BOARD_11146 }}
           projectId: devflow-board-11146
           channelId: live

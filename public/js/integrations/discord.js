@@ -1,11 +1,12 @@
-import { state } from './state.js';
-
 /* =========================================================
-   DISCORD WEBHOOK — no longer stored in this file.
-   An admin pastes it into Team tab → Board settings, which saves it to
-   Firestore (config/settings). Only approved teammates can read it, so it
-   stays out of the public site source. See SETUP.md step 10.
+   integrations/discord.js — posts ticket events to a Discord channel.
+
+   The webhook URL is NOT in the code: an admin pastes it into Team →
+   Board settings, which saves it to Firestore (config/settings). Only
+   approved teammates can read it. With no URL saved, every function
+   here quietly does nothing. See SETUP.md step 10.
 ========================================================= */
+import { state } from '../core/state.js';
 
 const PRIORITY_HEX = { critical: 0xD9635B, high: 0xE8A33D, medium: 0x5B8DD9, low: 0x4FA98C };
 const NEUTRAL_HEX = 0x6E7060;

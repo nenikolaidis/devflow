@@ -39,7 +39,7 @@
   .nav button:hover{ color:var(--text-primary); background:none; }
   .nav button.active{ color:var(--accent); border-bottom-color:var(--accent); }
 
-  select, input[type=text], input[type=email], input[type=password], input[type=date], input[type=number], textarea{
+  select, input[type=text], input[type=search], input[type=email], input[type=password], input[type=date], input[type=number], textarea{
     background:var(--surface); color:var(--text-primary); border:1px solid var(--border); border-radius:var(--radius);
     padding:8px 10px; font-family:var(--font-sans); font-size:13px; outline:none;
   }
@@ -55,16 +55,16 @@
   button.danger{ color:var(--red); }
   button.small{ padding:5px 10px; font-size:12px; }
   button:disabled{ opacity:.35; cursor:not-allowed; }
-  a.link{ color:var(--accent); font-size:12px; cursor:pointer; text-decoration:none; }
-  a.link:hover{ text-decoration:underline; }
+  .link{ color:var(--accent); font-size:12px; cursor:pointer; text-decoration:none; background:none; border:none; padding:0; }
+  .link:hover{ text-decoration:underline; background:none; }
 
   .filterbar{ display:flex; gap:10px; padding:14px 24px; flex-wrap:wrap; border-bottom:1px solid var(--border); align-items:center; }
-  .filterbar input[type=text]{ min-width:220px; flex:1; }
+  .filterbar input[type=search]{ min-width:220px; flex:1; }
 
   .board{ display:flex; gap:14px; padding:20px 24px; overflow-x:auto; align-items:flex-start; }
   .column{ background:var(--bg-raised); border:1px solid var(--border); border-radius:10px; min-width:290px; max-width:290px; flex-shrink:0; display:flex; flex-direction:column; max-height:calc(100vh - 260px); }
   .column-head{ padding:12px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-  .column-title{ font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-secondary); }
+  .column-title{ margin:0; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-secondary); }
   .column-count{ font-family:var(--font-mono); font-size:11px; color:var(--text-muted); background:var(--surface); padding:2px 7px; border-radius:10px; }
   .column-body{ padding:10px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; flex:1; }
   .column-empty{ font-size:12px; color:var(--text-muted); text-align:center; padding:20px 8px; }
@@ -271,6 +271,44 @@
   .wip-inputs{ display:flex; flex-wrap:wrap; gap:10px; }
   .wip-input{ display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--text-secondary); }
   .wip-input input{ width:90px; }
+
+  /* -------- Layout helpers (replace former inline styles) -------- */
+  .full-width{ width:100%; }
+  .stack-first{ margin-top:16px; }
+  .stack{ margin-top:10px; }
+  .push-right{ margin-left:auto; }
+  .screen-sub{ margin-bottom:18px !important; }
+  .screen-msg{ font-size:13px; color:var(--text-secondary); }
+  .narrow-input{ width:100px; }
+  .add-allow.flush{ margin-top:0; }
+  .column-head-actions{ display:flex; align-items:center; gap:6px; }
+  .card-top-left{ display:flex; align-items:center; gap:6px; }
+  .card-top-right{ display:flex; align-items:center; gap:4px; }
+  .panel-wide{ grid-column:1 / -1; }
+  .avatar-lg{ width:56px; height:56px; font-size:20px; }
+  .link-hint{ font-size:11px; color:var(--text-muted); }
+  .detail-title{ margin:4px 0 0; font-size:16px; font-weight:600; }
+  .detail-meta + .detail-meta{ margin-top:0; }
+  .detail-actions{ margin-top:0; }
+
+  /* -------- Forms: fieldsets look like plain fields -------- */
+  fieldset.field{ border:none; padding:0; margin:0 0 14px; min-width:0; }
+  fieldset.field legend{ display:block; font-size:12px; color:var(--text-secondary); margin-bottom:5px; font-weight:500; padding:0; }
+
+  /* -------- Dialogs -------- */
+  .dialog-message{ font-size:13px; color:var(--text-secondary); margin:0 0 6px; white-space:pre-wrap; }
+  button.danger-solid{ background:var(--red); color:#1a0d0b; border-color:var(--red); font-weight:600; }
+  button.danger-solid:hover{ background:#e2766f; }
+
+  /* -------- Lists of tickets rendered as buttons (dashboard, profile) -------- */
+  button.mini-ticket{ width:100%; text-align:left; font-weight:400; color:var(--text-primary); }
+
+  /* -------- Keyboard focus: always visible -------- */
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .card:focus-visible, table.ticket-table tr:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+
+  /* -------- Screen-reader-only text -------- */
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
   .hidden{ display:none !important; }
 

@@ -25,16 +25,16 @@
   <div class="auth-card">
     <h1>devflow</h1>
     <p class="sub">Ticket board · sign in to continue</p>
-    <div class="auth-tabs">
-      <button id="tabLogin" class="active">Log in</button>
-      <button id="tabSignup">Sign up</button>
+    <div class="auth-tabs" role="tablist" aria-label="Log in or sign up">
+      <button type="button" role="tab" id="tabLogin" class="active" aria-selected="true">Log in</button>
+      <button type="button" role="tab" id="tabSignup" aria-selected="false">Sign up</button>
     </div>
-    <div class="field"><label>Email</label><input type="email" id="authEmail" placeholder="you@company.com"></div>
-    <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="At least 10 characters"></div>
-    <div class="auth-forgot"><a class="link" id="forgotLink">Forgot password?</a></div>
-    <div class="auth-error" id="authError"></div>
-    <button class="primary" id="authSubmit" style="width:100%;">Log in</button>
-    <div class="auth-status" id="authStatus"></div>
+    <div class="field"><label for="authEmail">Email</label><input type="email" id="authEmail" autocomplete="email" placeholder="you@company.com"></div>
+    <div class="field"><label for="authPassword">Password</label><input type="password" id="authPassword" autocomplete="current-password" placeholder="At least 10 characters"></div>
+    <div class="auth-forgot"><button type="button" class="link" id="forgotLink">Forgot password?</button></div>
+    <div class="auth-error" id="authError" role="alert"></div>
+    <button type="button" class="primary full-width" id="authSubmit">Log in</button>
+    <div class="auth-status" id="authStatus" aria-live="polite"></div>
   </div>
 </div>
 
@@ -42,11 +42,11 @@
 <div id="verifyScreen" class="auth-screen hidden">
   <div class="auth-card pending-box">
     <h1>devflow</h1>
-    <p class="sub" style="margin-bottom:18px;">Confirm your email</p>
-    <p style="font-size:13px; color:var(--text-secondary);" id="verifyMsg"></p>
-    <button class="primary" id="verifiedBtn" style="margin-top:16px; width:100%;">I've confirmed it — continue</button>
-    <button id="resendVerifyBtn" style="margin-top:10px; width:100%;">Resend email</button>
-    <button class="ghost" id="signOutVerify" style="margin-top:10px; width:100%;">Sign out</button>
+    <p class="sub screen-sub">Confirm your email</p>
+    <p class="screen-msg" id="verifyMsg"></p>
+    <button type="button" class="primary full-width stack-first" id="verifiedBtn">I've confirmed it — continue</button>
+    <button type="button" class="full-width stack" id="resendVerifyBtn">Resend email</button>
+    <button type="button" class="ghost full-width stack" id="signOutVerify">Sign out</button>
   </div>
 </div>
 
@@ -54,77 +54,78 @@
 <div id="pendingScreen" class="auth-screen hidden">
   <div class="auth-card pending-box">
     <h1>devflow</h1>
-    <p class="sub" style="margin-bottom:18px;">Account created</p>
-    <p style="font-size:13px; color:var(--text-secondary);" id="pendingMsg"></p>
-    <button class="primary" id="requestAccessBtn" style="margin-top:16px; width:100%;">Request access</button>
-    <button id="signOutPending" style="margin-top:10px; width:100%;">Sign out</button>
+    <p class="sub screen-sub">Account created</p>
+    <p class="screen-msg" id="pendingMsg"></p>
+    <button type="button" class="primary full-width stack-first" id="requestAccessBtn">Request access</button>
+    <button type="button" class="full-width stack" id="signOutPending">Sign out</button>
   </div>
 </div>
 
 <!-- ============ APP ============ -->
 <div id="app" class="hidden">
-  <div class="topbar">
+  <header class="topbar">
     <div class="brand">
       <span class="brand-mark">devflow</span>
       <span class="brand-tag">ticket board · by Nearchos Nikolaidis</span>
     </div>
     <div class="topbar-actions">
       <span class="role-badge" id="whoami"></span>
-      <button class="ghost" id="profileBtn">Profile</button>
-      <button class="ghost" id="accountBtn">Account</button>
+      <button type="button" class="ghost" id="profileBtn">Profile</button>
+      <button type="button" class="ghost" id="accountBtn">Account</button>
     </div>
-  </div>
+  </header>
 
-  <div class="nav">
-    <button id="navBoard" class="active">Board</button>
-    <button id="navDashboard">Dashboard</button>
-    <button id="navTeam" class="hidden">Team</button>
-  </div>
+  <nav class="nav" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" id="navBoard" class="active" aria-selected="true" aria-controls="boardView">Board</button>
+    <button type="button" role="tab" id="navDashboard" aria-selected="false" aria-controls="dashboardView">Dashboard</button>
+    <button type="button" role="tab" id="navTeam" class="hidden" aria-selected="false" aria-controls="teamView">Team</button>
+  </nav>
 
+  <main>
   <!-- BOARD VIEW -->
-  <div id="boardView">
-    <div class="filterbar">
-      <input type="text" id="searchInput" placeholder="Search tickets by title or ID...">
-      <select id="priorityFilter">
+  <section id="boardView" role="tabpanel" aria-labelledby="navBoard">
+    <div class="filterbar" role="search">
+      <input type="search" id="searchInput" aria-label="Search tickets" placeholder="Search tickets by title or ID...">
+      <select id="priorityFilter" aria-label="Filter by priority">
         <option value="">All priorities</option>
         <option value="critical">Critical</option>
         <option value="high">High</option>
         <option value="medium">Medium</option>
         <option value="low">Low</option>
       </select>
-      <select id="labelFilter">
+      <select id="labelFilter" aria-label="Filter by label">
         <option value="">All labels</option>
       </select>
-      <select id="assigneeFilter">
+      <select id="assigneeFilter" aria-label="Filter by owner">
         <option value="">All assignees</option>
       </select>
-      <select id="sortSelect">
+      <select id="sortSelect" aria-label="Sort tickets">
         <option value="createdAt:desc">Newest first</option>
         <option value="createdAt:asc">Oldest first</option>
         <option value="priority:asc">Priority: high → low</option>
         <option value="dueDate:asc">Due date: soon first</option>
         <option value="title:asc">Title A–Z</option>
       </select>
-      <div class="subtoggle">
-        <button id="viewKanbanBtn" class="active">Kanban</button>
-        <button id="viewTableBtn">Table</button>
+      <div class="subtoggle" role="group" aria-label="View">
+        <button type="button" id="viewKanbanBtn" class="active">Kanban</button>
+        <button type="button" id="viewTableBtn">Table</button>
       </div>
-      <button id="selectModeBtn">Select</button>
-      <button id="archivedToggleBtn" title="Show archived tickets alongside active ones">Archived</button>
-      <button class="primary" id="newTicketBtn" style="margin-left:auto;">+ New ticket</button>
+      <button type="button" id="selectModeBtn" aria-pressed="false">Select</button>
+      <button type="button" id="archivedToggleBtn" aria-pressed="false" title="Show archived tickets alongside active ones">Archived</button>
+      <button type="button" class="primary push-right" id="newTicketBtn">+ New ticket</button>
     </div>
     <div class="board" id="board"></div>
     <div class="table-wrap hidden" id="ticketTable"></div>
-  </div>
+  </section>
 
   <!-- DASHBOARD VIEW -->
-  <div id="dashboardView" class="hidden">
+  <section id="dashboardView" class="hidden" role="tabpanel" aria-labelledby="navDashboard">
     <div class="dash-grid" id="dashStats"></div>
     <div class="dash-panels" id="dashPanels"></div>
-  </div>
+  </section>
 
   <!-- TEAM VIEW (admin only) -->
-  <div id="teamView" class="team-view hidden">
+  <section id="teamView" class="team-view hidden" role="tabpanel" aria-labelledby="navTeam">
     <h3>Pending requests</h3>
     <div id="requestList"></div>
     <div class="empty-note hidden" id="noRequests">No pending requests.</div>
@@ -132,38 +133,39 @@
     <h3>Team members</h3>
     <div id="allowList"></div>
     <div class="add-allow">
-      <input type="email" id="newAllowEmail" placeholder="teammate@company.com">
-      <select id="newAllowRole">
+      <input type="email" id="newAllowEmail" aria-label="Email to add" placeholder="teammate@company.com">
+      <select id="newAllowRole" aria-label="Role">
         <option value="developer">Developer</option>
         <option value="pm">Project manager</option>
         <option value="admin">Administrator</option>
       </select>
-      <button id="addAllowBtn">Add</button>
+      <button type="button" id="addAllowBtn">Add</button>
     </div>
 
     <h3>Board settings</h3>
-    <div class="settings-box">
+    <div class="settings-box" id="settingsBox">
       <div class="field">
-        <label>Discord webhook URL — stored in the database, not in the site's code</label>
-        <div class="add-allow" style="margin-top:0;">
+        <label for="setWebhook">Discord webhook URL — stored in the database, not in the site's code</label>
+        <div class="add-allow flush">
           <input type="text" id="setWebhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off">
-          <button id="testWebhookBtn">Send test</button>
+          <button type="button" id="testWebhookBtn">Send test</button>
         </div>
       </div>
       <div class="field">
-        <label>Flag a ticket as stale after this many days with no activity (In progress / In review)</label>
-        <input type="number" id="setStaleDays" min="1" step="1" style="width:100px;">
+        <label for="setStaleDays">Flag a ticket as stale after this many days with no activity (In progress / In review)</label>
+        <input type="number" id="setStaleDays" class="narrow-input" min="1" max="365" step="1">
       </div>
-      <div class="field">
-        <label>Work-in-progress limits per column (0 = no limit)</label>
+      <fieldset class="field">
+        <legend>Work-in-progress limits per column (0 = no limit)</legend>
         <div class="wip-inputs" id="setWipLimits"></div>
-      </div>
-      <div class="modal-actions" style="margin-top:4px;"><button class="primary" id="saveSettingsBtn">Save settings</button></div>
+      </fieldset>
+      <div class="modal-actions"><button type="button" class="primary" id="saveSettingsBtn">Save settings</button></div>
     </div>
-  </div>
+  </section>
+  </main>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>

@@ -15,7 +15,7 @@ top to bottom; each step says where to click.
 | **Pinned scripts (SRI)** | If a CDN is ever tampered with, the browser refuses the changed script | `public/index.html` |
 | **API key restriction + App Check** | Only your site can call your Firebase project | Google Cloud / Firebase console |
 
-The Firebase config in `public/js/firebase-init.js` (API key, project id)
+The Firebase config in `public/js/config.js` (API key, project id)
 is **not a secret** — every Firebase web app sends it to the browser.
 Security comes from the rules and the restrictions below, not from hiding it.
 
@@ -53,7 +53,7 @@ or team.
 4. **Settings → Collaborators**: only people who should be able to *change* the code (anyone can read it).
 5. Rules for a public repo:
    - Never commit webhook URLs, service-account keys, `.env` files or real ticket data.
-   - The EmailJS public key in `public/js/notify.js` is designed to be public. In EmailJS → **Account → Security**, add your site's domain to the allowed list so others can't send email with it.
+   - The EmailJS public key in `public/js/config.js` is designed to be public. In EmailJS → **Account → Security**, add your site's domain to the allowed list so others can't send email with it.
 
 ### 3. Require verified emails — and verify your own account
 
@@ -68,7 +68,7 @@ before this change are probably unverified, **including yours**.
 
 Firebase console → **Authentication → Settings**:
 
-1. **Password policy** → enable **Require enforcement**; set minimum length **10** (matches `MIN_PASSWORD_LENGTH` in `public/js/utils.js`). Optionally require upper/lower case and a number.
+1. **Password policy** → enable **Require enforcement**; set minimum length **10** (matches `MIN_PASSWORD_LENGTH` in `public/js/config.js`). Optionally require upper/lower case and a number.
 2. **User actions** → keep **Email enumeration protection** **on** (stops attackers checking which emails have accounts).
 3. **Authorized domains** → keep `devflow-board-11146.web.app`, `devflow-board-11146.firebaseapp.com` and `localhost`. **Remove** `nenikolaidis.github.io` once the move is done.
 
@@ -91,14 +91,15 @@ Your site is now at **https://devflow-board-11146.web.app**.
 Automatic deploys on every push to `main` (`.github/workflows/deploy.yml`):
 
 1. Run `firebase init hosting:github` in the repo folder and follow the prompts for **nenikolaidis/devflow.github.io**. It creates a deploy-only service account and saves it as a GitHub secret. Say **No** when it offers to overwrite `firebase.json` or the workflow files.
-2. In GitHub → **Settings → Secrets and variables → Actions**, check the secret's name. If it isn't `FIREBASE_SERVICE_ACCOUNT`, rename it, or update the name in `.github/workflows/deploy.yml`.
-3. Push to `main` → GitHub → **Actions** tab shows the deploy.
+2. In GitHub → **Settings → Secrets and variables → Actions**, check there's a secret called `FIREBASE_SERVICE_ACCOUNT_DEVFLOW_BOARD_11146` (the workflows use that name).
+3. Push to `main` → GitHub → **Actions** tab shows the security-rules tests, then the deploy. If a test fails, nothing is deployed.
 
 Firestore **rules are not deployed automatically**, on purpose. After
-changing `firestore.rules`, run:
+changing `firestore.rules`, run the tests and then deploy them:
 
 ```bash
-firebase deploy --only firestore:rules
+npm test              # needs Java 11+ installed locally
+npm run deploy:rules
 ```
 
 (Or paste the file into Firebase console → Firestore → Rules → Publish.)
@@ -127,7 +128,7 @@ your project with a stolen login can't use it.
 
 1. Google Cloud console → **Security → reCAPTCHA** (or [google.com/recaptcha/admin](https://www.google.com/recaptcha/admin)) → create a **reCAPTCHA v3** key for `devflow-board-11146.web.app` and `devflow-board-11146.firebaseapp.com`.
 2. Firebase console → **App Check → Apps** → your web app → **reCAPTCHA v3** → paste the **secret key** → Save.
-3. Paste the **site key** into `APP_CHECK_RECAPTCHA_SITE_KEY` in `public/js/firebase-init.js`, commit, and let it deploy.
+3. Paste the **site key** into `APP_CHECK_RECAPTCHA_SITE_KEY` in `public/js/config.js`, commit, and let it deploy.
 4. Firebase console → **App Check → APIs** → watch **Cloud Firestore** metrics for a day or two. When nearly all requests show as *verified*, click **Enforce**. (Enforcing earlier would lock out anyone still on the old page.)
 
 ### 8. Budget alert (cheap insurance)
@@ -142,7 +143,7 @@ the alert tells you if usage ever spikes.
 
 - **Review the Team tab monthly.** Remove people who've left (Team → Remove). Removing them from the allowlist cuts their access immediately, even if they're still signed in.
 - **Never commit credentials** (service account keys, `.env` files). `.gitignore` blocks the common names.
-- **Changing `firestore.rules`?** Deploy it right after the matching code, and test with a developer account, not just admin.
+- **Changing `firestore.rules`?** Add or update a test in `tests/firestore.rules.test.js`, run `npm test`, then deploy the rules right after the matching code.
 - **Upgrading a CDN script** (Firebase SDK or EmailJS) in `public/index.html`: change the version in the URL, then regenerate its integrity hash:
 
   ```bash
