@@ -14,12 +14,12 @@
     "test:e2e": "firebase emulators:exec --only auth,firestore --project demo-devflow \"node --test --test-concurrency=1 tests/e2e/*.test.js\""
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^4.0.1",
-    "firebase": "^11.0.0",
-    "firebase-admin": "^13.10.0",
-    "firebase-tools": "^14.0.0",
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-admin": "^14.5.0",
+    "firebase-tools": "^15.32.1",
     "http-server": "^14.1.1",
-    "puppeteer-core": "^24.43.1"
+    "puppeteer-core": "^25.12.0"
   },
   "engines": {
     "node": ">=20"
