@@ -3,7 +3,8 @@
 
    Workspace (startSync, once an approved user signs in):
      people (allowlist), profiles, roles, my projects, my notifications,
-     project requests, meta/workspace, and access requests for admins.
+     project requests, meta/workspace, and — for admins — access requests
+     and the newest 300 log entries.
    Current project (switchProject, whenever a project is opened):
      its tickets, sprints, templates and settings.
 
@@ -20,6 +21,7 @@ import { state } from '../core/state.js';
 import { emit, EVENTS } from '../core/events.js';
 import { showToast } from '../core/ui.js';
 import { normEmail } from '../core/permissions.js';
+import { logProblem } from './log.js';
 
 const LAST_PROJECT_KEY = 'devflow:lastProject';
 let workspaceUnsubs = [];
@@ -31,6 +33,7 @@ function listen(list, query, onSnapshot, label, { quiet = false } = {}){
     // permission-denied; features/auth.js notices and moves the person on, so no alarm.
     if(err.code === 'permission-denied'){ console.warn(`${label}: access ended`); return; }
     console.error(`${label} sync error:`, err);
+    logProblem('sync-error', `${label}: live updates stopped`, { detail: `${err.code || ''} ${err.message || ''}` });
     if(!quiet) showToast(`${label} sync error: ${err.message}`, 'error');
   }));
 }
@@ -96,6 +99,11 @@ export function startSync({ isAdmin }){
   }, 'Workspace', { quiet: true });
 
   if(isAdmin){
+    listen(W, refs.logs().orderBy('createdAt', 'desc').limit(300), snap => {
+      state.logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emit(EVENTS.LOGS_CHANGED);
+    }, 'Logs', { quiet: true });
+
     listen(W, refs.requests(), snap => {
       state.accessRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       emit(EVENTS.REQUESTS_CHANGED);
@@ -156,7 +164,7 @@ export function stopSync(){
   workspaceUnsubs = [];
   projectUnsubs = [];
   Object.assign(state, {
-    allowlist: [], accessRequests: [], profiles: {}, roles: {}, projects: [], projectRequests: [],
+    allowlist: [], accessRequests: [], profiles: {}, roles: {}, projects: [], projectRequests: [], logs: [],
     notifications: [], workspaceMeta: null,
     projectId: null, project: null, tickets: [], settings: null, sprints: [], templates: null, ticketsLoaded: false
   });

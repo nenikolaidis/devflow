@@ -182,6 +182,34 @@ service cloud.firestore {
       allow delete: if isApproved() && resource.data.to == myEmail();
     }
 
+    // Logs (Manage → Logs): problems people ran into, and admin actions.
+    // Anyone signed in with a confirmed email can report a *problem* as
+    // themselves — including people still waiting for approval, so an admin
+    // can see why someone can't get in. Admin actions come from approved
+    // people. Entries can't be changed; only workspace admins read them or
+    // clear them. expiresAt drives Firestore's auto-delete (TTL, see SETUP.md).
+    match /logs/{logId} {
+      allow read, delete: if isAdmin();
+      allow create: if isVerified()
+        && request.resource.data.keys().hasOnly(['kind', 'type', 'message', 'detail', 'email', 'projectId', 'target',
+                                                 'page', 'browser', 'count', 'occurredAt', 'createdAt', 'expiresAt'])
+        && request.resource.data.email == myEmail()
+        && (request.resource.data.kind == 'problem' || (request.resource.data.kind == 'admin' && isApproved()))
+        && request.resource.data.type is string && request.resource.data.type.matches('^[a-z0-9-]{1,40}$')
+        && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 500
+        && optString(request.resource.data, 'detail', 4000)
+        && optString(request.resource.data, 'projectId', 64)
+        && optString(request.resource.data, 'target', 200)
+        && optString(request.resource.data, 'page', 100)
+        && optString(request.resource.data, 'browser', 300)
+        && optString(request.resource.data, 'occurredAt', 40)
+        && request.resource.data.get('count', 1) is int && request.resource.data.get('count', 1) >= 1 && request.resource.data.get('count', 1) <= 10000
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt < request.time + duration.value(60, 'd');
+    }
+
     /* ================================================================== */
     /* PROJECTS                                                           */
     /* ================================================================== */

@@ -18,6 +18,7 @@ export class Timestamp {
   constructor(ms){ this._ms = ms; }
   static now(){ return new Timestamp(Date.now()); }
   static fromDate(d){ return new Timestamp(d.getTime()); }
+  static fromMillis(ms){ return new Timestamp(ms); }
   toDate(){ return new Date(this._ms); }
   toMillis(){ return this._ms; }
   get seconds(){ return Math.floor(this._ms / 1000); }

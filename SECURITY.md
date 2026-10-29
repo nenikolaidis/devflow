@@ -30,7 +30,7 @@ allowed.
 
 | Layer | Protects against | Where |
 |---|---|---|
-| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 53 automated tests |
+| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 57 automated tests |
 | **Verified email + allowlist** | Someone registering a teammate's address before they do; strangers signing up and reading data | Rules (`email_verified`, `allowlist`) + `features/auth.js` |
 | **Escaping everywhere** | Cross-site scripting from ticket titles, comments, names, links | `core/html.js` (auto-escaping templates), `core/markdown.js` (escapes before formatting), `safeUrl()` (only `http(s)` links) |
 | **Content-Security-Policy** | Injected scripts, data sent to unknown servers, the app being framed | `firebase.json` headers |
@@ -53,6 +53,7 @@ allowed.
 - **Settings:** each group of project settings needs its own permission — labels, types and templates (*manage content*), Definition of Done, WIP and stale limits (*manage workflow*), Discord and the weekly summary (*manage integrations*). Webhooks must be Discord URLs.
 - **The upgrade:** copying the old board into the first project is only allowed for an admin while that project is marked as migrating; the old single-board data is read-only afterwards.
 - **Profiles:** you can only write your own, and every field is size-limited.
+- **Logs:** anyone signed in with a confirmed email can add a *problem* entry, as themselves only (so people still waiting for approval can report why they're stuck); admin-action entries need an approved account. Every field is size-limited, the time is set by the server, entries expire within 60 days and can never be edited. Only workspace admins read or clear them. Entries never contain passwords, ticket text or webhook addresses. The admin-action log is recorded by the app after each action, so it's a helpful trail, not tamper-proof evidence — that would need a server.
 
 ### What's public, and what isn't
 
@@ -147,6 +148,7 @@ Google Cloud console → **Billing → Budgets & alerts** → a $1 budget with e
 
 - **Review Manage → Members regularly.** Removing someone from the workspace cuts their access to every project immediately, even if they're signed in. Give people the least powerful role that lets them do their job — *Viewer* for clients and stakeholders.
 - **Review Manage → Roles after changing it.** A permission added to a role applies to everyone with that role, in every project.
+- **Glance at Manage → Logs now and then** (an amber dot on Manage means new problems). *Admin actions* shows who changed people, roles and settings.
 - **Changing the rules?** Add a test to `tests/firestore.rules.test.js` for the new behaviour — both what's allowed and what's refused.
 - **Upgrading a CDN script** in `public/index.html`: change the version, then regenerate its hash and paste `sha384-<output>` into `integrity`:
 

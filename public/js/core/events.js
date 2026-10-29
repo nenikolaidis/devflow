@@ -21,7 +21,9 @@ export const EVENTS = {
   ROLES_CHANGED: 'roles-changed',
   TEMPLATES_CHANGED: 'templates-changed',
   PROJECT_REQUESTS_CHANGED: 'project-requests-changed',
-  WORKSPACE_CHANGED: 'workspace-changed'         // meta/workspace (upgrade status)
+  WORKSPACE_CHANGED: 'workspace-changed',        // meta/workspace (upgrade status)
+  LOGS_CHANGED: 'logs-changed',                  // problem and admin-action log (admins)
+  ERROR_SHOWN: 'error-shown'                     // an error message was shown to the user (payload: text)
 };
 
 const listeners = {};

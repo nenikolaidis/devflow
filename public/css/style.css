@@ -436,8 +436,17 @@ table.ticket-table{ width:100%; border-collapse:collapse; font-size:13px; }
 
 @media (max-width: 1480px){ .brand-tag{ display:none; } }
 @media (max-width: 1200px){ .search kbd{ display:none; } }
-@media (max-width: 1100px){
+/* Below this width the search box gets its own row, so the buttons never wrap onto a second line. */
+@media (max-width: 1360px){
   .search{ order:10; flex:1 1 100%; }
+}
+/* Narrower: "New ticket" shows just its + icon, then the tabs get their own row too. */
+@media (max-width: 1100px){
+  #newTicketBtn .btn-text{ display:none; }
+  #newTicketBtn{ width:36px; padding:0; }
+}
+@media (max-width: 960px){
+  .tabs{ order:5; flex:1 1 100%; }
 }
 @media (max-width: 720px){
   .topbar{ padding:10px 14px; }
@@ -742,3 +751,33 @@ kbd{ font-family:var(--font-mono); font-size:12px; padding:2px 7px; border:1px s
 }
 /* Very narrow phones: the project name matters more than its key. */
 @media (max-width: 400px){ .project-btn .project-key{ display:none; } }
+
+/* ---------------- 15. LOGS ---------------- */
+.tab.has-alert{ position:relative; }
+.tab.has-alert::after{ content:''; position:absolute; top:6px; right:4px; width:7px; height:7px; border-radius:50%; background:var(--amber); }
+.log-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.log-toolbar input[type=search]{ flex:1 1 220px; min-width:0; min-height:0; height:34px; }
+.log-toolbar select{ width:auto; min-height:0; height:34px; padding:0 30px 0 10px; font-size:13px; }
+.log-toolbar .segmented button{ gap:6px; }
+.log-list{ display:flex; flex-direction:column; }
+.log-row{ border-bottom:1px solid var(--line); }
+.log-row:last-child{ border-bottom:none; }
+.log-row > summary,.log-admin-row{ display:flex; align-items:flex-start; gap:10px; padding:10px 4px; list-style:none; cursor:pointer; }
+.log-admin-row{ cursor:default; }
+.log-row > summary::-webkit-details-marker{ display:none; }
+.log-row > summary:hover{ background:var(--bg); }
+.log-icon{ flex:none; margin-top:2px; color:var(--muted); }
+.log-offline .log-icon,.log-sync-error .log-icon{ color:var(--amber); }
+.log-js-error .log-icon{ color:var(--red); }
+.log-reconnected .log-icon{ color:var(--green); }
+.log-main{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.log-title{ font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px; }
+.log-message{ font-size:13px; color:var(--text-2); overflow-wrap:anywhere; }
+.log-row.is-new .log-title::after{ content:'new'; font-size:10.5px; font-weight:600; padding:1px 6px; border-radius:999px; background:color-mix(in srgb, var(--amber) 22%, transparent); color:var(--amber); }
+.log-body{ padding:0 4px 12px 30px; display:flex; flex-direction:column; gap:10px; }
+.log-help{ margin:0; font-size:13px; color:var(--text-2); padding:10px 12px; border-radius:10px; background:var(--bg); border:1px solid var(--line); }
+.log-entries{ display:flex; flex-direction:column; gap:8px; }
+.log-entry{ display:flex; flex-direction:column; gap:4px; }
+.log-detail{ margin:0; padding:8px 10px; max-height:180px; overflow:auto; font-family:var(--font-mono); font-size:11.5px; white-space:pre-wrap; overflow-wrap:anywhere; background:var(--bg); border:1px solid var(--line); border-radius:8px; color:var(--text-2); }
+.log-browser{ overflow-wrap:anywhere; }
+

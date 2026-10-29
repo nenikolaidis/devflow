@@ -45,6 +45,7 @@ public/js/
 │   ├── firebase.js        initialises Firebase (and local emulators with ?emulators); long-polling fallback
 │   ├── api.js             every one-off read/write (project-scoped refs), incl. the activity log
 │   ├── sync.js            workspace listeners + the current project's listeners; switchProject()
+│   ├── log.js             problem log + admin-action log: catch, queue (offline-safe), send
 │   └── upgrade.js         one-time "Upgrade to projects" and first-project setup
 │
 ├── features/              one file per screen or part of a screen
@@ -73,6 +74,7 @@ public/js/
 │       ├── members.js     project members & roles; access requests and workspace people (admins)
 │       ├── projects.js    create / request / approve / archive projects
 │       ├── roles.js       edit roles and their permissions (admins)
+│       ├── logs.js        Logs: problems (grouped, explained) and admin actions (admins)
 │       ├── content.js     labels and ticket types
 │       ├── templates.js   templates list and editor (also used by "Save as template")
 │       └── settings.js    workflow (DoD, WIP, stale) and integrations (Discord, weekly summary)
@@ -224,6 +226,7 @@ Subcollections:
 | `projects/{pid}/config/settings` | `labels[{name, color}]`, `types[{key, label, icon, color, enabled}]` (*manage content*); `staleDays`, `wipLimits{status: n}`, `dodItems[{id, text}]`, `dodRequired[id]` (*manage workflow*); `discordWebhookUrl`, `weeklySummary` (*manage integrations*); `updatedBy`, `updatedAt` | by permission group |
 | `projects/{pid}/sprints/{autoId}` | `name`, `goal`, `start`, `end`, `status` (`planned`·`active`·`closed`), `createdBy`, `createdAt` | *manage sprints* |
 | `projects/{pid}/templates/{autoId}` | `name`, `type`, `priority`, `labels`, `reviewers`, `description`, `order`, `enabled`, `updatedBy`, `updatedAt`. None saved = the built-in `DEFAULT_TEMPLATES` | *manage content* |
+| `logs/{autoId}` | `kind` (`problem`·`admin`), `type` (e.g. `offline`, `js-error`, `error-shown`, `sync-error`, `reconnected`; `member-added`, `role-changed`…), `message`, `detail`, `email`, `projectId`, `target`, `page`, `browser`, `count`, `occurredAt`, `createdAt` (server time), `expiresAt` (TTL) | problems: anyone verified, as themselves; admin actions: approved people (written by `data/log.js`). Only admins read or delete; nobody edits |
 | `notifications/{autoId}` | `to`, `by`, `type` (`mention`), `projectId`, `ticketFid`, `ticketId`, `ticketTitle`, `text`, `createdAt`, `read` | sender creates (as themselves, to a teammate); only the recipient reads, marks read or deletes. Index in `firestore.indexes.json` |
 
 ---
@@ -321,6 +324,12 @@ who can see it (`visible`) and which events should refresh it.
 describe it in `features/activity-log.js`, and add it to the allowed list
 in `firestore.rules` (activity → create).
 
+**Record a new problem or admin action** — call `logProblem(type, message, { detail })`
+or `logAdmin(type, message, target)` from `data/log.js` (admin actions: in
+`data/api.js`, after the write succeeds). `type` is a short slug; for a new
+problem type, add a label, icon and plain explanation to `PROBLEM_TYPES` in
+`features/manage/logs.js`. Never log passwords, ticket text or webhook URLs.
+
 **Add an external service** (CDN, API) — allow its domain in the
 `Content-Security-Policy` header in `firebase.json`, or the browser will
 block it. Pin CDN scripts with an `integrity` hash (see SECURITY.md).
@@ -336,7 +345,7 @@ unusual).
 ```bash
 npm install            # dev tools only — nothing here is deployed
 npm test               # both suites below
-npm run test:rules     # 53 security-rules tests against the Firestore emulator
+npm run test:rules     # 57 security-rules tests against the Firestore emulator
 npm run test:e2e       # end-to-end: headless Chrome drives the real app against the emulators
 npm run emulators      # local Auth + Firestore (throwaway data, project "demo-devflow")
 npm run serve          # serves public/ at http://localhost:5050

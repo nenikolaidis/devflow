@@ -50,5 +50,8 @@ if(usingLongPolling) db.settings({ experimentalForceLongPolling: true, experimen
 /** Server-side "now" — use for every createdAt/updatedAt style field. */
 export const serverTime = () => firebase.firestore.FieldValue.serverTimestamp();
 
+/** A Firestore timestamp for a moment in milliseconds (e.g. an expiry date). */
+export const timestampAt = (ms) => firebase.firestore.Timestamp.fromMillis(ms);
+
 /** Removes a field when passed in an update(). */
 export const deleteField = () => firebase.firestore.FieldValue.delete();

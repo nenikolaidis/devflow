@@ -209,6 +209,10 @@ each section says whether it applies to the whole **workspace** or to the
   - Removing someone takes effect immediately, even if they're signed in. Adding them back lets them in straight away, with no new request.
 - **Projects** — admins create, rename and archive projects (archived projects are read-only) and approve or decline requests. Project managers fill in the same form to **request** a project; when an admin approves it, they become its Project manager.
 - **Roles** (admins) — each role is a set of permissions. Changes apply straight away to everyone with that role, in every project. A role can only be deleted once nobody has it.
+- **Logs** (admins) — two tabs:
+  - **Problems** — what went wrong for people, recorded automatically: crashes in devflow's code, red error messages they saw, live updates that stopped, and **"Can't reach devflow"** (with a follow-up entry when the connection came back, and how). The same problem for the same person is one row with a count; open it for a plain explanation of what it usually means and what to do, plus the technical details and browser. Problems that happen while someone is offline are kept on their device and arrive once they reconnect. New problems put an amber dot on the **Manage** tab.
+  - **Admin actions** — who added, removed or approved people, changed someone's role, created or archived a project, edited a role's permissions, changed the workflow or Discord settings, sent a password reset or permanently deleted a ticket — and when.
+  Search, filter by person, and **Copy** (for example to send to whoever maintains devflow). Entries are kept for 30 days.
 
 **This project**
 - **Labels** — add, rename, recolour or remove the topic labels.

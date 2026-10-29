@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import {
   doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, query, where,
-  runTransaction, writeBatch, serverTimestamp, deleteField
+  runTransaction, writeBatch, serverTimestamp, deleteField, Timestamp
 } from 'firebase/firestore';
 
 const U = {
@@ -399,5 +399,45 @@ describe('upgrading from the single-board version', () => {
   });
   it('without the flag, copying as someone else is refused', async () => {
     await assertFails(setDoc(doc(as('admin'), `${T()}/activity/a9`), { type: 'created', actor: U.dev, createdAt: serverTimestamp() }));
+  });
+});
+
+/* ------------------------------------------------------------------ */
+describe('logs (problems and admin actions)', () => {
+  const inDays = (n) => Timestamp.fromMillis(Date.now() + n * 86400000);
+  const entry = (email, extra = {}) => ({
+    kind: 'problem', type: 'offline', message: 'Could not reach the database', email,
+    count: 1, createdAt: serverTimestamp(), expiresAt: inDays(30), ...extra
+  });
+
+  it('anyone signed in with a confirmed email reports problems as themselves — even before approval', async () => {
+    await assertSucceeds(addDoc(collection(as('dev'), 'logs'), entry(U.dev)));
+    await assertSucceeds(addDoc(collection(as('outsider'), 'logs'), entry(U.outsider)));
+    await assertFails(addDoc(collection(as('dev'), 'logs'), entry(U.admin)));
+    await assertFails(addDoc(collection(as('outsider', { verified: false }), 'logs'), entry(U.outsider)));
+    await assertFails(addDoc(collection(anonymous(), 'logs'), entry(U.outsider)));
+  });
+  it('admin actions come only from approved people', async () => {
+    await assertSucceeds(addDoc(collection(as('pm'), 'logs'), entry(U.pm, { kind: 'admin', type: 'member-added', message: 'dev2 added to Website' })));
+    await assertFails(addDoc(collection(as('outsider'), 'logs'), entry(U.outsider, { kind: 'admin', type: 'member-added', message: 'fake' })));
+  });
+  it('entries are size-limited, timestamped by the server and expire within 60 days', async () => {
+    const db = as('dev');
+    await assertFails(addDoc(collection(db, 'logs'), entry(U.dev, { message: 'x'.repeat(501) })));
+    await assertFails(addDoc(collection(db, 'logs'), entry(U.dev, { detail: 'x'.repeat(4001) })));
+    await assertFails(addDoc(collection(db, 'logs'), entry(U.dev, { password: 'secret' })));
+    await assertFails(addDoc(collection(db, 'logs'), entry(U.dev, { createdAt: Timestamp.fromMillis(0) })));
+    await assertFails(addDoc(collection(db, 'logs'), entry(U.dev, { expiresAt: inDays(365) })));
+    await assertFails(addDoc(collection(db, 'logs'), entry(U.dev, { type: 'Not A Slug!' })));
+  });
+  it('only workspace admins read or clear them, and nobody edits them', async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'logs/l1'), entry(U.dev, { createdAt: Timestamp.now() })));
+    await assertSucceeds(getDoc(doc(as('admin'), 'logs/l1')));
+    await assertSucceeds(getDocs(collection(as('admin'), 'logs')));
+    await assertFails(getDoc(doc(as('dev'), 'logs/l1')));
+    await assertFails(getDocs(collection(as('pm'), 'logs')));
+    await assertFails(updateDoc(doc(as('admin'), 'logs/l1'), { message: 'rewritten' }));
+    await assertFails(deleteDoc(doc(as('dev'), 'logs/l1')));
+    await assertSucceeds(deleteDoc(doc(as('admin'), 'logs/l1')));
   });
 });

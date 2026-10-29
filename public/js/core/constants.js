@@ -69,7 +69,8 @@ export const COLLECTIONS = {
   PROJECTS: 'projects',          // tickets, sprints, templates, config live under a project
   ROLES: 'roles',
   PROJECT_REQUESTS: 'projectRequests',
-  TEMPLATES: 'templates'
+  TEMPLATES: 'templates',
+  LOGS: 'logs'                   // problems and admin actions (Manage → Logs)
 };
 export const DOCS = {
   COUNTERS: 'counters',        // projects/{pid}/meta/counters  → { ticketNumber }

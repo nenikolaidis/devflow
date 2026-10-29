@@ -8,11 +8,12 @@
 ========================================================= */
 import { state } from '../core/state.js';
 import { on, EVENTS } from '../core/events.js';
-import { canManageSomething } from '../core/permissions.js';
+import { canManageSomething, isAdmin } from '../core/permissions.js';
 import { renderBoardView, exitSelectMode } from './board.js';
 import { renderDashboard } from './dashboard.js';
 import { renderMyWork } from './my-work.js';
 import { renderManage, leaveManage } from './manage/index.js';
+import { unseenProblems } from './manage/logs.js';
 
 const TABS = {
   board: { button: 'navBoard', view: 'boardView' },
@@ -47,7 +48,12 @@ export function renderCurrentTab(){
 /** Manage is shown to admins and to roles with any management permission in this project. */
 function updateManageTab(){
   const show = canManageSomething();
-  document.getElementById('navManage').classList.toggle('hidden', !show);
+  const tab = document.getElementById('navManage');
+  tab.classList.toggle('hidden', !show);
+  // A dot for admins when new problems are in Manage → Logs.
+  const alert = isAdmin() && unseenProblems() > 0;
+  tab.classList.toggle('has-alert', alert);
+  tab.title = alert ? 'New problems in Manage → Logs' : '';
   if(!show && state.currentTab === 'manage') switchTab('board');
 }
 
@@ -71,3 +77,4 @@ on(EVENTS.TEAM_CHANGED, repaintWork);                // owner filter
 on(EVENTS.PROJECT_SWITCHED, repaintWork);            // a different project's data
 on(EVENTS.PROJECTS_CHANGED, repaintWork);            // members / my role may have changed
 on(EVENTS.ROLES_CHANGED, repaintWork);               // what I'm allowed to do may have changed
+on(EVENTS.LOGS_CHANGED, updateManageTab);            // the new-problems dot

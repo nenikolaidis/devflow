@@ -24,7 +24,8 @@
 import { db, auth, serverTime, deleteField } from './firebase.js';
 import { state } from '../core/state.js';
 import { COLLECTIONS, DOCS, STATUS, ACTIVITY, DEFAULT_ROLES, DEFAULT_TEMPLATES, DATA_VERSION, normalizeStatus } from '../core/constants.js';
-import { normEmail } from '../core/permissions.js';
+import { normEmail, roleName } from '../core/permissions.js';
+import { logAdmin } from './log.js';
 import { cleanDod } from '../core/workflow.js';
 
 /* ---------------- REFERENCES ---------------- */
@@ -66,7 +67,9 @@ export const refs = {
   profiles: () => db.collection(COLLECTIONS.PROFILES),
   profile: (email) => db.collection(COLLECTIONS.PROFILES).doc(normEmail(email)),
   notifications: () => db.collection(COLLECTIONS.NOTIFICATIONS),
-  notification: (id) => db.collection(COLLECTIONS.NOTIFICATIONS).doc(id)
+  notification: (id) => db.collection(COLLECTIONS.NOTIFICATIONS).doc(id),
+  logs: () => db.collection(COLLECTIONS.LOGS),
+  log: (id) => db.collection(COLLECTIONS.LOGS).doc(id)
 };
 
 const me = () => state.currentUser.email;
@@ -175,8 +178,10 @@ export async function setDodItem(t, item, done){
 }
 
 /** Permanently deletes an archived ticket. Admins only. */
-export function deleteTicket(fid){
-  return refs.ticket(fid).delete();
+export async function deleteTicket(fid){
+  const t = state.tickets.find(x => x.firestoreId === fid);
+  await refs.ticket(fid).delete();
+  logAdmin('ticket-deleted', `${t ? `${t.id} "${String(t.title || '').slice(0, 80)}"` : 'A ticket'} deleted permanently`, t ? t.id : fid);
 }
 
 /* ---------------- COMMENTS ---------------- */
@@ -280,17 +285,30 @@ export async function createProject({ name, key, description = '', members = {} 
   });
   batch.set(refs.counters(ref.id), { ticketNumber: 0 });
   await batch.commit();
+  logAdmin('project-created', `Project ${key} · ${name} created`, key);
   return ref.id;
 }
 
 /** Name, key, description, status — workspace admins only. */
-export function updateProject(pid, fields){
-  return refs.project(pid).update({ ...fields, updatedBy: me(), updatedAt: serverTime() });
+export async function updateProject(pid, fields){
+  const before = state.projects.find(p => p.id === pid) || {};
+  await refs.project(pid).update({ ...fields, updatedBy: me(), updatedAt: serverTime() });
+  const label = `${fields.key || before.key || ''} · ${fields.name || before.name || pid}`;
+  if(fields.status && fields.status !== before.status) logAdmin(fields.status === 'archived' ? 'project-archived' : 'project-restored', `Project ${label} ${fields.status === 'archived' ? 'archived' : 'restored'}`, pid);
+  else logAdmin('project-updated', `Project ${label} renamed or edited`, pid);
 }
 
 /** Replaces a project's members ({ email: roleId }); keeps memberEmails in step (the rules check). */
-export function setProjectMembers(pid, members){
-  return refs.project(pid).update({ members, memberEmails: Object.keys(members), updatedBy: me(), updatedAt: serverTime() });
+export async function setProjectMembers(pid, members){
+  const p = state.projects.find(x => x.id === pid) || { members: {} };
+  const before = p.members || {};
+  await refs.project(pid).update({ members, memberEmails: Object.keys(members), updatedBy: me(), updatedAt: serverTime() });
+  const name = p.name || pid;
+  Object.keys(members).forEach(e => {
+    if(!before[e]) logAdmin('member-added', `${e} added to ${name} as ${roleName(members[e])}`, e);
+    else if(before[e] !== members[e]) logAdmin('member-role', `${e} is now ${roleName(members[e])} in ${name} (was ${roleName(before[e])})`, e);
+  });
+  Object.keys(before).filter(e => !members[e]).forEach(e => logAdmin('member-removed', `${e} removed from ${name}`, e));
 }
 
 /* ---------------- PROJECT REQUESTS ---------------- */
@@ -306,11 +324,13 @@ export function requestProject({ name, key, description }){
 export async function approveProjectRequest(req){
   const pid = await createProject({ name: req.name, key: req.key, description: req.description || '', members: { [req.requestedBy]: 'pm' } });
   await refs.projectRequest(req.id).update({ status: 'approved', decidedBy: me(), decidedAt: serverTime(), projectId: pid });
+  logAdmin('project-request-approved', `Project request ${req.key} · ${req.name} from ${req.requestedBy} approved`, req.requestedBy);
   return pid;
 }
 
-export function declineProjectRequest(req){
-  return refs.projectRequest(req.id).update({ status: 'declined', decidedBy: me(), decidedAt: serverTime() });
+export async function declineProjectRequest(req){
+  await refs.projectRequest(req.id).update({ status: 'declined', decidedBy: me(), decidedAt: serverTime() });
+  logAdmin('project-request-declined', `Project request ${req.key} · ${req.name} from ${req.requestedBy} declined`, req.requestedBy);
 }
 
 export function withdrawProjectRequest(id){
@@ -319,12 +339,19 @@ export function withdrawProjectRequest(id){
 
 /* ---------------- ROLES (workspace admins) ---------------- */
 
-export function saveRole(id, { name, description = '', order = 99, permissions }){
-  return refs.role(id).set({ name, description, order, permissions, updatedBy: me(), updatedAt: serverTime() });
+export async function saveRole(id, { name, description = '', order = 99, permissions }){
+  const before = state.roles[id];
+  await refs.role(id).set({ name, description, order, permissions, updatedBy: me(), updatedAt: serverTime() });
+  const on = Object.keys(permissions).filter(k => permissions[k]);
+  const changed = before ? Object.keys({ ...permissions, ...before.permissions }).filter(k => !!permissions[k] !== !!(before.permissions || {})[k]) : [];
+  logAdmin(before ? 'role-changed' : 'role-created',
+    before ? `Role "${name}" changed${changed.length ? `: ${changed.map(k => `${permissions[k] ? '+' : '−'}${k}`).join(', ')}` : ''}` : `Role "${name}" created with ${on.length} permissions`, id);
 }
 
-export function deleteRole(id){
-  return refs.role(id).delete();
+export async function deleteRole(id){
+  const name = (state.roles[id] && state.roles[id].name) || id;
+  await refs.role(id).delete();
+  logAdmin('role-deleted', `Role "${name}" deleted`, id);
 }
 
 /** Creates any built-in role that doesn't exist yet (never overwrites edits). */
@@ -359,12 +386,15 @@ export async function getRole(email){
  * separate (setProjectMembers).
  */
 export async function addWorkspaceMember(email, role = 'member'){
+  const hadRequest = state.accessRequests.some(r => r.id === normEmail(email));
   await refs.member(email).set({ role, addedBy: me(), addedAt: serverTime() });
   await refs.request(email).delete().catch(() => {});
+  logAdmin(hadRequest ? 'request-approved' : 'person-added', `${normEmail(email)} ${hadRequest ? 'approved' : 'added to the workspace'}${role === 'admin' ? ' as a workspace admin' : ''}`, normEmail(email));
 }
 
-export function setWorkspaceRole(email, role){
-  return refs.member(email).update({ role });
+export async function setWorkspaceRole(email, role){
+  await refs.member(email).update({ role });
+  logAdmin('workspace-role', `${normEmail(email)} is now ${role === 'admin' ? 'a workspace admin' : 'a member'}`, normEmail(email));
 }
 
 /** Removes someone from the workspace and from every project I can see. */
@@ -378,6 +408,7 @@ export async function removeWorkspaceMember(email){
   });
   batch.delete(refs.member(e));
   await batch.commit();
+  logAdmin('person-removed', `${e} removed from the workspace (and every project)`, e);
 }
 
 export function requestAccess(email){
@@ -385,8 +416,9 @@ export function requestAccess(email){
 }
 
 /** Denies (deletes) an access request. */
-export function deleteRequest(email){
-  return refs.request(email).delete();
+export async function deleteRequest(email){
+  await refs.request(email).delete();
+  logAdmin('request-denied', `Access request from ${normEmail(email)} denied`, normEmail(email));
 }
 
 /* ---------------- ACCOUNTS & CONNECTION ---------------- */
@@ -396,8 +428,18 @@ export function deleteRequest(email){
  * "Forgot password?"). Firebase doesn't say whether the address has an
  * account, so this succeeds either way.
  */
-export function sendPasswordReset(email){
-  return auth.sendPasswordResetEmail(normEmail(email));
+export async function sendPasswordReset(email){
+  await auth.sendPasswordResetEmail(normEmail(email));
+  logAdmin('password-reset', `Password reset email sent to ${normEmail(email)}`, normEmail(email));
+}
+
+/** Deletes log entries (Manage → Logs → Clear problems). Workspace admins only. */
+export async function deleteLogEntries(ids){
+  for(let i = 0; i < ids.length; i += 400){
+    const batch = db.batch();
+    ids.slice(i, i + 400).forEach(id => batch.delete(refs.log(id)));
+    await batch.commit();
+  }
 }
 
 /** Drops and reopens the database connection, so a retry doesn't wait for Firebase's own back-off. */
@@ -433,6 +475,16 @@ export function saveOwnProfile(fields){
 
 /* ---------------- BOARD SETTINGS ---------------- */
 
-export function saveSettings(fields){
-  return refs.settings().set({ ...fields, updatedBy: me(), updatedAt: serverTime() }, { merge: true });
+export async function saveSettings(fields){
+  await refs.settings().set({ ...fields, updatedBy: me(), updatedAt: serverTime() }, { merge: true });
+  const where = state.project ? state.project.name : 'the project';
+  const keys = Object.keys(fields);
+  if(keys.some(k => ['discordWebhookUrl', 'weeklySummary'].includes(k))){
+    const hook = 'discordWebhookUrl' in fields ? (fields.discordWebhookUrl ? 'Discord webhook set' : 'Discord webhook removed') : '';
+    const weekly = 'weeklySummary' in fields ? `weekly summary ${fields.weeklySummary ? 'on' : 'off'}` : '';
+    logAdmin('integrations-changed', `${where}: ${[hook, weekly].filter(Boolean).join(', ')}`, state.projectId || '');
+  }
+  if(keys.some(k => ['dodItems', 'dodRequired', 'wipLimits', 'staleDays'].includes(k))){
+    logAdmin('workflow-changed', `${where}: workflow changed (Definition of Done, WIP limits or stale days)`, state.projectId || '');
+  }
 }

@@ -157,6 +157,20 @@ export function seedDemo(){
   /* Legacy CMS (archived) */
   put('projects/cms/meta/counters', { ticketNumber: 0 });
 
+  /* logs (Manage → Logs) */
+  const log = (id, kind, type, email, message, daysAgo, extra = {}) =>
+    put(`logs/${id}`, { kind, type, email, message, createdAt: ago(daysAgo), expiresAt: ago(daysAgo - 30), count: 1, ...extra });
+  const SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.0 Mobile/15E148 Safari/604.1';
+  log('l1', 'problem', 'offline', 'taylor@client.example.com', 'Can\'t reach the database from this device', 0.05,
+    { count: 3, page: 'sign-in', browser: SAFARI, detail: 'unavailable: Failed to get document because the client is offline.\nattempt 3 · connection: standard · browser says online: yes' });
+  log('l2', 'problem', 'reconnected', 'taylor@client.example.com', 'Got through after 3 failed attempts, after switching to the compatibility connection', 0.04,
+    { page: 'board', browser: SAFARI, detail: 'connection: long polling (compatibility mode)' });
+  log('l3', 'problem', 'error-shown', 'jordan@example.com', 'Your role can\'t change this.', 1.2, { page: 'manage/workflow', projectId: 'web' });
+  log('a1', 'admin', 'member-added', 'alex@example.com', 'taylor@client.example.com added to Customer website as Viewer', 20, { target: 'taylor@client.example.com' });
+  log('a2', 'admin', 'role-changed', 'alex@example.com', 'Role "Viewer" changed: +comment', 12, { target: 'viewer' });
+  log('a3', 'admin', 'workflow-changed', 'maria@example.com', 'Customer website: workflow changed (Definition of Done, WIP limits or stale days)', 6, { target: 'web' });
+  log('a4', 'admin', 'password-reset', 'alex@example.com', 'Password reset email sent to taylor@client.example.com', 0.06, { target: 'taylor@client.example.com' });
+
   /* notifications */
   const note = (id, to, by, pid, fid, ticketId, title, text, daysAgo, read) =>
     put(`notifications/${id}`, { to, by, type: 'mention', projectId: pid, ticketFid: fid, ticketId, ticketTitle: title, text, createdAt: ago(daysAgo), read });

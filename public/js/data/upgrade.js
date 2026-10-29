@@ -18,6 +18,7 @@ import { db, deleteField, serverTime } from './firebase.js';
 import { refs, ensureDefaultRoles, createProject, setWorkspaceMeta } from './api.js';
 import { state } from '../core/state.js';
 import { DEFAULT_TYPES } from '../core/constants.js';
+import { logAdmin } from './log.js';
 
 const MAIN = 'main';
 const BATCH_LIMIT = 400; // Firestore allows 500 writes per batch
@@ -100,6 +101,7 @@ export async function upgradeToProjects({ name, key, onProgress = () => {} }){
   batch.update(refs.project(MAIN), { migrating: deleteField() });
   await batch.commit();
   await setWorkspaceMeta({ defaultProjectId: MAIN, migratedAt: serverTime(), migratedBy: state.currentUser.email });
+  logAdmin('upgrade', `Old single board upgraded into project ${key} · ${name}`, MAIN);
 
   return { projectId: MAIN, tickets: tickets.size, comments: commentCount, activity: activityCount, sprints: sprints.size };
 }

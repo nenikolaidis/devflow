@@ -15,6 +15,7 @@ import { renderOverview } from './overview.js';
 import { renderMembers } from './members.js';
 import { renderProjects } from './projects.js';
 import { renderRoles } from './roles.js';
+import { renderLogs, unseenProblems } from './logs.js';
 import { renderLabels, renderTypes } from './content.js';
 import { renderTemplates } from './templates.js';
 import { renderWorkflow, renderIntegrations } from './settings.js';
@@ -30,6 +31,8 @@ const SECTIONS = [
     events: [EVENTS.PROJECTS_CHANGED, EVENTS.PROJECT_REQUESTS_CHANGED] },
   { id: 'roles', label: 'Roles', icon: 'key', visible: () => isAdmin(), render: renderRoles,
     events: [EVENTS.ROLES_CHANGED, EVENTS.PROJECTS_CHANGED] },
+  { id: 'logs', label: 'Logs', icon: 'listCheck', visible: () => isAdmin(), render: renderLogs,
+    events: [EVENTS.LOGS_CHANGED, EVENTS.PROFILES_CHANGED] },
   { divider: 'This project' },
   { id: 'labels', label: 'Labels', icon: 'tag', visible: () => can('manageContent'), render: renderLabels, events: [EVENTS.SETTINGS_CHANGED] },
   { id: 'types', label: 'Ticket types', icon: 'layers', visible: () => can('manageContent'), render: renderTypes, events: [EVENTS.SETTINGS_CHANGED] },
@@ -68,7 +71,10 @@ export function renderManage(){
 }
 
 function badge(id){
-  const n = id === 'members' && isAdmin() ? state.accessRequests.length : id === 'projects' && isAdmin() ? state.projectRequests.length : 0;
+  const n = !isAdmin() ? 0
+    : id === 'members' ? state.accessRequests.length
+    : id === 'projects' ? state.projectRequests.length
+    : id === 'logs' && state.manageSection !== 'logs' ? unseenProblems() : 0;
   return n ? html`<span class="nav-badge">${n}</span>` : '';
 }
 

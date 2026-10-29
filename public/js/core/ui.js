@@ -12,6 +12,7 @@
 ========================================================= */
 import { html } from './html.js';
 import { icon } from './icons.js';
+import { emit, EVENTS } from './events.js';
 
 /* ---------------- TOASTS ---------------- */
 const toastStack = document.getElementById('toast');
@@ -27,6 +28,7 @@ export function showToast(message, type){
     : /created|saved|updated|moved|sent|copied|archived|restored|approved|added|posted/i.test(message) ? 'success' : 'info');
   const item = document.createElement('div');
   item.className = `toast-item toast-${type}`;
+  if(type === 'error') emit(EVENTS.ERROR_SHOWN, message); // recorded in the problem log (data/log.js)
   item.innerHTML = html`${icon(type === 'error' ? 'alert' : type === 'success' ? 'check' : 'info', 16)}<span></span><button type="button" class="toast-close" aria-label="Dismiss">${icon('x', 12)}</button>`.toString();
   item.querySelector('span').textContent = message;
   const remove = () => { item.classList.add('leaving'); setTimeout(() => item.remove(), 180); };

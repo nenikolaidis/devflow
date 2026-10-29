@@ -18,6 +18,7 @@
 import { auth, usingLongPolling, useLongPollingFromNowOn } from '../data/firebase.js';
 import * as api from '../data/api.js';
 import { startSync, stopSync, watchOwnRequest, watchOwnAccess } from '../data/sync.js';
+import { logProblem, flushLogs } from '../data/log.js';
 import { MIN_PASSWORD_LENGTH } from '../config.js';
 import { state } from '../core/state.js';
 import { WORKSPACE_ROLES, WORKSPACE_ROLE_LABELS } from '../core/constants.js';
@@ -171,7 +172,13 @@ async function routeSignedInUser(user){
   }
   try{
     const role = await api.getRole(email);
+    const failed = offlineAttempts + attemptsBeforeReload;
+    if(failed) logProblem('reconnected', `Got through after ${failed} failed attempt${failed === 1 ? '' : 's'}${attemptsBeforeReload ? ', after switching to the compatibility connection' : ''}`,
+      { detail: `connection: ${usingLongPolling ? 'long polling (compatibility mode)' : 'standard'}` });
     offlineAttempts = 0;
+    attemptsBeforeReload = 0;
+    try{ sessionStorage.removeItem(ATTEMPTS_KEY); }catch(e){ /* fine */ }
+    flushLogs(); // anything recorded while offline
     if(!role){ showPending(email); return; }
     state.workspaceRole = role;
     refreshUserBadge();
@@ -197,16 +204,23 @@ async function routeSignedInUser(user){
 const isOfflineError = (e) => !!e && (e.code === 'unavailable' || /offline/i.test(e.message || ''));
 const RETRY_DELAYS = [3000, 6000, 12000, 20000, 30000];
 const SWITCH_TO_LONG_POLLING_AFTER = 3;
+const ATTEMPTS_KEY = 'devflow:offlineAttempts'; // survives the reload into long polling
 let offlineAttempts = 0;
+let attemptsBeforeReload = (() => { try{ return Number(sessionStorage.getItem(ATTEMPTS_KEY)) || 0; }catch(e){ return 0; } })();
 let offlineTimer = null;
 let lastOfflineError = null;
 
 function showOffline(error){
   lastOfflineError = error;
   offlineAttempts++;
+  // Queued on this device, sent as soon as the database can be reached.
+  logProblem('offline', 'Can\'t reach the database from this device', {
+    detail: `${error.code || ''}: ${error.message || ''}\nattempt ${offlineAttempts} · connection: ${usingLongPolling ? 'long polling' : 'standard'} · browser says online: ${navigator.onLine ? 'yes' : 'no'}`
+  });
   showScreen('offline');
   if(offlineAttempts >= SWITCH_TO_LONG_POLLING_AFTER && !usingLongPolling && useLongPollingFromNowOn()){
     $('offlineStatus').textContent = 'Switching to a more compatible connection…';
+    try{ sessionStorage.setItem(ATTEMPTS_KEY, String(offlineAttempts + attemptsBeforeReload)); }catch(e){ /* fine */ }
     offlineTimer = setTimeout(() => location.reload(), 800);
     return;
   }

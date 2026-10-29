@@ -166,6 +166,17 @@ To preview the message without posting, run `npm run summary:preview` against th
 
 ---
 
+### 12. (Recommended) Delete old log entries automatically
+
+Manage → Logs keeps entries for 30 days. To have Firestore delete them for you (free), switch on a TTL policy once:
+
+1. Firebase console → **Firestore Database** → **TTL** tab (in Google Cloud console: Firestore → **Time-to-live**) → **Create policy**.
+2. Collection group: `logs` · Timestamp field: `expiresAt` → **Create**.
+
+It takes a few minutes to activate. Without it, nothing breaks — admins can still use **Clear problems** in Manage → Logs.
+
+---
+
 ## Upgrading from the single-board version
 
 Earlier versions of devflow had one board. If you're running one of those, upgrade in this order:

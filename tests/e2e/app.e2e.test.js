@@ -574,6 +574,31 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     await toastSays(admin, 'Password reset email sent to newbie@team.dev');
   });
 
+  it('Manage → Logs shows what went wrong for people and what admins changed', async () => {
+    // A crash in devflow's code in someone's browser is recorded too. (Simulated: the browser's
+    // error event, as it fires for an uncaught error in one of devflow's own files.)
+    await dev.evaluate(() => window.dispatchEvent(new ErrorEvent('error', {
+      message: 'e2e deliberate crash', filename: `${location.origin}/js/features/board.js`, lineno: 1, colno: 1, error: new Error('e2e deliberate crash')
+    })));
+    await admin.click('#navBoard');
+    await until(admin, () => document.querySelector('#navManage').classList.contains('has-alert'));
+    await manage(admin, 'logs');
+    const problems = () => admin.$eval('#logList', el => el.textContent);
+    await until(admin, () => /e2e deliberate crash/.test(document.querySelector('#logList').textContent));
+    const p = await problems();
+    for(const words of ['Can\'t reach devflow', 'offline@team.dev', 'Connection came back', 'compatibility connection', 'Bug in devflow'])
+      assert.ok(p.includes(words), `problems mention "${words}"`);
+    assert.ok(!(await admin.$eval('#navManage', el => el.classList.contains('has-alert'))), 'opening Problems clears the dot');
+    await admin.click('[data-tab=admin]');
+    await until(admin, () => /returning@team\.dev removed from the workspace/.test(document.querySelector('#logList').textContent));
+    const actions = await admin.$eval('#logList', el => el.textContent);
+    for(const words of ['returning@team.dev added to the workspace', 'Password reset email sent to newbie@team.dev', 'pm@team.dev added to Website as Project manager', 'Role "Viewer" changed'])
+      assert.ok(actions.includes(words), `admin actions mention "${words}"`);
+    await admin.type('#logSearch', 'password');
+    await until(admin, () => document.querySelectorAll('#logList .log-row').length === 1);
+    await admin.click('[data-tab=problem]');
+  });
+
   /* ---------- shortcuts, menus, sign-out ---------- */
   it('keyboard shortcuts: ? shows help, G then S opens Manage, G then B the board, N a new ticket', async () => {
     await admin.click('body');
@@ -610,7 +635,7 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
   });
 
   it('no JavaScript errors happened along the way', () => {
-    const real = errors.filter(e => !/favicon|Failed to load resource|PERMISSION_DENIED/.test(e));
+    const real = errors.filter(e => !/favicon|Failed to load resource|PERMISSION_DENIED|e2e deliberate crash/.test(e));
     assert.deepEqual(real, []);
   });
 });
