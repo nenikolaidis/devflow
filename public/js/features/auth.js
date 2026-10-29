@@ -5,6 +5,8 @@
 
      signed out            → login screen
      email not verified    → "Confirm your email" screen
+     temporary password    → "Choose your own password" (an admin gave
+                             them one with scripts/admin.mjs)
      verified, not on the  → "pending approval" screen (Request access)
        allowlist
      approved              → the app (starts live data sync)
@@ -32,7 +34,7 @@ import { refreshUserBadge } from './topbar.js';
 const $ = (id) => document.getElementById(id);
 
 /* ---------------- SCREENS ---------------- */
-const SCREENS = { auth: 'authScreen', verify: 'verifyScreen', pending: 'pendingScreen', offline: 'offlineScreen', app: 'app' };
+const SCREENS = { auth: 'authScreen', verify: 'verifyScreen', newPassword: 'newPasswordScreen', pending: 'pendingScreen', offline: 'offlineScreen', app: 'app' };
 
 function showScreen(name){
   Object.entries(SCREENS).forEach(([key, id]) => $(id).classList.toggle('hidden', key !== name));
@@ -113,6 +115,26 @@ $('verifiedBtn').addEventListener('click', async () => {
   }catch(e){ showToast(friendlyAuthError(e)); }
 });
 
+/* ---------------- CHOOSE YOUR OWN PASSWORD ---------------- */
+// After an admin gave someone a temporary password with the admin tool.
+async function saveOwnPassword(){
+  const next = $('npNew').value;
+  $('npError').textContent = '';
+  if(next.length < MIN_PASSWORD_LENGTH){ $('npError').textContent = `Use at least ${MIN_PASSWORD_LENGTH} characters.`; return; }
+  if(next !== $('npConfirm').value){ $('npError').textContent = 'The two passwords don\'t match.'; return; }
+  $('npSave').disabled = true;
+  try{
+    await api.chooseOwnPassword(next);
+    $('npNew').value = $('npConfirm').value = '';
+    showToast('Password saved', 'success');
+    await routeSignedInUser(auth.currentUser);
+  }catch(e){ $('npError').textContent = friendlyAuthError(e); }
+  $('npSave').disabled = false;
+}
+$('npSave').addEventListener('click', saveOwnPassword);
+$('npConfirm').addEventListener('keydown', e => { if(e.key === 'Enter') saveOwnPassword(); });
+$('signOutNewPassword').addEventListener('click', () => auth.signOut());
+
 /* ---------------- PENDING APPROVAL SCREEN ---------------- */
 let stopWatchingRequest = null;
 let stopWatchingAccess = null;
@@ -171,6 +193,7 @@ async function routeSignedInUser(user){
     return;
   }
   try{
+    if(await api.mustChoosePassword(email)){ showScreen('newPassword'); $('npNew').focus(); return; }
     const role = await api.getRole(email);
     const failed = offlineAttempts + attemptsBeforeReload;
     if(failed) logProblem('reconnected', `Got through after ${failed} failed attempt${failed === 1 ? '' : 's'}${attemptsBeforeReload ? ', after switching to the compatibility connection' : ''}`,

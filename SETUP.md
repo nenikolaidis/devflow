@@ -175,6 +175,40 @@ Manage → Logs keeps entries for 30 days. To have Firestore delete them for you
 
 It takes a few minutes to activate. Without it, nothing breaks — admins can still use **Clear problems** in Manage → Logs.
 
+### 13. (Recommended) Admin tool — rescue someone's account
+
+A small command you run on your own computer for what the browser isn't allowed to do: give someone a **temporary password** (devflow then makes them choose their own), **confirm an email** that never arrived, **switch an account off or on**, **delete** an account, and **check** exactly why someone can't get in. Free — no Blaze plan.
+
+One-time setup (about 5 minutes):
+
+1. **Create a key.** Google Cloud console → your project → **IAM & Admin → Service Accounts → Create service account**.
+   - Name: `devflow-admin-tool`
+   - Roles: **Firebase Authentication Admin** and **Cloud Datastore User** (nothing more)
+   - Open it → **Keys → Add key → Create new key → JSON**. A file downloads.
+2. **Put the key outside the repository**, readable only by you:
+
+   ```bash
+   mkdir -p ~/.config/devflow
+   mv ~/Downloads/devflow-board-*.json ~/.config/devflow/admin-key.json
+   chmod 600 ~/.config/devflow/admin-key.json
+   ```
+
+   Never commit it, never send it to anyone: it can change any account. (`.gitignore` blocks `*admin-key*.json`, but don't rely on that.) If it ever leaks, delete the key in the same Keys tab and make a new one.
+3. **Try it** from the repository folder: `npm run admin -- list`
+
+Commands:
+
+| Command | Does |
+|---|---|
+| `npm run admin -- check someone@company.com` | Account, email confirmed?, switched off?, approved?, projects, last sign-in — and what to do |
+| `npm run admin -- list` | Every account and whether it can get into devflow |
+| `npm run admin -- set-password someone@company.com` | Prints a temporary password (send it privately) and signs them out everywhere. At their next sign-in devflow asks them to choose their own. |
+| `npm run admin -- verify someone@company.com` | Marks their email as confirmed, when the confirmation email never arrives |
+| `npm run admin -- disable` / `enable someone@company.com` | Switches their sign-in off (account kept) or back on |
+| `npm run admin -- delete someone@company.com` | Deletes their sign-in account (asks you to type the email first). Remove them in Manage → Members too. |
+
+Every change appears in **Manage → Logs → Admin actions**. Temporary passwords are printed once and stored nowhere.
+
 ---
 
 ## Upgrading from the single-board version

@@ -182,6 +182,13 @@ service cloud.firestore {
       allow delete: if isApproved() && resource.data.to == myEmail();
     }
 
+    // "Choose a new password": set by the admin tool (scripts/admin.mjs, which
+    // bypasses these rules) after giving someone a temporary password. Only
+    // that person can see it, and they clear it once they've chosen their own.
+    match /passwordResets/{email} {
+      allow read, delete: if isSignedIn() && myEmail() == email;
+    }
+
     // Logs (Manage → Logs): problems people ran into, and admin actions.
     // Anyone signed in with a confirmed email can report a *problem* as
     // themselves — including people still waiting for approval, so an admin

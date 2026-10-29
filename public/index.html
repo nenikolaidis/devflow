@@ -81,6 +81,22 @@
   </div>
 </div>
 
+<!-- ============ CHOOSE YOUR OWN PASSWORD (after a temporary one) ============ -->
+<div id="newPasswordScreen" class="auth-screen hidden">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <svg class="logo" width="34" height="34" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="var(--accent)"/><path d="M7 9h7M7 13h12M7 17h5" stroke="var(--on-accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><h1>Choose your own password</h1><p class="sub">You signed in with a temporary one</p></div>
+    </div>
+    <p class="screen-msg">An admin gave you a temporary password. Choose your own now — only you will know it.</p>
+    <div class="field"><label for="npNew">New password</label><input type="password" id="npNew" autocomplete="new-password" placeholder="At least 10 characters"></div>
+    <div class="field"><label for="npConfirm">Confirm new password</label><input type="password" id="npConfirm" autocomplete="new-password"></div>
+    <div class="auth-error" id="npError" role="alert"></div>
+    <button type="button" class="primary large full-width" id="npSave">Save and continue</button>
+    <button type="button" class="ghost full-width" id="signOutNewPassword">Sign out</button>
+  </div>
+</div>
+
 <!-- ============ CAN'T REACH THE DATABASE ============ -->
 <div id="offlineScreen" class="auth-screen hidden">
   <div class="auth-card">

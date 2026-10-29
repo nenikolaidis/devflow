@@ -49,7 +49,7 @@ I built devflow to run day-to-day work on a development team: tickets move throu
 **Manage it in one place**
 - A **Manage** area for members, projects, roles, labels, ticket types, templates, sprints, workflow and integrations — each section shown only to the roles allowed to use it
 - **Logs** for admins: problems people ran into (crashes, error messages, "can't reach devflow", failed live updates — even ones that happened offline) with a plain explanation of each, and an audit trail of admin actions
-- Help people get in: see who hasn't signed in yet, copy ready-made joining instructions, send a password reset
+- Help people get in: see who hasn't signed in yet, copy ready-made joining instructions, send a password reset — and an **admin tool** (`npm run admin`) to check an account, set a temporary password, confirm an email or switch an account off, free
 
 **Work together**
 - Live sync: every change appears for everyone instantly
@@ -72,9 +72,9 @@ All rules that matter — who can do what, and what the workflow allows — are 
 | **Front end** | Plain HTML, CSS and JavaScript modules — no framework, no build step |
 | **Data & sync** | Cloud Firestore with live listeners |
 | **Sign-in** | Firebase Authentication (email + password, verified email required) |
-| **Security** | Firestore security rules — 57 automated tests cover them, project by project and role by role |
+| **Security** | Firestore security rules — 59 automated tests cover them, project by project and role by role |
 | **Hosting** | Firebase Hosting with a strict Content-Security-Policy and other security headers |
-| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (39 steps, including the upgrade to projects, losing the connection and the logs, plus 9 for the public demo) on every push and pull request; deploys only when they pass |
+| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (39 steps, including the upgrade to projects, losing the connection and the logs, plus 9 for the admin tool and 9 for the public demo) on every push and pull request; deploys only when they pass |
 | **Scheduled jobs** | A GitHub Actions cron job for the weekly Discord summary (no paid Firebase plan needed) |
 
 The code is organised in layers — `core/` (no database code), `data/` (all Firestore access), `features/` (one file per screen) — and every piece of user content goes through an auto-escaping HTML template, so it can never run as code.

@@ -70,7 +70,8 @@ export const COLLECTIONS = {
   ROLES: 'roles',
   PROJECT_REQUESTS: 'projectRequests',
   TEMPLATES: 'templates',
-  LOGS: 'logs'                   // problems and admin actions (Manage → Logs)
+  LOGS: 'logs',                  // problems and admin actions (Manage → Logs)
+  PASSWORD_RESETS: 'passwordResets' // doc id = email; set by scripts/admin.mjs after a temporary password
 };
 export const DOCS = {
   COUNTERS: 'counters',        // projects/{pid}/meta/counters  → { ticketNumber }

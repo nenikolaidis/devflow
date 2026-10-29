@@ -441,3 +441,21 @@ describe('logs (problems and admin actions)', () => {
     await assertSucceeds(deleteDoc(doc(as('admin'), 'logs/l1')));
   });
 });
+
+/* ------------------------------------------------------------------ */
+describe('temporary passwords (set by the admin tool)', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), `passwordResets/${U.dev}`), { requiredAt: serverTimestamp(), by: 'admin tool' }));
+  });
+  it('only that person sees and clears their "choose a new password" marker', async () => {
+    await assertSucceeds(getDoc(doc(as('dev'), `passwordResets/${U.dev}`)));
+    await assertFails(getDoc(doc(as('dev2'), `passwordResets/${U.dev}`)));
+    await assertFails(getDoc(doc(as('admin'), `passwordResets/${U.dev}`)));
+    await assertFails(deleteDoc(doc(as('dev2'), `passwordResets/${U.dev}`)));
+    await assertSucceeds(deleteDoc(doc(as('dev'), `passwordResets/${U.dev}`)));
+  });
+  it('nobody can create one from the app', async () => {
+    await assertFails(setDoc(doc(as('admin'), `passwordResets/${U.dev2}`), { by: 'admin' }));
+    await assertFails(setDoc(doc(as('dev2'), `passwordResets/${U.dev2}`), { by: 'me' }));
+  });
+});

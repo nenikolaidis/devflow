@@ -114,6 +114,8 @@ tests/firestore.rules.test.js   security-rules tests (Firestore emulator)
 tests/e2e/app.e2e.test.js       end-to-end test: headless Chrome against the emulators
 tests/e2e/demo.e2e.test.js      the public demo works, and never contacts Firebase
 scripts/weekly-summary.mjs      the Monday Discord summary (run by GitHub Actions)
+scripts/admin.mjs               admin tool: check / list / set-password / verify / disable / enable / delete accounts
+tests/e2e/admin-tool.e2e.test.js the admin tool against the emulators, and the app's "choose your own password" screen
 ```
 
 ---
@@ -140,6 +142,7 @@ the screen repaints. That's why every open browser stays in sync.
 |---|---|
 | signed out | login |
 | email not verified | "Confirm your email" |
+| signed in with a temporary password (`passwordResets/{email}` exists) | "Choose your own password"; saving clears the marker |
 | verified, not on `allowlist` | "pending approval" with **Request access** |
 | on `allowlist` | the app; `startSync()` attaches the workspace listeners and opens the last-used project (`switchProject()`) |
 | database unreachable (Firestore `unavailable`, "client is offline") | "Can't reach devflow": retries with growing pauses (and on the browser's `online` event); after 3 failures it sets `devflow:longPolling` and reloads, so `data/firebase.js` forces long polling on this device |
@@ -226,6 +229,7 @@ Subcollections:
 | `projects/{pid}/config/settings` | `labels[{name, color}]`, `types[{key, label, icon, color, enabled}]` (*manage content*); `staleDays`, `wipLimits{status: n}`, `dodItems[{id, text}]`, `dodRequired[id]` (*manage workflow*); `discordWebhookUrl`, `weeklySummary` (*manage integrations*); `updatedBy`, `updatedAt` | by permission group |
 | `projects/{pid}/sprints/{autoId}` | `name`, `goal`, `start`, `end`, `status` (`planned`·`active`·`closed`), `createdBy`, `createdAt` | *manage sprints* |
 | `projects/{pid}/templates/{autoId}` | `name`, `type`, `priority`, `labels`, `reviewers`, `description`, `order`, `enabled`, `updatedBy`, `updatedAt`. None saved = the built-in `DEFAULT_TEMPLATES` | *manage content* |
+| `passwordResets/{email}` | `requiredAt`, `by` | created only by `scripts/admin.mjs` (server key); the person reads it and deletes it after choosing a password |
 | `logs/{autoId}` | `kind` (`problem`·`admin`), `type` (e.g. `offline`, `js-error`, `error-shown`, `sync-error`, `reconnected`; `member-added`, `role-changed`…), `message`, `detail`, `email`, `projectId`, `target`, `page`, `browser`, `count`, `occurredAt`, `createdAt` (server time), `expiresAt` (TTL) | problems: anyone verified, as themselves; admin actions: approved people (written by `data/log.js`). Only admins read or delete; nobody edits |
 | `notifications/{autoId}` | `to`, `by`, `type` (`mention`), `projectId`, `ticketFid`, `ticketId`, `ticketTitle`, `text`, `createdAt`, `read` | sender creates (as themselves, to a teammate); only the recipient reads, marks read or deletes. Index in `firestore.indexes.json` |
 
@@ -345,10 +349,12 @@ unusual).
 ```bash
 npm install            # dev tools only — nothing here is deployed
 npm test               # both suites below
-npm run test:rules     # 57 security-rules tests against the Firestore emulator
+npm run test:rules     # 59 security-rules tests against the Firestore emulator
 npm run test:e2e       # end-to-end: headless Chrome drives the real app against the emulators
 npm run emulators      # local Auth + Firestore (throwaway data, project "demo-devflow")
 npm run serve          # serves public/ at http://localhost:5050
+npm run admin -- check x@y  # admin tool (SETUP.md step 13); with emulators running and
+                         # FIREBASE_AUTH_EMULATOR_HOST + FIRESTORE_EMULATOR_HOST set it uses them
 npm run summary:preview  # prints the weekly Discord summary (with emulators running and
                          # FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 set)
 ```

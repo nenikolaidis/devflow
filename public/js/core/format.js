@@ -77,6 +77,7 @@ export function friendlyAuthError(e){
   if(code.includes('invalid-email')) return 'That email address looks invalid.';
   if(code.includes('requires-recent-login')) return 'Please sign out and log back in, then try again.';
   if(code.includes('too-many-requests')) return 'Too many attempts. Try again shortly.';
+  if(code.includes('user-disabled')) return 'This account has been switched off. Ask a devflow admin.';
   return (e && e.message) || 'Something went wrong.';
 }
 

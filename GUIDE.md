@@ -14,7 +14,7 @@ that keep work visible, and the Manage area. If you're setting devflow up for a 
 3. Check your inbox for a confirmation link, click it, then return and press **I've confirmed it — continue**. (Look in spam if it doesn't arrive within a few minutes.)
 4. Press **Request access**. An admin approves you in **Manage → Members** and adds you to a project; the page opens devflow by itself as soon as they do. (If an admin adds you directly, it opens by itself too.)
 
-Forgot your password? Type your email on the sign-in screen and choose **Forgot password?**, or ask an admin to send you a reset link.
+Forgot your password? Type your email on the sign-in screen and choose **Forgot password?**, or ask an admin to send you a reset link or a temporary password. If you sign in with a temporary password, devflow asks you to choose your own straight away.
 
 **"Can't reach devflow"** means you're signed in but your browser can't reach the database. That's almost always something on your device or network blocking it. devflow keeps retrying by itself, and after a few failures switches to a slower connection that gets through most blocks. Meanwhile, try turning off ad blockers or privacy extensions, iCloud Private Relay or "Limit IP address tracking" on Apple devices, or a VPN, or try another browser or network. **Copy details for your admin** copies what your admin needs to help.
 
@@ -207,6 +207,7 @@ each section says whether it applies to the whole **workspace** or to the
   - **Copy invite** copies step-by-step joining instructions (the link, which email to use, the confirmation email, what to do if it says "Can't reach devflow") to paste into an email or chat.
   - **Reset password** emails them a link to choose a new password. Nobody can see anyone's password, admins included.
   - Removing someone takes effect immediately, even if they're signed in. Adding them back lets them in straight away, with no new request.
+  - Still stuck? An admin can run the **admin tool** on their computer ([SETUP.md](SETUP.md), step 13): `npm run admin -- check their@email` says exactly what's wrong; `set-password` gives them a temporary password (devflow then asks them to choose their own), and `verify` confirms an email that never arrived.
 - **Projects** — admins create, rename and archive projects (archived projects are read-only) and approve or decline requests. Project managers fill in the same form to **request** a project; when an admin approves it, they become its Project manager.
 - **Roles** (admins) — each role is a set of permissions. Changes apply straight away to everyone with that role, in every project. A role can only be deleted once nobody has it.
 - **Logs** (admins) — two tabs:

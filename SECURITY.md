@@ -30,7 +30,7 @@ allowed.
 
 | Layer | Protects against | Where |
 |---|---|---|
-| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 57 automated tests |
+| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 59 automated tests |
 | **Verified email + allowlist** | Someone registering a teammate's address before they do; strangers signing up and reading data | Rules (`email_verified`, `allowlist`) + `features/auth.js` |
 | **Escaping everywhere** | Cross-site scripting from ticket titles, comments, names, links | `core/html.js` (auto-escaping templates), `core/markdown.js` (escapes before formatting), `safeUrl()` (only `http(s)` links) |
 | **Content-Security-Policy** | Injected scripts, data sent to unknown servers, the app being framed | `firebase.json` headers |
@@ -53,6 +53,7 @@ allowed.
 - **Settings:** each group of project settings needs its own permission — labels, types and templates (*manage content*), Definition of Done, WIP and stale limits (*manage workflow*), Discord and the weekly summary (*manage integrations*). Webhooks must be Discord URLs.
 - **The upgrade:** copying the old board into the first project is only allowed for an admin while that project is marked as migrating; the old single-board data is read-only afterwards.
 - **Profiles:** you can only write your own, and every field is size-limited.
+- **Temporary passwords:** the marker that makes someone choose a new password (`passwordResets/{email}`) is created only by the admin tool, which uses a server key; in the app, only that person can see or clear it.
 - **Logs:** anyone signed in with a confirmed email can add a *problem* entry, as themselves only (so people still waiting for approval can report why they're stuck); admin-action entries need an approved account. Every field is size-limited, the time is set by the server, entries expire within 60 days and can never be edited. Only workspace admins read or clear them. Entries never contain passwords, ticket text or webhook addresses. The admin-action log is recorded by the app after each action, so it's a helpful trail, not tamper-proof evidence — that would need a server.
 
 ### What's public, and what isn't
@@ -125,7 +126,8 @@ App Check proves requests come from your site, so someone with a stolen sign-in 
 
 - The **deploy** key created by `firebase init hosting:github` can only deploy hosting.
 - The **weekly summary** key should have only the **Cloud Datastore Viewer** role — read-only. Don't give it Editor or Owner.
-- Rotate either key from Google Cloud → IAM → Service Accounts → Keys if it may have leaked, then update the GitHub secret.
+- The **admin tool** key (`scripts/admin.mjs`) has **Firebase Authentication Admin** and **Cloud Datastore User** — enough to change any account and any data, so treat it like a master password. It never goes to GitHub: keep it on an admin's own computer in `~/.config/devflow/` (outside the repository) with `chmod 600`, and never paste it anywhere. Only workspace admins should have one. (Setup: SETUP.md, step 13.)
+- Rotate any key from Google Cloud → IAM → Service Accounts → Keys if it may have leaked (and update the GitHub secret, for the first two).
 
 ### 7. Rules and indexes are deployed deliberately
 

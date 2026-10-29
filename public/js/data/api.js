@@ -69,7 +69,8 @@ export const refs = {
   notifications: () => db.collection(COLLECTIONS.NOTIFICATIONS),
   notification: (id) => db.collection(COLLECTIONS.NOTIFICATIONS).doc(id),
   logs: () => db.collection(COLLECTIONS.LOGS),
-  log: (id) => db.collection(COLLECTIONS.LOGS).doc(id)
+  log: (id) => db.collection(COLLECTIONS.LOGS).doc(id),
+  passwordReset: (email) => db.collection(COLLECTIONS.PASSWORD_RESETS).doc(normEmail(email))
 };
 
 const me = () => state.currentUser.email;
@@ -440,6 +441,17 @@ export async function deleteLogEntries(ids){
     ids.slice(i, i + 400).forEach(id => batch.delete(refs.log(id)));
     await batch.commit();
   }
+}
+
+/** True if an admin gave this person a temporary password (scripts/admin.mjs) that they must replace. */
+export async function mustChoosePassword(email){
+  return (await refs.passwordReset(email).get()).exists;
+}
+
+/** Sets the signed-in person's own password and clears the "temporary password" marker. */
+export async function chooseOwnPassword(password){
+  await auth.currentUser.updatePassword(password);
+  await refs.passwordReset(me()).delete();
 }
 
 /** Drops and reopens the database connection, so a retry doesn't wait for Firebase's own back-off. */
