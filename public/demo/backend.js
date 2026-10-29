@@ -258,6 +258,9 @@ const db = {
     applyWrites(tx._ops);
     return result;
   },
+  settings(){},
+  disableNetwork: async () => {},
+  enableNetwork: async () => {},
   useEmulator(){}
 };
 

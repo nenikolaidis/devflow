@@ -8,24 +8,30 @@
      verified, not on the  → "pending approval" screen (Request access)
        allowlist
      approved              → the app (starts live data sync)
+     database unreachable  → "Can't reach devflow" screen, which keeps
+                             retrying (see CAN'T REACH THE DATABASE)
+
+   While someone is in the app or on the pending screen, their own
+   allowlist entry is watched: added → straight in; removed or role
+   changed → re-routed.
 ========================================================= */
-import { auth } from '../data/firebase.js';
+import { auth, usingLongPolling, useLongPollingFromNowOn } from '../data/firebase.js';
 import * as api from '../data/api.js';
-import { startSync, stopSync, watchOwnRequest } from '../data/sync.js';
+import { startSync, stopSync, watchOwnRequest, watchOwnAccess } from '../data/sync.js';
 import { MIN_PASSWORD_LENGTH } from '../config.js';
 import { state } from '../core/state.js';
 import { WORKSPACE_ROLES, WORKSPACE_ROLE_LABELS } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { friendlyAuthError } from '../core/format.js';
 import { myEmail } from '../core/permissions.js';
-import { showToast, openModal, closeAllModals } from '../core/ui.js';
+import { showToast, openModal, closeAllModals, copyText } from '../core/ui.js';
 import { switchTab } from './nav.js';
 import { refreshUserBadge } from './topbar.js';
 
 const $ = (id) => document.getElementById(id);
 
 /* ---------------- SCREENS ---------------- */
-const SCREENS = { auth: 'authScreen', verify: 'verifyScreen', pending: 'pendingScreen', app: 'app' };
+const SCREENS = { auth: 'authScreen', verify: 'verifyScreen', pending: 'pendingScreen', offline: 'offlineScreen', app: 'app' };
 
 function showScreen(name){
   Object.entries(SCREENS).forEach(([key, id]) => $(id).classList.toggle('hidden', key !== name));
@@ -108,6 +114,7 @@ $('verifiedBtn').addEventListener('click', async () => {
 
 /* ---------------- PENDING APPROVAL SCREEN ---------------- */
 let stopWatchingRequest = null;
+let stopWatchingAccess = null;
 
 $('requestAccessBtn').addEventListener('click', async () => {
   try{
@@ -118,11 +125,9 @@ $('requestAccessBtn').addEventListener('click', async () => {
 
 function showPending(email){
   showScreen('pending');
-  let wasRequested = false;
-  stopWatchingRequest = watchOwnRequest(email, async requested => {
-    // The request disappears when an admin approves or denies it — if approved, go straight in.
-    if(wasRequested && !requested && await api.getRole(email).catch(() => null)){ routeSignedInUser(auth.currentUser); return; }
-    wasRequested = requested;
+  // Approved — from a request, or added directly by an admin — goes straight in.
+  stopWatchingAccess = watchOwnAccess(email, role => { if(role) routeSignedInUser(auth.currentUser); });
+  stopWatchingRequest = watchOwnRequest(email, requested => {
     $('requestAccessBtn').disabled = requested;
     $('requestAccessBtn').textContent = requested ? 'Request sent' : 'Request access';
     $('pendingMsg').textContent = requested
@@ -136,6 +141,8 @@ function showPending(email){
 function resetSession(){
   stopSync();
   if(stopWatchingRequest){ stopWatchingRequest(); stopWatchingRequest = null; }
+  if(stopWatchingAccess){ stopWatchingAccess(); stopWatchingAccess = null; }
+  clearTimeout(offlineTimer);
   // Dialogs live on document.body, outside #app, so close them explicitly.
   closeAllModals();
 }
@@ -145,6 +152,7 @@ auth.onAuthStateChanged(async user => {
   if(!user){
     state.currentUser = null;
     state.workspaceRole = null;
+    offlineAttempts = 0;
     showScreen('auth');
     return;
   }
@@ -163,6 +171,7 @@ async function routeSignedInUser(user){
   }
   try{
     const role = await api.getRole(email);
+    offlineAttempts = 0;
     if(!role){ showPending(email); return; }
     state.workspaceRole = role;
     refreshUserBadge();
@@ -170,11 +179,61 @@ async function routeSignedInUser(user){
     startSync({ isAdmin: role === WORKSPACE_ROLES.ADMIN });
     switchTab('board');
     api.ensureOwnProfile();
+    // Removed from the workspace, or made admin / member, while signed in → re-route.
+    stopWatchingAccess = watchOwnAccess(email, current => { if(current !== state.workspaceRole) routeSignedInUser(auth.currentUser); });
   }catch(e){
+    if(isOfflineError(e)){ showOffline(e); return; }
     $('authError').textContent = 'Could not verify access: ' + (e.message || e);
     showScreen('auth');
   }
 }
+
+/* ---------------- CAN'T REACH THE DATABASE ---------------- */
+// Firestore says "the client is offline" (code "unavailable") when it can't
+// connect at all: a blip on mobile data, or a VPN, ad blocker, antivirus or
+// iCloud Private Relay in the way. Instead of giving up, keep retrying with
+// growing pauses, and after a few failures switch this browser to long
+// polling (see data/firebase.js), which gets through almost anything.
+const isOfflineError = (e) => !!e && (e.code === 'unavailable' || /offline/i.test(e.message || ''));
+const RETRY_DELAYS = [3000, 6000, 12000, 20000, 30000];
+const SWITCH_TO_LONG_POLLING_AFTER = 3;
+let offlineAttempts = 0;
+let offlineTimer = null;
+let lastOfflineError = null;
+
+function showOffline(error){
+  lastOfflineError = error;
+  offlineAttempts++;
+  showScreen('offline');
+  if(offlineAttempts >= SWITCH_TO_LONG_POLLING_AFTER && !usingLongPolling && useLongPollingFromNowOn()){
+    $('offlineStatus').textContent = 'Switching to a more compatible connection…';
+    offlineTimer = setTimeout(() => location.reload(), 800);
+    return;
+  }
+  const delay = RETRY_DELAYS[Math.min(offlineAttempts - 1, RETRY_DELAYS.length - 1)];
+  $('offlineStatus').textContent = `Still trying — next attempt in ${delay / 1000} seconds.`;
+  offlineTimer = setTimeout(retryConnection, delay);
+}
+
+async function retryConnection(){
+  clearTimeout(offlineTimer);
+  if(!auth.currentUser) return;
+  $('offlineStatus').textContent = 'Connecting…';
+  await api.reconnect();
+  routeSignedInUser(auth.currentUser);
+}
+
+$('offlineRetry').addEventListener('click', retryConnection);
+$('signOutOffline').addEventListener('click', () => auth.signOut());
+window.addEventListener('online', () => { if(!$('offlineScreen').classList.contains('hidden')) retryConnection(); });
+$('offlineCopy').addEventListener('click', () => copyText([
+  'devflow connection problem',
+  `Account: ${(auth.currentUser && auth.currentUser.email) || '—'}`,
+  `Time: ${new Date().toString()}`,
+  `Error: ${(lastOfflineError && lastOfflineError.code) || '—'} — ${(lastOfflineError && lastOfflineError.message) || '—'}`,
+  `Attempts: ${offlineAttempts} · connection: ${usingLongPolling ? 'long polling' : 'standard'} · browser says online: ${navigator.onLine ? 'yes' : 'no'}`,
+  `Browser: ${navigator.userAgent}`
+].join('\n'), { done: 'Copied — paste it to your admin', title: 'Details for your admin' }));
 
 /* ---------------- ACCOUNT DIALOG (change password, sign out) ---------------- */
 $('accountBtn').addEventListener('click', openAccountModal);

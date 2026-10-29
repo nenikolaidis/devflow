@@ -42,13 +42,13 @@ public/js/
 │   └── workflow.js        move rules (reviewers, Definition of Done), WIP limits, stale & overdue
 │
 ├── data/                  the only code that talks to Firestore
-│   ├── firebase.js        initialises Firebase (and local emulators with ?emulators)
+│   ├── firebase.js        initialises Firebase (and local emulators with ?emulators); long-polling fallback
 │   ├── api.js             every one-off read/write (project-scoped refs), incl. the activity log
 │   ├── sync.js            workspace listeners + the current project's listeners; switchProject()
 │   └── upgrade.js         one-time "Upgrade to projects" and first-project setup
 │
 ├── features/              one file per screen or part of a screen
-│   ├── auth.js            login/signup, verify-email & pending screens, account dialog, the gate
+│   ├── auth.js            login/signup, verify-email, pending & "can't reach" screens, account dialog, the gate
 │   ├── nav.js             tab switching; repaints the visible tab on data events
 │   ├── topbar.js          account menu (avatar), theme toggle, New ticket availability
 │   ├── project-switcher.js the project menu in the top bar
@@ -140,6 +140,11 @@ the screen repaints. That's why every open browser stays in sync.
 | email not verified | "Confirm your email" |
 | verified, not on `allowlist` | "pending approval" with **Request access** |
 | on `allowlist` | the app; `startSync()` attaches the workspace listeners and opens the last-used project (`switchProject()`) |
+| database unreachable (Firestore `unavailable`, "client is offline") | "Can't reach devflow": retries with growing pauses (and on the browser's `online` event); after 3 failures it sets `devflow:longPolling` and reloads, so `data/firebase.js` forces long polling on this device |
+
+On the pending screen and in the app, the person's own `allowlist` entry is
+watched (`watchOwnAccess`): being added sends them straight in, being
+removed or having their workspace role changed re-routes them.
 
 **Projects:** everything project-specific lives under `projects/{pid}/`.
 `state.projectId` is the open project; `data/api.js` builds every
@@ -354,7 +359,10 @@ locks, reviewers, blocking, comments and @mentions, notifications, Manage
 (workflow, labels, types, integrations, sprints, templates), checklists and
 the Definition of Done, viewer restrictions, editing a role, requesting
 and approving a project, switching projects, archive, views, access
-requests, shortcuts and sign-out. Part 2 seeds a board in the old
+requests, losing the database connection (retry and the long-polling
+fallback), removing and re-adding someone while they're signed in, the
+admin's sign-in status / invite / password reset tools, shortcuts and
+sign-out. Part 2 seeds a board in the old
 single-board layout and runs **Upgrade now**. When you add a feature, add
 a step.
 

@@ -85,6 +85,7 @@ async function openApp(label){
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(`[${label}] ${e.message}`));
   page.on('console', m => { if(m.type() === 'error') errors.push(`[${label}] ${m.text()}`); });
+  if(process.env.E2E_DEBUG) page.on('console', m => console.log(`  [${label}] ${m.type()}: ${m.text()}`));
   await page.setViewport({ width: 1400, height: 900 });
   await page.goto(BASE, { waitUntil: 'networkidle0' });
   return page;
@@ -130,7 +131,7 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     await new Promise(resolve => server.listen(PORT, resolve));
     await resetEmulators();
     await createUser('admin@team.dev', { role: 'admin' });
-    for(const who of ['pm', 'dev', 'dev2', 'viewer']) await createUser(`${who}@team.dev`, { role: 'member' });
+    for(const who of ['pm', 'dev', 'dev2', 'viewer', 'returning', 'offline', 'newbie']) await createUser(`${who}@team.dev`, { role: 'member' });
     await createUser('unverified@team.dev', { verified: false });
     await createUser('outsider@team.dev');
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: process.env.CI ? ['--no-sandbox'] : [] });
@@ -248,7 +249,7 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     await admin.click('#postComment');
     await until(admin, () => document.querySelector('.comment-body .mention'));
     assert.match(await text(admin, '.comment-body'), /<b>this<\/b>/);
-    await admin.click('button[data-action=edit]');
+    await clickWhere(admin, 'button[data-action=edit]');
     await admin.waitForSelector('#dlg-input');
     await admin.$eval('#dlg-input', el => { el.value = 'Edited comment'; });
     await admin.click('.dlg-ok');
@@ -517,6 +518,60 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     await until(admin, () => document.querySelector('#projectMembers [data-email="outsider@team.dev"]'));
     assert.equal(await admin.$eval('#projectMembers [data-email="outsider@team.dev"] select', el => el.value), 'qa');
     await outsider.waitForSelector('#app:not(.hidden)', { timeout: 15000 });
+  });
+
+  /* ---------- helping people get in ---------- */
+  it('when the database can\'t be reached, a clear screen keeps retrying, switches connection, and lets them in once it\'s back', async () => {
+    const ctx = await browser.createBrowserContext();
+    contexts.push(ctx);
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(`[offline] ${e.message}`));
+    await page.setViewport({ width: 1400, height: 900 });
+    await page.setRequestInterception(true);
+    let blocked = true; // like an ad blocker or VPN that blocks the database, but not sign-in
+    page.on('request', r => (blocked && r.url().startsWith('http://127.0.0.1:8080/') ? r.abort() : r.continue()));
+    await page.goto(BASE, { waitUntil: 'networkidle0' });
+    await signIn(page, 'offline@team.dev');
+    await page.waitForSelector('#offlineScreen:not(.hidden)', { timeout: 15000 });
+    // A few failures in a row: this browser switches to long polling (and reloads).
+    await page.waitForFunction(() => { try{ return localStorage.getItem('devflow:longPolling') === '1'; }catch(e){ return false; } }, { timeout: 25000 });
+    await sleep(1500);
+    blocked = false;
+    await page.waitForSelector('#app:not(.hidden)', { timeout: 25000 });
+  });
+
+  it('someone removed while signed in lands on the waiting screen, and gets straight back in when re-added', async () => {
+    const returning = await signedIn('returning', 'returning@team.dev');
+    await manage(admin, 'members');
+    await clickWhere(admin, '#workspacePeople [data-email="returning@team.dev"] [data-action=remove]');
+    await admin.waitForSelector('.dlg-ok');
+    await admin.click('.dlg-ok');
+    await returning.waitForSelector('#pendingScreen:not(.hidden)', { timeout: 15000 });
+    // Added back directly — no access request — and the waiting screen lets them in by itself.
+    await until(admin, () => !document.querySelector('#workspacePeople [data-email="returning@team.dev"]'));
+    await admin.type('#newPersonEmail', 'returning@team.dev');
+    await admin.click('#addPersonBtn');
+    await returning.waitForSelector('#app:not(.hidden)', { timeout: 15000 });
+  });
+
+  it('Manage shows who hasn\'t signed in, copies an invite, and sends a password reset', async () => {
+    await manage(admin, 'members');
+    const row = '#workspacePeople [data-email="newbie@team.dev"]';
+    await admin.waitForSelector(`${row} .signin-status`);
+    assert.match(await text(admin, `${row} .signin-status`), /hasn't signed in yet/);
+    assert.match(await text(admin, '#workspacePeople [data-email="dev@team.dev"] .signin-status'), /last opened devflow/);
+    await admin.browserContext().overridePermissions(new URL(BASE).origin, ['clipboard-read', 'clipboard-write', 'clipboard-sanitized-write']);
+    await clickWhere(admin, `${row} [data-action=invite]`);
+    // Copied to the clipboard (toast), or shown to copy by hand if the browser refuses.
+    await until(admin, () => document.querySelector('#copy-text') || document.querySelector('#toast').textContent.includes('Invite for'));
+    const invite = await admin.evaluate(async () => document.querySelector('#copy-text') ? document.querySelector('#copy-text').value : navigator.clipboard.readText());
+    assert.match(invite, /newbie@team\.dev/);
+    assert.match(invite, /Create account/);
+    if(await admin.$('#copy-text')) await closeDialog(admin);
+    await clickWhere(admin, `${row} [data-action=reset]`);
+    await admin.waitForSelector('.dlg-ok');
+    await admin.click('.dlg-ok');
+    await toastSays(admin, 'Password reset email sent to newbie@team.dev');
   });
 
   /* ---------- shortcuts, menus, sign-out ---------- */

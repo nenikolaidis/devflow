@@ -24,12 +24,28 @@ if(APP_CHECK_RECAPTCHA_SITE_KEY && !useEmulators){
 export const auth = firebase.auth();
 export const db = firebase.firestore();
 
+// Some networks, VPNs, antivirus and privacy tools (e.g. iCloud Private Relay)
+// block Firestore's normal streaming connection, and the app then reports
+// "the client is offline". If that keeps happening, features/auth.js
+// switches this browser to long polling: a little slower, but it gets
+// through almost anything. The choice is remembered on this device.
+const LONG_POLLING_KEY = 'devflow:longPolling';
+export const usingLongPolling = (() => {
+  try{ return localStorage.getItem(LONG_POLLING_KEY) === '1'; }catch(e){ return false; }
+})();
+/** Makes the next page load use long polling (call, then reload). */
+export function useLongPollingFromNowOn(){
+  try{ localStorage.setItem(LONG_POLLING_KEY, '1'); return true; }catch(e){ return false; }
+}
+
 if(useEmulators){
   // Firebase's own warning strip covers the bottom of the page; we log our own notice instead.
   auth.useEmulator('http://127.0.0.1:9099', { disableWarnings: true });
   db.useEmulator('127.0.0.1', 8080);
   console.info('Devflow: using local emulators (demo-devflow). No real data is touched.');
 }
+// (Automatic detection is Firebase's default; forcing replaces it.)
+if(usingLongPolling) db.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, merge: true });
 
 /** Server-side "now" — use for every createdAt/updatedAt style field. */
 export const serverTime = () => firebase.firestore.FieldValue.serverTimestamp();

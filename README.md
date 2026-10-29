@@ -72,7 +72,7 @@ All rules that matter — who can do what, and what the workflow allows — are 
 | **Sign-in** | Firebase Authentication (email + password, verified email required) |
 | **Security** | Firestore security rules — 53 automated tests cover them, project by project and role by role |
 | **Hosting** | Firebase Hosting with a strict Content-Security-Policy and other security headers |
-| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (35 steps, including the upgrade to projects, plus 9 for the public demo) on every push and pull request; deploys only when they pass |
+| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (38 steps, including the upgrade to projects and losing the connection, plus 9 for the public demo) on every push and pull request; deploys only when they pass |
 | **Scheduled jobs** | A GitHub Actions cron job for the weekly Discord summary (no paid Firebase plan needed) |
 
 The code is organised in layers — `core/` (no database code), `data/` (all Firestore access), `features/` (one file per screen) — and every piece of user content goes through an auto-escaping HTML template, so it can never run as code.

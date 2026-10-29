@@ -31,6 +31,19 @@ export function daysSince(d){
   return dt ? Math.floor((Date.now() - dt.getTime()) / 86400000) : null;
 }
 
+/** "just now", "5 min ago", "3 h ago", "2 days ago", or a date for anything older than a month. */
+export function timeAgo(d){
+  const dt = toDate(d);
+  if(!dt) return '';
+  const minutes = Math.floor((Date.now() - dt.getTime()) / 60000);
+  if(minutes < 1) return 'just now';
+  if(minutes < 60) return `${minutes} min ago`;
+  if(minutes < 1440) return `${Math.floor(minutes / 60)} h ago`;
+  const days = Math.floor(minutes / 1440);
+  if(days < 31) return `${days} day${days === 1 ? '' : 's'} ago`;
+  return 'on ' + formatDate(dt);
+}
+
 /** Returns the URL only if it's a plain http(s) link, otherwise ''. Blocks javascript:, data:, etc. */
 export function safeUrl(url){
   const value = (url || '').trim();

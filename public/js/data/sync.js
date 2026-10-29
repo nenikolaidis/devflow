@@ -27,6 +27,9 @@ let projectUnsubs = [];
 
 function listen(list, query, onSnapshot, label, { quiet = false } = {}){
   list.push(query.onSnapshot(onSnapshot, err => {
+    // Losing access (removed from the workspace or a project) ends listeners with
+    // permission-denied; features/auth.js notices and moves the person on, so no alarm.
+    if(err.code === 'permission-denied'){ console.warn(`${label}: access ended`); return; }
     console.error(`${label} sync error:`, err);
     if(!quiet) showToast(`${label} sync error: ${err.message}`, 'error');
   }));
@@ -160,6 +163,11 @@ export function stopSync(){
 }
 
 /* ---------------- SHORT-LIVED LISTENERS ---------------- */
+
+/** Calls onChange(role or null) whenever the user's own allowlist entry is added, changed or removed. */
+export function watchOwnAccess(email, onChange){
+  return refs.member(email).onSnapshot(doc => onChange(doc.exists ? (doc.data().role || null) : null), err => console.error('Access watch error:', err));
+}
 
 /** Calls onChange(exists) whenever the user's own access request appears/disappears. */
 export function watchOwnRequest(email, onChange){

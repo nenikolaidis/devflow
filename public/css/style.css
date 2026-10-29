@@ -152,6 +152,7 @@ fieldset.field legend{ padding:0; margin-bottom:6px; }
 .auth-error:empty,.auth-status:empty{ display:none; }
 .auth-note{ font-size:12px; color:var(--muted); text-align:center; }
 .screen-msg{ font-size:14px; color:var(--text-2); }
+.screen-tips{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--text-2); }
 
 /* ---------------- 5. APP SHELL ---------------- */
 .topbar{ position:sticky; top:0; z-index:20; display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; padding:10px 20px; background:var(--panel); border-bottom:1px solid var(--line); }
@@ -521,6 +522,7 @@ button.quick.active{ background:color-mix(in srgb, var(--accent) 16%, transparen
 .allow-row .em{ display:flex; flex-direction:column; gap:1px; }
 .member-name{ font-weight:500; overflow:hidden; text-overflow:ellipsis; }
 .member-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 4px; font-size:12px; color:var(--muted); }
+.signin-status.warn{ color:var(--amber); }
 .profile-badges{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 
 /* my work */

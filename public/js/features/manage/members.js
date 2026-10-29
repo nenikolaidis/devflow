@@ -5,7 +5,9 @@
      who is in the current project and their role; add or remove.
    Workspace people (workspace admins only):
      access requests (approve into the workspace, optionally straight into
-     this project), everyone in the workspace, admin/member, remove.
+     this project), everyone in the workspace, admin/member, remove — and
+     the tools for helping someone get in: when they last signed in, a
+     password reset email, and a ready-made invite to paste to them.
 ========================================================= */
 import { state } from '../../core/state.js';
 import { html } from '../../core/html.js';
@@ -13,7 +15,8 @@ import { icon } from '../../core/icons.js';
 import { DEFAULT_MEMBER_ROLE, WORKSPACE_ROLES } from '../../core/constants.js';
 import { isAdmin, can, isMe, normEmail, roleName } from '../../core/permissions.js';
 import { displayName, avatarHtml, availabilityBadge } from '../../core/people.js';
-import { showToast, confirmDialog } from '../../core/ui.js';
+import { showToast, confirmDialog, copyText } from '../../core/ui.js';
+import { timeAgo } from '../../core/format.js';
 import * as api from '../../data/api.js';
 import { openProfileModal } from '../profiles.js';
 import { sectionHead, noProject, attempt } from './common.js';
@@ -101,6 +104,31 @@ function wireProjectMembers(root){
 
 /* ---------------- WORKSPACE PEOPLE (admins) ---------------- */
 
+/** When someone last opened devflow — shows at a glance whether a new or returning person actually got in. */
+function signInStatus(u){
+  const last = state.profiles[u.id] && state.profiles[u.id].lastActive;
+  const lastMs = last && last.toMillis ? last.toMillis() : 0;
+  const addedMs = u.addedAt && u.addedAt.toMillis ? u.addedAt.toMillis() : 0;
+  if(!lastMs) return { text: 'hasn\'t signed in yet', warn: true };
+  if(addedMs && lastMs < addedMs) return { text: 'hasn\'t signed in since being added', warn: true };
+  return { text: `last opened devflow ${timeAgo(last)}`, warn: false };
+}
+
+/** Step-by-step joining instructions to paste into an email or chat. */
+function inviteText(email){
+  const projects = state.projects.filter(pr => pr.members && pr.members[email] && pr.status !== 'archived').map(pr => pr.name);
+  return [
+    `Hi! You've been added to devflow${projects.length ? ` (${projects.join(', ')})` : ''}.`,
+    '',
+    `1. Open ${location.origin}/`,
+    `2. Log in with ${email}. No account yet? Choose "Create account" with this email.`,
+    '3. New accounts get a confirmation email: click the link in it (check Junk / Spam), then press "I\'ve confirmed it — continue".',
+    '',
+    'Forgot your password? Use "Forgot password?" on the sign-in screen.',
+    'If it says "Can\'t reach devflow", turn off ad blockers, VPN or iCloud Private Relay, or try another browser.'
+  ].join('\n');
+}
+
 function workspacePeopleHtml(){
   const p = state.project;
   const people = [...state.allowlist].sort((a, b) => displayName(a.id).localeCompare(displayName(b.id)));
@@ -123,18 +151,22 @@ function workspacePeopleHtml(){
       <h3>Everyone in the workspace <span class="count-pill">${people.length}</span></h3>
       <p class="field-hint">Workspace admins can do everything in every project. Members get the role they're given in each project.</p>
       <div class="row-list" id="workspacePeople">
-        ${people.map(u => html`
+        ${people.map(u => { const status = signInStatus(u); return html`
           <div class="allow-row" data-email="${u.id}">
             ${avatarHtml(u.id, 32)}
             <span class="em"><span class="member-name">${displayName(u.id)}${isMe(u.id) ? ' (you)' : ''}</span>
-              <span class="member-meta">${u.id} · ${state.projects.filter(pr => pr.members && pr.members[u.id]).map(pr => pr.key).join(', ') || 'no projects'}</span></span>
+              <span class="member-meta">${u.id} · ${state.projects.filter(pr => pr.members && pr.members[u.id]).map(pr => pr.key).join(', ') || 'no projects'}</span>
+              <span class="member-meta signin-status ${status.warn ? 'warn' : ''}">${status.text}</span></span>
             <select class="wsRole" aria-label="Workspace role for ${u.id}" ${isMe(u.id) ? 'disabled' : ''}>
               <option value="member" ${u.role !== 'admin' ? 'selected' : ''}>Member</option>
               <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Workspace admin</option>
             </select>
             <button type="button" class="ghost small" data-action="view">View</button>
-            ${isMe(u.id) ? '' : html`<button type="button" class="ghost small" data-action="remove">Remove</button>`}
-          </div>`)}
+            ${isMe(u.id) ? '' : html`
+              <button type="button" class="ghost small" data-action="invite" title="Copy joining instructions to send them">Copy invite</button>
+              <button type="button" class="ghost small" data-action="reset" title="Email them a link to choose a new password">Reset password</button>
+              <button type="button" class="ghost small" data-action="remove">Remove</button>`}
+          </div>`; })}
       </div>
       <div class="add-row">
         <input type="email" id="newPersonEmail" aria-label="Email to add" placeholder="teammate@company.com">
@@ -182,6 +214,17 @@ function wireWorkspacePeople(root){
     if(!btn) return;
     const email = btn.closest('.allow-row').dataset.email;
     if(btn.dataset.action === 'view') openProfileModal(email);
+    if(btn.dataset.action === 'invite'){
+      copyText(inviteText(email), { done: `Invite for ${displayName(email)} copied — paste it into an email or chat`, title: `Invite for ${displayName(email)}` });
+    }
+    if(btn.dataset.action === 'reset'){
+      const ok = await confirmDialog({
+        title: `Send ${displayName(email)} a password reset email?`,
+        message: `They'll get a link to choose a new password. If it doesn't arrive within a few minutes, they should check Junk / Spam. Nobody can see their password — admins included.`,
+        confirmLabel: 'Send email'
+      });
+      if(ok) attempt('Could not send the email', async () => { await api.sendPasswordReset(email); showToast(`Password reset email sent to ${email}`, 'success'); });
+    }
     if(btn.dataset.action === 'remove'){
       const ok = await confirmDialog({
         title: `Remove ${displayName(email)} from devflow?`,
@@ -200,7 +243,7 @@ function wireWorkspacePeople(root){
     await attempt('Could not add', async () => {
       await api.addWorkspaceMember(email, WORKSPACE_ROLES.MEMBER);
       await addToProject(email, roleId);
-      showToast(`${email} added${roleId ? ` to ${p.name} as ${roleName(roleId)}` : ' to the workspace'}`, 'success');
+      showToast(`${email} added${roleId ? ` to ${p.name} as ${roleName(roleId)}` : ' to the workspace'} — use "Copy invite" to send them the steps`, 'success');
     });
   });
 }

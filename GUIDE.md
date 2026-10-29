@@ -12,9 +12,11 @@ that keep work visible, and the Manage area. If you're setting devflow up for a 
 1. Open the board's address (your admin will share it) and choose **Create account**.
 2. Use your work email and a password of at least 10 characters.
 3. Check your inbox for a confirmation link, click it, then return and press **I've confirmed it — continue**. (Look in spam if it doesn't arrive within a few minutes.)
-4. Press **Request access**. An admin approves you in **Manage → Members** and adds you to a project; the page opens devflow by itself as soon as they do.
+4. Press **Request access**. An admin approves you in **Manage → Members** and adds you to a project; the page opens devflow by itself as soon as they do. (If an admin adds you directly, it opens by itself too.)
 
-Forgot your password? Type your email on the sign-in screen and choose **Forgot password?**
+Forgot your password? Type your email on the sign-in screen and choose **Forgot password?**, or ask an admin to send you a reset link.
+
+**"Can't reach devflow"** means you're signed in but your browser can't reach the database. That's almost always something on your device or network blocking it. devflow keeps retrying by itself, and after a few failures switches to a slower connection that gets through most blocks. Meanwhile, try turning off ad blockers or privacy extensions, iCloud Private Relay or "Limit IP address tracking" on Apple devices, or a VPN, or try another browser or network. **Copy details for your admin** copies what your admin needs to help.
 
 You can change your password, profile and theme from the avatar menu in the top-right corner.
 
@@ -201,6 +203,10 @@ each section says whether it applies to the whole **workspace** or to the
 **Workspace**
 - **Overview** — the current project at a glance, and anything waiting for an admin.
 - **Members** — the project's members and their roles: add someone from the workspace, change a role, remove someone. Admins also see **access requests** (approve and add to the project with a role in one step) and **everyone in the workspace** (make someone an admin, add a person by email, or remove them from every project at once).
+  Under each person it says when they last opened devflow, or **hasn't signed in yet** in amber, so you can see at a glance whether someone actually got in. To help someone who's stuck:
+  - **Copy invite** copies step-by-step joining instructions (the link, which email to use, the confirmation email, what to do if it says "Can't reach devflow") to paste into an email or chat.
+  - **Reset password** emails them a link to choose a new password. Nobody can see anyone's password, admins included.
+  - Removing someone takes effect immediately, even if they're signed in. Adding them back lets them in straight away, with no new request.
 - **Projects** — admins create, rename and archive projects (archived projects are read-only) and approve or decline requests. Project managers fill in the same form to **request** a project; when an admin approves it, they become its Project manager.
 - **Roles** (admins) — each role is a set of permissions. Changes apply straight away to everyone with that role, in every project. A role can only be deleted once nobody has it.
 

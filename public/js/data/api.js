@@ -21,7 +21,7 @@
        projects/{pid}/config/settings       labels, types, workflow, integrations
        projects/{pid}/meta/counters         next ticket number
 ========================================================= */
-import { db, serverTime, deleteField } from './firebase.js';
+import { db, auth, serverTime, deleteField } from './firebase.js';
 import { state } from '../core/state.js';
 import { COLLECTIONS, DOCS, STATUS, ACTIVITY, DEFAULT_ROLES, DEFAULT_TEMPLATES, DATA_VERSION, normalizeStatus } from '../core/constants.js';
 import { normEmail } from '../core/permissions.js';
@@ -387,6 +387,23 @@ export function requestAccess(email){
 /** Denies (deletes) an access request. */
 export function deleteRequest(email){
   return refs.request(email).delete();
+}
+
+/* ---------------- ACCOUNTS & CONNECTION ---------------- */
+
+/**
+ * Emails someone a link to choose a new password (the same email as
+ * "Forgot password?"). Firebase doesn't say whether the address has an
+ * account, so this succeeds either way.
+ */
+export function sendPasswordReset(email){
+  return auth.sendPasswordResetEmail(normEmail(email));
+}
+
+/** Drops and reopens the database connection, so a retry doesn't wait for Firebase's own back-off. */
+export async function reconnect(){
+  try{ await db.disableNetwork(); await db.enableNetwork(); }
+  catch(e){ console.warn('Reconnect failed:', e); }
 }
 
 /* ---------------- PROFILES ---------------- */

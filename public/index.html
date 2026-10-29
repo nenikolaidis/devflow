@@ -81,6 +81,27 @@
   </div>
 </div>
 
+<!-- ============ CAN'T REACH THE DATABASE ============ -->
+<div id="offlineScreen" class="auth-screen hidden">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <svg class="logo" width="34" height="34" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="var(--accent)"/><path d="M7 9h7M7 13h12M7 17h5" stroke="var(--on-accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><h1>Can't reach devflow</h1><p class="sub">You're signed in, but the database isn't answering</p></div>
+    </div>
+    <p class="screen-msg">Usually something on this device or network is blocking the connection. devflow keeps trying by itself. Meanwhile, try:</p>
+    <ul class="screen-tips">
+      <li>turning off ad blockers or privacy extensions for this site</li>
+      <li>on iPhone, iPad or Mac: turning off iCloud Private Relay and "Limit IP address tracking"</li>
+      <li>turning off a VPN, or switching between Wi-Fi and mobile data</li>
+      <li>another browser</li>
+    </ul>
+    <p class="auth-status" id="offlineStatus" aria-live="polite"></p>
+    <button type="button" class="primary large full-width" id="offlineRetry">Try again</button>
+    <button type="button" class="ghost full-width" id="offlineCopy">Copy details for your admin</button>
+    <button type="button" class="ghost full-width" id="signOutOffline">Sign out</button>
+  </div>
+</div>
+
 <!-- ============ APP ============ -->
 <div id="app" class="hidden">
   <header class="topbar">

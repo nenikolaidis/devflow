@@ -6,6 +6,7 @@
    confirmDialog() "Are you sure?" → Promise<boolean>
    promptDialog()  ask for a line/paragraph of text → Promise<string|null>
    showToast()     a short message at the bottom of the screen
+   copyText()      copy to the clipboard, or show the text to copy by hand
 
    Use these instead of the browser's alert/confirm/prompt.
 ========================================================= */
@@ -173,4 +174,26 @@ export function promptDialog({ title, label, value = '', placeholder = '', multi
     m.$('.dlg-ok').addEventListener('click', submit);
     if(!multiline) input.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
   });
+}
+
+/* ---------------- COPY ---------------- */
+/**
+ * Copies text to the clipboard and confirms with a toast. If the browser
+ * won't allow it, shows the text in a dialog, selected, to copy by hand.
+ */
+export async function copyText(text, { done = 'Copied', title = 'Copy this text' } = {}){
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast(done, 'success');
+  }catch(e){
+    const m = openModal({
+      title, size: 'narrow', initialFocus: '#copy-text',
+      body: html`
+        <div class="field"><label for="copy-text">Select it all and copy</label>
+          <textarea id="copy-text" rows="8" readonly>${text}</textarea></div>
+        <div class="modal-actions"><button type="button" class="primary dlg-ok">Done</button></div>`
+    });
+    m.$('#copy-text').select();
+    m.$('.dlg-ok').addEventListener('click', () => m.close());
+  }
 }
