@@ -78,6 +78,10 @@ export function friendlyAuthError(e){
   if(code.includes('requires-recent-login')) return 'Please sign out and log back in, then try again.';
   if(code.includes('too-many-requests')) return 'Too many attempts. Try again shortly.';
   if(code.includes('user-disabled')) return 'This account has been switched off. Ask a devflow admin.';
+  if(code.includes('popup-blocked')) return 'Your browser blocked the Google window. Allow pop-ups for this site and try again.';
+  if(code.includes('operation-not-allowed')) return 'Google sign-in isn\'t switched on for this devflow yet. Use email and password, or ask your admin (SETUP.md, step 2).';
+  if(code.includes('unauthorized-domain')) return 'Google sign-in isn\'t allowed on this web address yet (Firebase console → Authentication → Settings → Authorized domains).';
+  if(code.includes('network-request-failed')) return 'Couldn\'t reach Google or Firebase. Check your connection, VPN or ad blocker, and try again.';
   return (e && e.message) || 'Something went wrong.';
 }
 

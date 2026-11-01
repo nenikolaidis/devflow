@@ -101,7 +101,8 @@ Firebase console → **Authentication → Settings**:
 
 1. **Password policy** → **Require enforcement**, minimum length **10** (matches `MIN_PASSWORD_LENGTH` in `public/js/config.js`).
 2. **User actions** → keep **Email enumeration protection** on.
-3. **Authorized domains** → keep only `<project-id>.web.app`, `<project-id>.firebaseapp.com`, any custom domain you use, and `localhost`.
+3. **Authorized domains** → keep only `<project-id>.web.app`, `<project-id>.firebaseapp.com`, any custom domain you use, and `localhost`. (Google sign-in only works on these.)
+4. **Sign-in method → Google**: Google accounts arrive with a confirmed email, so they skip the confirmation step — but still need an admin's approval, exactly like everyone else. If someone with a password account continues with Google, Firebase links the two (asking for the password first when it needs proof), so it stays one account.
 
 Accounts created before email verification was required must confirm their email once: they'll see a **Confirm your email** screen on their next sign-in.
 

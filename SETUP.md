@@ -50,9 +50,14 @@ devflow/
 1. Go to [console.firebase.google.com](https://console.firebase.google.com) and choose **Add project**.
 2. Name it (for example `devflow-board`). Google Analytics isn't needed.
 
-## 2. Turn on email sign-in
+## 2. Turn on sign-in: Google, and email and password
 
-**Build → Authentication → Get started → Sign-in method → Email/Password →** enable → **Save**.
+**Build → Authentication → Get started → Sign-in method**:
+
+1. **Google** → **Enable** → choose a **support email** (yours) → **Save**. This is what makes **Continue with Google** work: no passwords to forget, no confirmation emails landing in Junk.
+2. **Add new provider → Email/Password** → enable → **Save**, for people without a Google account.
+
+Both are free. Until Google is enabled, the Google button says so politely and email and password keep working. To make Google's consent screen show your app's name, open **Google Cloud console → APIs & Services → OAuth consent screen** and set the app name (e.g. *devflow*) and your support email.
 
 ## 3. Create the database
 

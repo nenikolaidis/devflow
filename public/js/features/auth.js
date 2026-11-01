@@ -3,7 +3,8 @@
    "pending approval" screen, the Account dialog, and the gate that
    decides which screen a user sees:
 
-     signed out            → login screen
+     signed out            → login screen (Continue with Google, or email
+                             and password)
      email not verified    → "Confirm your email" screen
      temporary password    → "Choose your own password" (an admin gave
                              them one with scripts/admin.mjs)
@@ -27,7 +28,7 @@ import { WORKSPACE_ROLES, WORKSPACE_ROLE_LABELS } from '../core/constants.js';
 import { html } from '../core/html.js';
 import { friendlyAuthError } from '../core/format.js';
 import { myEmail } from '../core/permissions.js';
-import { showToast, openModal, closeAllModals, copyText } from '../core/ui.js';
+import { showToast, openModal, closeAllModals, copyText, promptDialog } from '../core/ui.js';
 import { switchTab } from './nav.js';
 import { refreshUserBadge } from './topbar.js';
 
@@ -38,6 +39,41 @@ const SCREENS = { auth: 'authScreen', verify: 'verifyScreen', newPassword: 'newP
 
 function showScreen(name){
   Object.entries(SCREENS).forEach(([key, id]) => $(id).classList.toggle('hidden', key !== name));
+}
+
+/* ---------------- CONTINUE WITH GOOGLE ---------------- */
+// Google has already confirmed the address, so there's no confirmation
+// email: people go straight to approval (or straight in, if an admin added
+// them). Someone who already has a devflow password for the same email is
+// asked for it once, and Google is linked to that same account.
+async function signInWithGoogle(){
+  $('authError').textContent = '';
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  $('googleBtn').disabled = true;
+  try{
+    await auth.signInWithPopup(provider);
+  }catch(e){
+    if(e.code === 'auth/account-exists-with-different-credential' && e.credential) await linkGoogleToPasswordAccount(e);
+    else if(!/popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(e.code || '')) $('authError').textContent = friendlyAuthError(e);
+  }
+  $('googleBtn').disabled = false;
+}
+$('googleBtn').addEventListener('click', signInWithGoogle);
+
+async function linkGoogleToPasswordAccount(e){
+  const email = e.email || (e.customData && e.customData.email) || '';
+  const password = await promptDialog({
+    title: 'Add Google to your account',
+    label: `You already have a devflow password for ${email}. Enter it once, and from then on you can also continue with Google.`,
+    inputType: 'password', autocomplete: 'current-password', confirmLabel: 'Link Google'
+  });
+  if(!password) return;
+  try{
+    const cred = await auth.signInWithEmailAndPassword(email, password);
+    await cred.user.linkWithCredential(e.credential);
+    showToast('Google is now linked to your account', 'success');
+  }catch(err){ $('authError').textContent = friendlyAuthError(err); }
 }
 
 /* ---------------- LOGIN / SIGN UP ---------------- */
@@ -301,13 +337,28 @@ $('offlineCopy').addEventListener('click', () => copyText([
 $('accountBtn').addEventListener('click', openAccountModal);
 
 function openAccountModal(){
+  // People who only ever continue with Google have no devflow password to change.
+  const providers = (state.currentUser.providerData || []).map(p => p.providerId);
+  const hasPassword = providers.includes('password') || providers.length === 0;
+  const via = providers.includes('google.com') ? (hasPassword ? 'Google or password' : 'Google') : 'password';
+  const who = html`
+      <div class="field"><label for="acc-who">Signed in as</label>
+        <input type="text" id="acc-who" value="${state.currentUser.email} · ${WORKSPACE_ROLE_LABELS[state.workspaceRole] || state.workspaceRole} · signs in with ${via}" disabled></div>`;
+  if(!hasPassword){
+    const g = openModal({
+      title: 'Account', size: 'narrow',
+      body: html`${who}
+        <p class="field-hint">You continue with Google, so there's no devflow password to change — your Google account's security applies.</p>
+        <div class="modal-actions"><button type="button" class="danger" id="accSignOut">Sign out</button></div>`
+    });
+    g.$('#accSignOut').addEventListener('click', () => auth.signOut());
+    return;
+  }
   const m = openModal({
     title: 'Account',
     size: 'narrow',
     initialFocus: '#acc-current',
-    body: html`
-      <div class="field"><label for="acc-who">Signed in as</label>
-        <input type="text" id="acc-who" value="${state.currentUser.email} · ${WORKSPACE_ROLE_LABELS[state.workspaceRole] || state.workspaceRole}" disabled></div>
+    body: html`${who}
       <div class="field"><label for="acc-current">Current password</label>
         <input type="password" id="acc-current" autocomplete="current-password"></div>
       <div class="field"><label for="acc-new">New password</label>

@@ -146,7 +146,7 @@ export function confirmDialog({ title, message, confirmLabel = 'Confirm', danger
 
 /* ---------------- PROMPT ---------------- */
 /** Resolves the trimmed text, or null if cancelled. */
-export function promptDialog({ title, label, value = '', placeholder = '', multiline = false, maxLength = 500, confirmLabel = 'Save', required = true }){
+export function promptDialog({ title, label, value = '', placeholder = '', multiline = false, maxLength = 500, confirmLabel = 'Save', required = true, inputType = 'text', autocomplete = 'off' }){
   return new Promise(resolve => {
     let answer = null;
     const m = openModal({
@@ -156,7 +156,7 @@ export function promptDialog({ title, label, value = '', placeholder = '', multi
           <label for="dlg-input">${label}</label>
           ${multiline
             ? html`<textarea id="dlg-input" rows="4" maxlength="${maxLength}" placeholder="${placeholder}">${value}</textarea>`
-            : html`<input type="text" id="dlg-input" maxlength="${maxLength}" value="${value}" placeholder="${placeholder}">`}
+            : html`<input type="${inputType}" id="dlg-input" maxlength="${maxLength}" value="${value}" placeholder="${placeholder}" autocomplete="${autocomplete}">`}
         </div>
         <div class="auth-error dlg-error" role="alert"></div>
         <div class="modal-actions">

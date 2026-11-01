@@ -274,7 +274,7 @@ let currentUser = null;
 function makeUser(email){
   const unavailable = async () => { throw demoError('demo/unavailable', NOT_IN_DEMO); };
   return {
-    uid: email, email, emailVerified: true, displayName: null,
+    uid: email, email, emailVerified: true, displayName: null, providerData: [{ providerId: 'password' }],
     reload: async () => {}, getIdToken: async () => 'demo', sendEmailVerification: async () => {},
     reauthenticateWithCredential: unavailable, updatePassword: unavailable
   };
@@ -288,6 +288,7 @@ const auth = {
     return () => authListeners.delete(cb);
   },
   signInWithEmailAndPassword: async () => { throw demoError('demo/unavailable', NOT_IN_DEMO); },
+  signInWithPopup: async () => { throw demoError('demo/unavailable', NOT_IN_DEMO); },
   createUserWithEmailAndPassword: async () => { throw demoError('demo/unavailable', NOT_IN_DEMO); },
   sendPasswordResetEmail: async () => { throw demoError('demo/unavailable', NOT_IN_DEMO); },
   // "Sign out" starts the demo over.
@@ -308,7 +309,7 @@ export function installDemoFirebase(){
   window.firebase = {
     initializeApp: () => ({}),
     appCheck: () => ({ activate(){} }),
-    auth: Object.assign(() => auth, { EmailAuthProvider: { credential: () => ({}) } }),
+    auth: Object.assign(() => auth, { EmailAuthProvider: { credential: () => ({}) }, GoogleAuthProvider: class { setCustomParameters(){} } }),
     firestore: Object.assign(() => db, {
       FieldValue: { serverTimestamp: () => SERVER_TIME, delete: () => DELETE },
       Timestamp

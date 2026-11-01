@@ -116,6 +116,7 @@ tests/e2e/demo.e2e.test.js      the public demo works, and never contacts Fireba
 scripts/weekly-summary.mjs      the Monday Discord summary (run by GitHub Actions)
 scripts/admin.mjs               admin tool: check / list / set-password / verify / disable / enable / delete accounts
 tests/e2e/admin-tool.e2e.test.js the admin tool against the emulators, and the app's "choose your own password" screen
+tests/e2e/google-signin.e2e.test.js Continue with Google: new users, linking to a password account, errors
 ```
 
 ---
@@ -140,7 +141,7 @@ the screen repaints. That's why every open browser stays in sync.
 
 | Situation | Screen |
 |---|---|
-| signed out | login |
+| signed out | login: **Continue with Google** (`signInWithPopup`; an existing password account for the same email is linked, asking for its password if Firebase requires) or email + password |
 | email not verified | "Confirm your email" — checks every 4 s (and when the tab is shown again) and continues by itself |
 | signed in with a temporary password (`passwordResets/{email}` exists) | "Choose your own password"; saving clears the marker |
 | verified, not on `allowlist` | "pending approval" with **Request access** |

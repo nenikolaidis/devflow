@@ -9,6 +9,10 @@ that keep work visible, the Manage area, and what to do when someone can't get i
 
 ## 1. Getting in
 
+**The easy way: Continue with Google.** Press it, pick your Google account, and you're signed in, with no password to create and no confirmation email. If your admin has already added that address, you're straight in; otherwise press **Request access** (step 4). If you already had a devflow password for the same email, Google is simply added to that account: same access, same tickets.
+
+**With email and password:**
+
 1. Open the board's address (your admin will share it) and choose **Create account**.
 2. Use your work email and a password of at least 10 characters.
 3. Check your inbox for a confirmation link and click it. The devflow page continues by itself (or press **I've confirmed it — continue**). Look in Junk / Spam if it doesn't arrive within a few minutes.
@@ -235,6 +239,7 @@ Ask them **what they see**, ideally a screenshot. Every screen means something d
 
 | They see | It means | Fix |
 |---|---|---|
+| Trouble with passwords or confirmation emails in general | Suggest **Continue with Google** — no password, no confirmation email. If they already have a password account with the same email, Google is linked to it. |
 | **"Wrong email or password"** | The password is wrong, **or** there's no account with that email (Firebase deliberately doesn't say which — e.g. the account was deleted in the Firebase console) | **Forgot password?** on the sign-in screen, or **Reset password** in Manage → Members. If no email arrives, they probably have no account: they choose **Create account** with the same email. Admin tool: `check` says which, `set-password` gives a temporary password. |
 | **"Confirm your email"** | The account exists but the email isn't confirmed | Look in Junk / Spam (iCloud is strict) for an email from `noreply@<project>.firebaseapp.com`, click the link; the page continues by itself. Or **Resend email**. If it never arrives: Manage → Members → *Trying to get in* → **Copy fix** (`npm run admin -- verify …`). |
 | **"Waiting for approval"** | Signed in, but this exact address isn't approved | Manage → Members → *Trying to get in* → **Approve**. Check the spelling: Gmail ignores dots, devflow doesn't — the list warns you about look-alikes. |

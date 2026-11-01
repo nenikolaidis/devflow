@@ -152,6 +152,10 @@ fieldset.field legend{ padding:0; margin-bottom:6px; }
 .auth-error:empty,.auth-status:empty{ display:none; }
 .auth-note{ font-size:12px; color:var(--muted); text-align:center; }
 .screen-msg{ font-size:14px; color:var(--text-2); }
+.google-btn{ gap:10px; background:var(--panel); border:1px solid var(--line-strong); color:var(--text); font-weight:600; }
+.google-btn:hover{ background:var(--chip); }
+.auth-divider{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; }
+.auth-divider::before,.auth-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
 .screen-tips{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--text-2); }
 
 /* ---------------- 5. APP SHELL ---------------- */

@@ -58,6 +58,7 @@ I built devflow to run day-to-day work on a development team: tickets move throu
 - Optional **email** to a ticket's new owner
 
 **Feels good to use**
+- **Continue with Google** — or email and password
 - Light and dark themes (follows your system setting), keyboard shortcuts (`?` lists them), works on phones
 - Accessible: real buttons and labels, keyboard focus you can see, screen-reader announcements
 
@@ -71,10 +72,10 @@ All rules that matter — who can do what, and what the workflow allows — are 
 |---|---|
 | **Front end** | Plain HTML, CSS and JavaScript modules — no framework, no build step |
 | **Data & sync** | Cloud Firestore with live listeners |
-| **Sign-in** | Firebase Authentication (email + password, verified email required) |
+| **Sign-in** | Firebase Authentication: **Continue with Google**, or email + password with a verified email |
 | **Security** | Firestore security rules — 62 automated tests cover them, project by project and role by role |
 | **Hosting** | Firebase Hosting with a strict Content-Security-Policy and other security headers |
-| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (40 steps, including the upgrade to projects, losing the connection, the logs and people stuck getting in, plus 11 for the admin tool and 9 for the public demo) on every push and pull request; deploys only when they pass |
+| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (40 steps, including the upgrade to projects, losing the connection, the logs and people stuck getting in, plus 11 for the admin tool, 7 for Google sign-in and 9 for the public demo) on every push and pull request; deploys only when they pass |
 | **Scheduled jobs** | A GitHub Actions cron job for the weekly Discord summary (no paid Firebase plan needed) |
 
 The code is organised in layers — `core/` (no database code), `data/` (all Firestore access), `features/` (one file per screen) — and every piece of user content goes through an auto-escaping HTML template, so it can never run as code.

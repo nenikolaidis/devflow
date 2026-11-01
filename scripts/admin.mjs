@@ -81,6 +81,8 @@ function mailbox(address){
   if(domain === 'gmail.com') local = local.replace(/\./g, '');
   return `${local}@${domain}`;
 }
+const PROVIDERS = { password: 'password', 'google.com': 'Google' };
+const signInMethods = (user) => (user.providerData || []).map(p => PROVIDERS[p.providerId] || p.providerId).join(' + ') || 'password';
 const STEPS = { 'confirm-email': 'hasn\'t confirmed their email', 'choose-password': 'hasn\'t chosen their own password', 'waiting-approval': 'waiting for approval', 'signed-in': 'got in' };
 
 async function findUser(address){
@@ -136,6 +138,7 @@ async function check(){
   const added = millis(allow.exists && allow.data().addedAt);
   console.log(`\n  ${email}`);
   console.log(`  Sign-in account  ${user ? `exists · email ${user.emailVerified ? 'confirmed' : 'NOT confirmed'} · ${user.disabled ? 'DISABLED' : 'enabled'}` : 'NONE — they need to "Create account" first'}`);
+  if(user) console.log(`  Signs in with    ${signInMethods(user)}`);
   if(user) console.log(`  Created          ${when(user.metadata.creationTime)} · last sign-in ${when(user.metadata.lastSignInTime)}`);
   console.log(`  devflow access   ${allow.exists ? (allow.data().role === 'admin' ? 'Workspace admin' : 'Member') : 'NOT approved'}${request.exists ? ' · access request waiting' : ''}`);
   console.log(`  Projects         ${projects.length ? projects.map(p => `${p.key} (${p.members[email]})`).join(', ') : 'none'}`);
@@ -167,11 +170,11 @@ async function list(){
   const rows = users.map(u => {
     const e = (u.email || '').toLowerCase();
     const access = allow.has(e) ? (allow.get(e) === 'admin' ? 'admin' : 'member') : requests.has(e) ? 'request waiting' : 'not approved';
-    return [e || u.uid, u.emailVerified ? 'yes' : 'NO', u.disabled ? 'DISABLED' : '', access, when(u.metadata.lastSignInTime)];
+    return [e || u.uid, signInMethods(u), u.emailVerified ? 'yes' : 'NO', u.disabled ? 'DISABLED' : '', access, when(u.metadata.lastSignInTime)];
   });
-  allow.forEach((role, e) => { if(!users.some(u => (u.email || '').toLowerCase() === e)) rows.push([e, '—', '', `${role} · NO ACCOUNT YET`, 'never']); });
+  allow.forEach((role, e) => { if(!users.some(u => (u.email || '').toLowerCase() === e)) rows.push([e, '—', '—', '', `${role} · NO ACCOUNT YET`, 'never']); });
   rows.sort((a, b) => a[0].localeCompare(b[0]));
-  const head = ['Email', 'Confirmed', '', 'devflow access', 'Last sign-in'];
+  const head = ['Email', 'Signs in with', 'Confirmed', '', 'devflow access', 'Last sign-in'];
   const width = head.map((h, i) => Math.max(h.length, ...rows.map(r => String(r[i]).length)));
   const line = (r) => '  ' + r.map((c, i) => String(c).padEnd(width[i])).join('  ');
   console.log('\n' + line(head) + '\n' + line(width.map(w => '-'.repeat(w))) + '\n' + rows.map(line).join('\n') + `\n\n  ${users.length} accounts\n`);
@@ -179,6 +182,7 @@ async function list(){
 
 async function setPassword(){
   const user = await requireUser(email);
+  if((user.providerData || []).some(p => p.providerId === 'google.com')) console.log('  (They can also "Continue with Google" — often easier than a password.)');
   const password = temporaryPassword();
   await auth.updateUser(user.uid, { password });
   await auth.revokeRefreshTokens(user.uid); // signs them out everywhere
