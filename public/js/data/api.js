@@ -70,7 +70,9 @@ export const refs = {
   notification: (id) => db.collection(COLLECTIONS.NOTIFICATIONS).doc(id),
   logs: () => db.collection(COLLECTIONS.LOGS),
   log: (id) => db.collection(COLLECTIONS.LOGS).doc(id),
-  passwordReset: (email) => db.collection(COLLECTIONS.PASSWORD_RESETS).doc(normEmail(email))
+  passwordReset: (email) => db.collection(COLLECTIONS.PASSWORD_RESETS).doc(normEmail(email)),
+  joinStatus: () => db.collection(COLLECTIONS.JOIN_STATUS),
+  joinEntry: (email) => db.collection(COLLECTIONS.JOIN_STATUS).doc(normEmail(email))
 };
 
 const me = () => state.currentUser.email;
@@ -445,7 +447,36 @@ export async function deleteLogEntries(ids){
 
 /** True if an admin gave this person a temporary password (scripts/admin.mjs) that they must replace. */
 export async function mustChoosePassword(email){
-  return (await refs.passwordReset(email).get()).exists;
+  const doc = await refs.passwordReset(email).get();
+  if(!doc.exists) return false;
+  // A marker from before this account existed (the account was deleted and
+  // created again) doesn't apply: they've only just chosen their password.
+  const created = Date.parse((auth.currentUser && auth.currentUser.metadata && auth.currentUser.metadata.creationTime) || '') || 0;
+  const requiredAt = doc.data().requiredAt;
+  if(created && requiredAt && requiredAt.toMillis && requiredAt.toMillis() < created){
+    refs.passwordReset(email).delete().catch(() => {});
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Records which step of getting in the signed-in person is at, so admins see
+ * people who are stuck (Manage → Members → "Trying to get in"). Best effort.
+ * stage: 'confirm-email' | 'choose-password' | 'waiting-approval' | 'signed-in'
+ */
+export function setJoinStatus(stage, detail = ''){
+  const user = auth.currentUser;
+  if(!user || !user.email) return;
+  refs.joinEntry(user.email).set({
+    stage, detail: String(detail).slice(0, 300), browser: navigator.userAgent.slice(0, 300),
+    emailVerified: !!user.emailVerified, updatedAt: serverTime()
+  }).catch(() => { /* e.g. offline: the next step reports again */ });
+}
+
+/** Admins: removes someone from the "Trying to get in" list. */
+export function dismissJoinStatus(email){
+  return refs.joinEntry(email).delete();
 }
 
 /** Sets the signed-in person's own password and clears the "temporary password" marker. */

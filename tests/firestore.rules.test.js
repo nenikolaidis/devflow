@@ -459,3 +459,29 @@ describe('temporary passwords (set by the admin tool)', () => {
     await assertFails(setDoc(doc(as('dev2'), `passwordResets/${U.dev2}`), { by: 'me' }));
   });
 });
+
+/* ------------------------------------------------------------------ */
+describe('"trying to get in" status', () => {
+  const status = (stage, emailVerified, extra = {}) => ({ stage, emailVerified, updatedAt: serverTimestamp(), ...extra });
+
+  it('anyone signed in reports their own step — even before confirming their email', async () => {
+    await assertSucceeds(setDoc(doc(as('outsider', { verified: false }), `joinStatus/${U.outsider}`), status('confirm-email', false)));
+    await assertSucceeds(setDoc(doc(as('outsider'), `joinStatus/${U.outsider}`), status('waiting-approval', true, { detail: 'no request yet' })));
+    await assertFails(setDoc(doc(anonymous(), `joinStatus/${U.outsider}`), status('confirm-email', false)));
+  });
+  it('only for themselves, only known steps, and the "confirmed" flag must be true to fact', async () => {
+    await assertFails(setDoc(doc(as('outsider'), `joinStatus/${U.dev}`), status('waiting-approval', true)));
+    await assertFails(setDoc(doc(as('outsider', { verified: false }), `joinStatus/${U.outsider}`), status('waiting-approval', true)));
+    await assertFails(setDoc(doc(as('outsider'), `joinStatus/${U.outsider}`), status('hacking', true)));
+    await assertFails(setDoc(doc(as('outsider'), `joinStatus/${U.outsider}`), status('signed-in', true, { detail: 'x'.repeat(301) })));
+    await assertFails(setDoc(doc(as('outsider'), `joinStatus/${U.outsider}`), status('signed-in', true, { role: 'admin' })));
+    await assertFails(setDoc(doc(as('outsider'), `joinStatus/${U.outsider}`), { stage: 'signed-in', emailVerified: true, updatedAt: Timestamp.fromMillis(0) }));
+  });
+  it('only workspace admins read or dismiss them', async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), `joinStatus/${U.outsider}`), { stage: 'confirm-email', emailVerified: false, updatedAt: Timestamp.now() }));
+    await assertSucceeds(getDocs(collection(as('admin'), 'joinStatus')));
+    await assertFails(getDocs(collection(as('pm'), 'joinStatus')));
+    await assertFails(getDoc(doc(as('outsider'), `joinStatus/${U.outsider}`)));
+    await assertSucceeds(deleteDoc(doc(as('admin'), `joinStatus/${U.outsider}`)));
+  });
+});

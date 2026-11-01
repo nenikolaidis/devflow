@@ -23,6 +23,8 @@ export const EVENTS = {
   PROJECT_REQUESTS_CHANGED: 'project-requests-changed',
   WORKSPACE_CHANGED: 'workspace-changed',        // meta/workspace (upgrade status)
   LOGS_CHANGED: 'logs-changed',                  // problem and admin-action log (admins)
+  JOIN_STATUS_CHANGED: 'join-status-changed',    // people trying to get in (admins)
+  ATTENTION_CHANGED: 'attention-changed',        // something an admin had to look at was seen (the Manage dot)
   ERROR_SHOWN: 'error-shown'                     // an error message was shown to the user (payload: text)
 };
 

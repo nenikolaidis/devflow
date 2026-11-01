@@ -10,6 +10,7 @@
    newest 300 (state.logs, kept live by data/sync.js for admins).
 ========================================================= */
 import { state } from '../../core/state.js';
+import { emit, EVENTS } from '../../core/events.js';
 import { html } from '../../core/html.js';
 import { icon } from '../../core/icons.js';
 import { formatDateTime, timeAgo } from '../../core/format.js';
@@ -153,9 +154,7 @@ export function renderLogs(root){
     markSeen();
     const navBadge = document.querySelector('#manageNav [data-section=logs] .nav-badge');
     if(navBadge) navBadge.remove();
-    const tab = document.getElementById('navManage'); // the dot on the Manage tab (features/nav.js)
-    tab.classList.remove('has-alert');
-    tab.title = '';
+    emit(EVENTS.ATTENTION_CHANGED); // the dot on the Manage tab (features/nav.js)
   }
   root.querySelectorAll('details[data-key]').forEach(d => d.addEventListener('toggle', () => { if(d.open) view.open.add(d.dataset.key); else view.open.delete(d.dataset.key); }));
 

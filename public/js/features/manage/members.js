@@ -6,8 +6,9 @@
    Workspace people (workspace admins only):
      access requests (approve into the workspace, optionally straight into
      this project), everyone in the workspace, admin/member, remove — and
-     the tools for helping someone get in: when they last signed in, a
-     password reset email, and a ready-made invite to paste to them.
+     the tools for helping someone get in: who's trying to get in and where
+     they're stuck, when people last signed in, a password reset email,
+     and a ready-made invite to paste to them.
 ========================================================= */
 import { state } from '../../core/state.js';
 import { html } from '../../core/html.js';
@@ -104,6 +105,69 @@ function wireProjectMembers(root){
 
 /* ---------------- WORKSPACE PEOPLE (admins) ---------------- */
 
+/* ---------------- TRYING TO GET IN (admins) ---------------- */
+// Each signed-in account reports which step it's at (data/api.js
+// setJoinStatus), including before its email is confirmed — so admins see
+// people the problem log can't reach yet.
+const STUCK_FOR_DAYS = 30;
+const STUCK_STEPS = {
+  'confirm-email': j => `created an account${j.detail ? ` (${j.detail.replace(/^created /, '')})` : ''} but hasn't confirmed their email — ask them to look in Junk / Spam and click the link, or confirm it for them with the admin tool ("Copy fix")`,
+  'waiting-approval': j => `signed in and waiting — ${j.detail || 'hasn\'t pressed Request access'}`,
+  'choose-password': () => 'signed in with a temporary password but hasn\'t chosen their own yet'
+};
+
+/** The same mailbox, as far as people are concerned: case, "+tags", and Gmail's ignored dots. */
+function mailbox(email){
+  let [local, domain] = normEmail(email).split('@');
+  if(!domain) return normEmail(email);
+  local = local.split('+')[0];
+  if(domain === 'googlemail.com') domain = 'gmail.com';
+  if(domain === 'gmail.com') local = local.replace(/\./g, '');
+  return `${local}@${domain}`;
+}
+/** An approved address that's the same mailbox as `email` but spelled differently, if any. */
+function lookalike(email){
+  const twin = state.allowlist.find(u => u.id !== normEmail(email) && mailbox(u.id) === mailbox(email));
+  return twin ? twin.id : '';
+}
+
+/** People who signed in but haven't made it into devflow, newest first. */
+export function stuckPeople(){
+  const approved = new Set(state.allowlist.map(u => u.id));
+  const requested = new Set(state.accessRequests.map(r => r.id));
+  const since = Date.now() - STUCK_FOR_DAYS * 86400000;
+  const at = (j) => (j.updatedAt && j.updatedAt.toMillis ? j.updatedAt.toMillis() : Date.now());
+  return state.joinStatus
+    .filter(j => STUCK_STEPS[j.stage] && at(j) > since)
+    .filter(j => !(j.stage === 'waiting-approval' && (approved.has(j.id) || requested.has(j.id))))
+    .sort((a, b) => at(b) - at(a));
+}
+
+function stuckHtml(){
+  const list = stuckPeople();
+  if(!list.length) return '';
+  const p = state.project;
+  return html`
+    <div class="card-section">
+      <h3>Trying to get in <span class="count-pill">${list.length}</span></h3>
+      <p class="field-hint">People who signed in but haven't made it into devflow yet — and where they're stuck.</p>
+      <div class="row-list" id="stuckPeople">
+        ${list.map(j => { const twin = lookalike(j.id); return html`
+          <div class="request-row stuck-row" data-email="${j.id}">
+            <span class="em"><span class="member-name">${j.id}</span>
+              <span class="member-meta signin-status warn">${STUCK_STEPS[j.stage](j)} · ${timeAgo(j.updatedAt) || 'just now'}</span>
+              ${twin ? html`<span class="member-meta lookalike">You added <strong>${twin}</strong>, but they sign in as <strong>${j.id}</strong>. Their mailbox treats these as the same; devflow doesn't. Approve this address (and remove the other).</span>` : ''}</span>
+            ${j.stage === 'waiting-approval' ? html`
+              ${p ? html`<label class="inline-check"><input type="checkbox" class="addToProject" checked> add to ${p.name} as</label>
+                <select class="reqRole" aria-label="Role in ${p.name}">${roleOptions(DEFAULT_MEMBER_ROLE)}</select>` : ''}
+              <button type="button" class="primary small" data-action="approve">Approve</button>` : ''}
+            ${j.stage === 'confirm-email' ? html`<button type="button" class="ghost small" data-action="copy-fix" title="Copy the admin-tool command that confirms their email">Copy fix</button>` : ''}
+            <button type="button" class="ghost small" data-action="dismiss">Dismiss</button>
+          </div>`; })}
+      </div>
+    </div>`;
+}
+
 /** When someone last opened devflow — shows at a glance whether a new or returning person actually got in. */
 function signInStatus(u){
   const last = state.profiles[u.id] && state.profiles[u.id].lastActive;
@@ -133,6 +197,7 @@ function workspacePeopleHtml(){
   const p = state.project;
   const people = [...state.allowlist].sort((a, b) => displayName(a.id).localeCompare(displayName(b.id)));
   return html`
+    ${stuckHtml()}
     <div class="card-section">
       <h3>Access requests <span class="count-pill">${state.accessRequests.length}</span></h3>
       <div class="row-list" id="accessRequests">
@@ -199,6 +264,24 @@ function wireWorkspacePeople(root){
     }else{
       await attempt('Could not deny', async () => { await api.deleteRequest(email); showToast(`${email} denied`); });
     }
+  });
+
+  const stuck = root.querySelector('#stuckPeople');
+  if(stuck) stuck.addEventListener('click', async e => {
+    const btn = e.target.closest('button[data-action]');
+    if(!btn) return;
+    const row = btn.closest('.stuck-row');
+    const email = row.dataset.email;
+    if(btn.dataset.action === 'approve'){
+      const roleId = p && row.querySelector('.addToProject') && row.querySelector('.addToProject').checked ? row.querySelector('.reqRole').value : '';
+      await attempt('Could not approve', async () => {
+        await api.addWorkspaceMember(email, WORKSPACE_ROLES.MEMBER);
+        await addToProject(email, roleId);
+        showToast(`${email} approved${roleId ? ` and added to ${p.name} as ${roleName(roleId)}` : ''} — their page opens devflow by itself`, 'success');
+      });
+    }
+    if(btn.dataset.action === 'copy-fix') copyText(`npm run admin -- verify ${email}`, { done: 'Command copied — run it in Terminal, in the devflow folder (SETUP.md step 13)', title: 'Confirm their email' });
+    if(btn.dataset.action === 'dismiss') attempt('Could not dismiss', () => api.dismissJoinStatus(email));
   });
 
   root.querySelector('#workspacePeople').addEventListener('change', e => {

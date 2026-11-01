@@ -141,7 +141,7 @@ the screen repaints. That's why every open browser stays in sync.
 | Situation | Screen |
 |---|---|
 | signed out | login |
-| email not verified | "Confirm your email" |
+| email not verified | "Confirm your email" — checks every 4 s (and when the tab is shown again) and continues by itself |
 | signed in with a temporary password (`passwordResets/{email}` exists) | "Choose your own password"; saving clears the marker |
 | verified, not on `allowlist` | "pending approval" with **Request access** |
 | on `allowlist` | the app; `startSync()` attaches the workspace listeners and opens the last-used project (`switchProject()`) |
@@ -229,6 +229,7 @@ Subcollections:
 | `projects/{pid}/config/settings` | `labels[{name, color}]`, `types[{key, label, icon, color, enabled}]` (*manage content*); `staleDays`, `wipLimits{status: n}`, `dodItems[{id, text}]`, `dodRequired[id]` (*manage workflow*); `discordWebhookUrl`, `weeklySummary` (*manage integrations*); `updatedBy`, `updatedAt` | by permission group |
 | `projects/{pid}/sprints/{autoId}` | `name`, `goal`, `start`, `end`, `status` (`planned`·`active`·`closed`), `createdBy`, `createdAt` | *manage sprints* |
 | `projects/{pid}/templates/{autoId}` | `name`, `type`, `priority`, `labels`, `reviewers`, `description`, `order`, `enabled`, `updatedBy`, `updatedAt`. None saved = the built-in `DEFAULT_TEMPLATES` | *manage content* |
+| `joinStatus/{email}` | `stage` (`confirm-email`·`choose-password`·`waiting-approval`·`signed-in`), `detail`, `browser`, `emailVerified` (must match the token), `updatedAt` | the person themselves, at each step of the sign-in gate (`api.setJoinStatus`); admins read (Members → *Trying to get in*) and dismiss |
 | `passwordResets/{email}` | `requiredAt`, `by` | created only by `scripts/admin.mjs` (server key); the person reads it and deletes it after choosing a password |
 | `logs/{autoId}` | `kind` (`problem`·`admin`), `type` (e.g. `offline`, `js-error`, `error-shown`, `sync-error`, `reconnected`; `member-added`, `role-changed`…), `message`, `detail`, `email`, `projectId`, `target`, `page`, `browser`, `count`, `occurredAt`, `createdAt` (server time), `expiresAt` (TTL) | problems: anyone verified, as themselves; admin actions: approved people (written by `data/log.js`). Only admins read or delete; nobody edits |
 | `notifications/{autoId}` | `to`, `by`, `type` (`mention`), `projectId`, `ticketFid`, `ticketId`, `ticketTitle`, `text`, `createdAt`, `read` | sender creates (as themselves, to a teammate); only the recipient reads, marks read or deletes. Index in `firestore.indexes.json` |
@@ -349,7 +350,7 @@ unusual).
 ```bash
 npm install            # dev tools only — nothing here is deployed
 npm test               # both suites below
-npm run test:rules     # 59 security-rules tests against the Firestore emulator
+npm run test:rules     # 62 security-rules tests against the Firestore emulator
 npm run test:e2e       # end-to-end: headless Chrome drives the real app against the emulators
 npm run emulators      # local Auth + Firestore (throwaway data, project "demo-devflow")
 npm run serve          # serves public/ at http://localhost:5050
@@ -376,7 +377,8 @@ the Definition of Done, viewer restrictions, editing a role, requesting
 and approving a project, switching projects, archive, views, access
 requests, losing the database connection (retry and the long-polling
 fallback), removing and re-adding someone while they're signed in, the
-admin's sign-in status / invite / password reset tools, shortcuts and
+admin's sign-in status / invite / password reset tools, the "Trying to get in"
+list (unconfirmed email, never asked, look-alike Gmail address), shortcuts and
 sign-out. Part 2 seeds a board in the old
 single-board layout and runs **Upgrade now**. When you add a feature, add
 a step.

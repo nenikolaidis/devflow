@@ -119,10 +119,27 @@ describe('admin tool (scripts/admin.mjs)', { concurrency: false }, () => {
     assert.match(out, /3 accounts/);
   });
 
-  it('verify confirms an email, so they skip the "confirm your email" screen', async () => {
-    assert.equal((await tool('verify', 'unconfirmed@team.dev')).code, 0);
+  it('verify confirms an email, and the waiting "Confirm your email" page continues by itself', async () => {
     const page = await signIn('unconfirmed@team.dev', PASSWORD);
-    await visible(page, 'app');
+    await visible(page, 'verifyScreen');
+    assert.equal((await tool('verify', 'unconfirmed@team.dev')).code, 0);
+    await visible(page, 'app'); // no button press, no reload
+  });
+
+  it('check spots a look-alike address (Gmail ignores dots; devflow can\'t)', async () => {
+    await createUser('jane.doe@gmail.com');
+    await fetch(`${FIRESTORE}/allowlist?documentId=janedoe@gmail.com`, { method: 'POST', headers: OWNER, body: JSON.stringify({ fields: { role: { stringValue: 'member' } } }) });
+    const { out } = await tool('check', 'jane.doe@gmail.com');
+    assert.match(out, /Look-alike\s+you approved janedoe@gmail\.com/);
+    assert.match(out, /Approve jane\.doe@gmail\.com in Manage → Members \(and remove janedoe@gmail\.com\)/);
+  });
+
+  it('an old temporary-password marker doesn\'t follow a deleted and re-created account', async () => {
+    // Left behind when an account is deleted in the Firebase console instead of with the tool.
+    await fetch(`${FIRESTORE}/passwordResets?documentId=recreated@team.dev`, { method: 'POST', headers: OWNER,
+      body: JSON.stringify({ fields: { by: { stringValue: 'admin tool' }, requiredAt: { timestampValue: new Date(Date.now() - 86400000).toISOString() } } }) });
+    await createUser('recreated@team.dev', { role: 'member' });
+    await visible(await signIn('recreated@team.dev', PASSWORD), 'app');
   });
 
   it('set-password gives a temporary password, and the app makes them choose their own', async () => {
@@ -130,7 +147,7 @@ describe('admin tool (scripts/admin.mjs)', { concurrency: false }, () => {
     assert.equal(code, 0, out);
     tempPassword = (out.match(/^\s+([A-Za-z2-9]{4}-[A-Za-z2-9]{4}-[A-Za-z2-9]{4})\s*$/m) || [])[1];
     assert.ok(tempPassword, `a temporary password is printed:\n${out}`);
-    assert.equal(await authError(await signIn('stuck@team.dev', PASSWORD)), 'Wrong email or password.', 'the old password stops working');
+    assert.match(await authError(await signIn('stuck@team.dev', PASSWORD)), /^Wrong email or password/, 'the old password stops working');
 
     const page = await signIn('stuck@team.dev', tempPassword);
     await visible(page, 'newPasswordScreen');
@@ -145,7 +162,7 @@ describe('admin tool (scripts/admin.mjs)', { concurrency: false }, () => {
 
     const again = await signIn('stuck@team.dev', 'my own password 1');
     await visible(again, 'app'); // no second prompt
-    assert.equal(await authError(await signIn('stuck@team.dev', tempPassword)), 'Wrong email or password.', 'the temporary password is gone');
+    assert.match(await authError(await signIn('stuck@team.dev', tempPassword)), /^Wrong email or password/, 'the temporary password is gone');
   });
 
   it('disable stops someone signing in; enable lets them back', async () => {

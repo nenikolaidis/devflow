@@ -182,6 +182,23 @@ service cloud.firestore {
       allow delete: if isApproved() && resource.data.to == myEmail();
     }
 
+    // Where someone is in getting in (Manage → Members → "Trying to get in"),
+    // so admins can see people who are stuck *before* the log can reach them:
+    // email not confirmed yet, waiting without having asked for access,
+    // a different spelling of their address… One document per email,
+    // written only by that person (confirmed email or not), small and
+    // server-timestamped; the confirmed flag must be the truth.
+    match /joinStatus/{email} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isSignedIn() && myEmail() == email
+        && request.resource.data.keys().hasOnly(['stage', 'detail', 'browser', 'emailVerified', 'updatedAt'])
+        && request.resource.data.stage in ['confirm-email', 'choose-password', 'waiting-approval', 'signed-in']
+        && request.resource.data.emailVerified == (request.auth.token.email_verified == true)
+        && optString(request.resource.data, 'detail', 300)
+        && optString(request.resource.data, 'browser', 300)
+        && request.resource.data.updatedAt == request.time;
+    }
+
     // "Choose a new password": set by the admin tool (scripts/admin.mjs, which
     // bypasses these rules) after giving someone a temporary password. Only
     // that person can see it, and they clear it once they've chosen their own.

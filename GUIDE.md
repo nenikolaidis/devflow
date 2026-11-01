@@ -2,7 +2,7 @@
 
 This guide is for everyone on the team. It covers getting in, projects
 and roles, the board, how a ticket moves from idea to done, the features
-that keep work visible, and the Manage area. If you're setting devflow up for a team, start with
+that keep work visible, the Manage area, and what to do when someone can't get in. If you're setting devflow up for a team, start with
 [SETUP.md](SETUP.md) instead.
 
 ---
@@ -11,7 +11,7 @@ that keep work visible, and the Manage area. If you're setting devflow up for a 
 
 1. Open the board's address (your admin will share it) and choose **Create account**.
 2. Use your work email and a password of at least 10 characters.
-3. Check your inbox for a confirmation link, click it, then return and press **I've confirmed it — continue**. (Look in spam if it doesn't arrive within a few minutes.)
+3. Check your inbox for a confirmation link and click it. The devflow page continues by itself (or press **I've confirmed it — continue**). Look in Junk / Spam if it doesn't arrive within a few minutes.
 4. Press **Request access**. An admin approves you in **Manage → Members** and adds you to a project; the page opens devflow by itself as soon as they do. (If an admin adds you directly, it opens by itself too.)
 
 Forgot your password? Type your email on the sign-in screen and choose **Forgot password?**, or ask an admin to send you a reset link or a temporary password. If you sign in with a temporary password, devflow asks you to choose your own straight away.
@@ -202,7 +202,7 @@ each section says whether it applies to the whole **workspace** or to the
 
 **Workspace**
 - **Overview** — the current project at a glance, and anything waiting for an admin.
-- **Members** — the project's members and their roles: add someone from the workspace, change a role, remove someone. Admins also see **access requests** (approve and add to the project with a role in one step) and **everyone in the workspace** (make someone an admin, add a person by email, or remove them from every project at once).
+- **Members** — admins first see **Trying to get in**: everyone who signed in but hasn't made it into devflow, and where they're stuck — *hasn't confirmed their email*, *hasn't pressed Request access*, or signing in with a **look-alike address** (you added `johndoe@gmail.com`, they use `john.doe@gmail.com`). Approve them right there, copy the fix for an unconfirmed email, or dismiss. Then the project's members and their roles: add someone from the workspace, change a role, remove someone. Admins also see **access requests** (approve and add to the project with a role in one step) and **everyone in the workspace** (make someone an admin, add a person by email, or remove them from every project at once).
   Under each person it says when they last opened devflow, or **hasn't signed in yet** in amber, so you can see at a glance whether someone actually got in. To help someone who's stuck:
   - **Copy invite** copies step-by-step joining instructions (the link, which email to use, the confirmation email, what to do if it says "Can't reach devflow") to paste into an email or chat.
   - **Reset password** emails them a link to choose a new password. Nobody can see anyone's password, admins included.
@@ -226,3 +226,21 @@ each section says whether it applies to the whole **workspace** or to the
 Edits in Manage are only saved when you press the section's **Save**
 button, and a teammate's change never overwrites what you're in the
 middle of editing.
+
+---
+
+## 12. When someone can't get in (for admins)
+
+Ask them **what they see**, ideally a screenshot. Every screen means something different:
+
+| They see | It means | Fix |
+|---|---|---|
+| **"Wrong email or password"** | The password is wrong, **or** there's no account with that email (Firebase deliberately doesn't say which — e.g. the account was deleted in the Firebase console) | **Forgot password?** on the sign-in screen, or **Reset password** in Manage → Members. If no email arrives, they probably have no account: they choose **Create account** with the same email. Admin tool: `check` says which, `set-password` gives a temporary password. |
+| **"Confirm your email"** | The account exists but the email isn't confirmed | Look in Junk / Spam (iCloud is strict) for an email from `noreply@<project>.firebaseapp.com`, click the link; the page continues by itself. Or **Resend email**. If it never arrives: Manage → Members → *Trying to get in* → **Copy fix** (`npm run admin -- verify …`). |
+| **"Waiting for approval"** | Signed in, but this exact address isn't approved | Manage → Members → *Trying to get in* → **Approve**. Check the spelling: Gmail ignores dots, devflow doesn't — the list warns you about look-alikes. |
+| **"Can't reach devflow"** | Their browser can't reach the database (ad blocker, iCloud Private Relay, VPN, company network) | The tips on that screen, or another browser / network. devflow switches to a compatibility connection by itself. **Copy details for your admin** tells you more. |
+| **"Choose your own password"** | They signed in with a temporary password | They pick one; that's it. |
+| The board, but **"You're not in any project yet"** | Approved, but not in a project | Manage → Members → add them to a project. |
+
+Where to look, in order: **Manage → Members → Trying to get in** (people stuck before they're in), **Everyone in the workspace** (*hasn't signed in yet* in amber), and **Manage → Logs → Problems** (what went wrong after they signed in). The admin tool's `npm run admin -- check their@email` puts all of it in one place.
+

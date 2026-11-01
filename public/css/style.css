@@ -532,6 +532,9 @@ button.quick.active{ background:color-mix(in srgb, var(--accent) 16%, transparen
 .member-name{ font-weight:500; overflow:hidden; text-overflow:ellipsis; }
 .member-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 4px; font-size:12px; color:var(--muted); }
 .signin-status.warn{ color:var(--amber); }
+.stuck-row .em{ flex-basis:100%; }
+.lookalike{ color:var(--text-2); }
+.lookalike strong{ color:var(--text); font-weight:600; }
 .profile-badges{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 
 /* my work */

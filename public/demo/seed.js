@@ -157,6 +157,10 @@ export function seedDemo(){
   /* Legacy CMS (archived) */
   put('projects/cms/meta/counters', { ticketNumber: 0 });
 
+  /* trying to get in (Manage → Members) */
+  put('joinStatus/pat.kim@example.com', { stage: 'confirm-email', detail: 'created 2026-10-31 09:12', emailVerified: false, updatedAt: ago(0.3) });
+  put('joinStatus/dana@example.com', { stage: 'waiting-approval', detail: 'hasn\'t pressed Request access', emailVerified: true, updatedAt: ago(0.1) });
+
   /* logs (Manage → Logs) */
   const log = (id, kind, type, email, message, daysAgo, extra = {}) =>
     put(`logs/${id}`, { kind, type, email, message, createdAt: ago(daysAgo), expiresAt: ago(daysAgo - 30), count: 1, ...extra });

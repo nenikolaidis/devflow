@@ -71,7 +71,7 @@ export function capitalize(s){
 export function friendlyAuthError(e){
   const code = (e && e.code) || '';
   if(code.includes('email-already-in-use')) return 'That email already has an account. Try logging in.';
-  if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'Wrong email or password.';
+  if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'Wrong email or password. Forgot it? Use "Forgot password?". If your account was removed, choose "Create account" with the same email.';
   if(code.includes('user-not-found')) return 'No account with that email. Try signing up.';
   if(code.includes('weak-password') || code.includes('password-does-not-meet-requirements')) return `Password should be at least ${MIN_PASSWORD_LENGTH} characters.`;
   if(code.includes('invalid-email')) return 'That email address looks invalid.';

@@ -72,6 +72,16 @@ const db = getFirestore();
 /* ---------------- HELPERS ---------------- */
 const when = (iso) => (iso ? new Date(iso).toLocaleString() : 'never');
 const millis = (ts) => (ts && typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+/** Same mailbox as far as people are concerned: case, "+tags", Gmail's ignored dots. */
+function mailbox(address){
+  let [local, domain] = address.toLowerCase().trim().split('@');
+  if(!domain) return address;
+  local = local.split('+')[0];
+  if(domain === 'googlemail.com') domain = 'gmail.com';
+  if(domain === 'gmail.com') local = local.replace(/\./g, '');
+  return `${local}@${domain}`;
+}
+const STEPS = { 'confirm-email': 'hasn\'t confirmed their email', 'choose-password': 'hasn\'t chosen their own password', 'waiting-approval': 'waiting for approval', 'signed-in': 'got in' };
 
 async function findUser(address){
   try{ return await auth.getUserByEmail(address); }
@@ -105,20 +115,23 @@ function temporaryPassword(){
 }
 
 async function devflowAccess(address){
-  const [allow, request, profile, projects, reset] = await Promise.all([
+  const [allow, request, profile, projects, reset, join, everyone] = await Promise.all([
     db.doc(`allowlist/${address}`).get(),
     db.doc(`accessRequests/${address}`).get(),
     db.doc(`profiles/${address}`).get(),
     db.collection('projects').where('memberEmails', 'array-contains', address).get(),
-    db.doc(`passwordResets/${address}`).get()
+    db.doc(`passwordResets/${address}`).get(),
+    db.doc(`joinStatus/${address}`).get(),
+    db.collection('allowlist').get()
   ]);
-  return { allow, request, profile, projects: projects.docs.map(d => d.data()), reset };
+  return { allow, request, profile, projects: projects.docs.map(d => d.data()), reset, join, approved: everyone.docs.map(d => d.id) };
 }
 
 /* ---------------- COMMANDS ---------------- */
 async function check(){
   const user = await findUser(email);
-  const { allow, request, profile, projects, reset } = await devflowAccess(email);
+  const { allow, request, profile, projects, reset, join, approved } = await devflowAccess(email);
+  const twin = approved.find(a => a !== email && mailbox(a) === mailbox(email));
   const lastOpened = millis(profile.exists && profile.data().lastActive);
   const added = millis(allow.exists && allow.data().addedAt);
   console.log(`\n  ${email}`);
@@ -128,6 +141,8 @@ async function check(){
   console.log(`  Projects         ${projects.length ? projects.map(p => `${p.key} (${p.members[email]})`).join(', ') : 'none'}`);
   console.log(`  Last opened app  ${lastOpened ? new Date(lastOpened).toLocaleString() : 'never'}${added && lastOpened && lastOpened < added ? ' — not since being added' : ''}`);
   if(reset.exists) console.log('  Password         temporary — they\'ll be asked to choose their own');
+  if(join.exists) console.log(`  Last seen at     ${STEPS[join.data().stage] || join.data().stage}${join.data().detail ? ` (${join.data().detail})` : ''} · ${new Date(millis(join.data().updatedAt)).toLocaleString()}`);
+  if(twin) console.log(`  Look-alike       you approved ${twin} — the same mailbox spelled differently`);
 
   const advice = [];
   if(!user) advice.push('Ask them to choose "Create account" with exactly this email.');
@@ -135,7 +150,8 @@ async function check(){
     if(user.disabled) advice.push(`Their account is disabled: npm run admin -- enable ${email}`);
     if(!user.emailVerified) advice.push(`Their email isn't confirmed. If the email never arrived: npm run admin -- verify ${email}`);
   }
-  if(!allow.exists) advice.push(request.exists ? 'Approve their request in Manage → Members.' : 'Add them in Manage → Members → Add a person by email.');
+  if(!allow.exists && twin) advice.push(`You approved ${twin}, but their account is ${email}. Approve ${email} in Manage → Members (and remove ${twin}).`);
+  else if(!allow.exists) advice.push(request.exists ? 'Approve their request in Manage → Members.' : 'Add them in Manage → Members → Add a person by email.');
   else if(!projects.length && allow.data().role !== 'admin') advice.push('They\'re approved but in no project: add them to one in Manage → Members.');
   if(advice.length) console.log(`\n  What to do:\n${advice.map(a => `   • ${a}`).join('\n')}\n`);
   else if(!lastOpened) console.log('\n  Their account looks right, but they haven\'t got in yet. Check Manage → Logs → Problems for them\n  (e.g. "Can\'t reach devflow"), or give them a temporary password: npm run admin -- set-password ' + email + '\n');

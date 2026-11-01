@@ -134,6 +134,9 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     for(const who of ['pm', 'dev', 'dev2', 'viewer', 'returning', 'offline', 'newbie']) await createUser(`${who}@team.dev`, { role: 'member' });
     await createUser('unverified@team.dev', { verified: false });
     await createUser('outsider@team.dev');
+    await createUser('lost@team.dev');            // signs in, never asks for access
+    await createUser('john.doe@gmail.com');       // approved below as johndoe@gmail.com — same Gmail inbox, different address
+    await seed('allowlist/johndoe@gmail.com', { role: str('member') });
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: process.env.CI ? ['--no-sandbox'] : [] });
   });
 
@@ -521,6 +524,40 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
   });
 
   /* ---------- helping people get in ---------- */
+  it('Members shows who is trying to get in and where they are stuck, and lets the admin fix it', async () => {
+    const lost = await openApp('lost');
+    await signIn(lost, 'lost@team.dev');
+    await lost.waitForSelector('#pendingScreen:not(.hidden)', { timeout: 15000 });
+    const john = await openApp('john');
+    await signIn(john, 'john.doe@gmail.com');
+    await john.waitForSelector('#pendingScreen:not(.hidden)', { timeout: 15000 });
+
+    await manage(admin, 'members');
+    const row = (email) => `#stuckPeople .stuck-row[data-email="${email}"]`;
+    await admin.waitForSelector(row('lost@team.dev'), { timeout: 10000 });
+    await admin.waitForSelector(row('john.doe@gmail.com'));
+    assert.match(await text(admin, row('unverified@team.dev')), /hasn't confirmed their email/);
+    assert.match(await text(admin, row('lost@team.dev')), /hasn't pressed Request access/);
+    assert.match(await text(admin, row('john.doe@gmail.com')), /You added johndoe@gmail\.com, but they sign in as john\.doe@gmail\.com/);
+    assert.equal(await admin.$(row('outsider@team.dev')), null, 'people who got in are not listed');
+
+    await admin.browserContext().overridePermissions(new URL(BASE).origin, ['clipboard-read', 'clipboard-write', 'clipboard-sanitized-write']);
+    await clickWhere(admin, `${row('unverified@team.dev')} [data-action=copy-fix]`);
+    await until(admin, () => document.querySelector('#copy-text') || /Command copied/.test(document.querySelector('#toast').textContent));
+    const fix = await admin.evaluate(async () => document.querySelector('#copy-text') ? document.querySelector('#copy-text').value : navigator.clipboard.readText());
+    assert.equal(fix, 'npm run admin -- verify unverified@team.dev');
+    if(await admin.$('#copy-text')) await closeDialog(admin);
+
+    // Approving from the list lets them in by themselves.
+    await admin.evaluate(sel => { document.querySelector(`${sel} .reqRole`).value = 'developer'; }, row('lost@team.dev'));
+    await clickWhere(admin, `${row('lost@team.dev')} [data-action=approve]`);
+    await lost.waitForSelector('#app:not(.hidden)', { timeout: 15000 });
+    await until(admin, sel => !document.querySelector(sel), row('lost@team.dev'));
+
+    await clickWhere(admin, `${row('john.doe@gmail.com')} [data-action=dismiss]`);
+    await until(admin, sel => !document.querySelector(sel), row('john.doe@gmail.com'));
+  });
+
   it('when the database can\'t be reached, a clear screen keeps retrying, switches connection, and lets them in once it\'s back', async () => {
     const ctx = await browser.createBrowserContext();
     contexts.push(ctx);
@@ -549,8 +586,12 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     await returning.waitForSelector('#pendingScreen:not(.hidden)', { timeout: 15000 });
     // Added back directly — no access request — and the waiting screen lets them in by itself.
     await until(admin, () => !document.querySelector('#workspacePeople [data-email="returning@team.dev"]'));
-    await admin.type('#newPersonEmail', 'returning@team.dev');
-    await admin.click('#addPersonBtn');
+    // They now show up under "Trying to get in" (that redraws the section, so wait for it first).
+    await admin.waitForSelector('#stuckPeople [data-email="returning@team.dev"]', { timeout: 10000 });
+    await admin.evaluate(() => {
+      document.querySelector('#newPersonEmail').value = 'returning@team.dev';
+      document.querySelector('#addPersonBtn').click();
+    });
     await returning.waitForSelector('#app:not(.hidden)', { timeout: 15000 });
   });
 
@@ -588,7 +629,7 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     const p = await problems();
     for(const words of ['Can\'t reach devflow', 'offline@team.dev', 'Connection came back', 'compatibility connection', 'Bug in devflow'])
       assert.ok(p.includes(words), `problems mention "${words}"`);
-    assert.ok(!(await admin.$eval('#navManage', el => el.classList.contains('has-alert'))), 'opening Problems clears the dot');
+    assert.ok(!(await admin.$eval('#navManage', el => el.title.includes('new problems'))), 'opening Problems marks them seen');
     await admin.click('[data-tab=admin]');
     await until(admin, () => /returning@team\.dev removed from the workspace/.test(document.querySelector('#logList').textContent));
     const actions = await admin.$eval('#logList', el => el.textContent);

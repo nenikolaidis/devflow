@@ -22,6 +22,7 @@ export const state = {
   notifications: [],       // my notifications, newest first
   workspaceMeta: null,     // meta/workspace: { version, defaultProjectId } — null until upgraded
   logs: [],                // newest problem / admin-action entries (admins only)
+  joinStatus: [],          // [{ id: email, stage, detail, emailVerified, updatedAt }] — who's trying to get in (admins only)
   hasLegacyData: false,    // single-board data from before projects exists (upgrade needed)
 
   /* ---- current project (kept in sync by data/sync.js) ---- */

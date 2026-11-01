@@ -88,7 +88,7 @@ $('forgotLink').addEventListener('click', async () => {
   if(!email){ $('authError').textContent = 'Enter your email above first, then click "Forgot password?"'; return; }
   try{
     await auth.sendPasswordResetEmail(email);
-    showToast('If that email has an account, a reset link is on its way.');
+    showToast('If that email has an account, a reset link is on its way. Nothing after a few minutes? Check Junk / Spam — or you may not have an account yet: choose "Create account".');
   }catch(e){ $('authError').textContent = friendlyAuthError(e); }
 });
 
@@ -135,6 +135,25 @@ $('npSave').addEventListener('click', saveOwnPassword);
 $('npConfirm').addEventListener('keydown', e => { if(e.key === 'Enter') saveOwnPassword(); });
 $('signOutNewPassword').addEventListener('click', () => auth.signOut());
 
+/* ---------------- WAITING FOR THE EMAIL TO BE CONFIRMED ---------------- */
+// People click the link in another tab or on their phone and come back —
+// often by reloading. Check every few seconds, and as soon as this tab is
+// visible again, so the page moves on by itself.
+let confirmationTimer = null;
+let checkConfirmation = null;
+function watchForConfirmation(user){
+  checkConfirmation = async () => {
+    try{ await user.reload(); }catch(e){ return; }
+    if(!user.emailVerified || checkConfirmation === null) return;
+    checkConfirmation = null;
+    clearInterval(confirmationTimer);
+    await user.getIdToken(true); // so the database sees the confirmed email
+    routeSignedInUser(user);
+  };
+  confirmationTimer = setInterval(() => checkConfirmation && checkConfirmation(), 4000);
+}
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && checkConfirmation) checkConfirmation(); });
+
 /* ---------------- PENDING APPROVAL SCREEN ---------------- */
 let stopWatchingRequest = null;
 let stopWatchingAccess = null;
@@ -151,6 +170,7 @@ function showPending(email){
   // Approved — from a request, or added directly by an admin — goes straight in.
   stopWatchingAccess = watchOwnAccess(email, role => { if(role) routeSignedInUser(auth.currentUser); });
   stopWatchingRequest = watchOwnRequest(email, requested => {
+    api.setJoinStatus('waiting-approval', requested ? 'asked for access' : 'hasn\'t pressed Request access');
     $('requestAccessBtn').disabled = requested;
     $('requestAccessBtn').textContent = requested ? 'Request sent' : 'Request access';
     $('pendingMsg').textContent = requested
@@ -166,6 +186,8 @@ function resetSession(){
   if(stopWatchingRequest){ stopWatchingRequest(); stopWatchingRequest = null; }
   if(stopWatchingAccess){ stopWatchingAccess(); stopWatchingAccess = null; }
   clearTimeout(offlineTimer);
+  clearInterval(confirmationTimer);
+  checkConfirmation = null;
   // Dialogs live on document.body, outside #app, so close them explicitly.
   closeAllModals();
 }
@@ -188,12 +210,14 @@ async function routeSignedInUser(user){
   state.currentUser = user;
   const email = myEmail();
   if(!user.emailVerified){
-    $('verifyMsg').textContent = `We sent a confirmation link to ${email}. Click it, then come back and press the button below. (Check your spam folder too.)`;
+    $('verifyMsg').textContent = `We sent a confirmation link to ${email}. Click it — this page continues by itself once you have. (Not there after a few minutes? Check Junk / Spam, or press "Resend email".)`;
     showScreen('verify');
+    api.setJoinStatus('confirm-email', `created ${user.metadata && user.metadata.creationTime ? new Date(user.metadata.creationTime).toISOString().slice(0, 16).replace('T', ' ') : ''}`);
+    watchForConfirmation(user);
     return;
   }
   try{
-    if(await api.mustChoosePassword(email)){ showScreen('newPassword'); $('npNew').focus(); return; }
+    if(await api.mustChoosePassword(email)){ api.setJoinStatus('choose-password'); showScreen('newPassword'); $('npNew').focus(); return; }
     const role = await api.getRole(email);
     const failed = offlineAttempts + attemptsBeforeReload;
     if(failed) logProblem('reconnected', `Got through after ${failed} failed attempt${failed === 1 ? '' : 's'}${attemptsBeforeReload ? ', after switching to the compatibility connection' : ''}`,
@@ -203,6 +227,7 @@ async function routeSignedInUser(user){
     try{ sessionStorage.removeItem(ATTEMPTS_KEY); }catch(e){ /* fine */ }
     flushLogs(); // anything recorded while offline
     if(!role){ showPending(email); return; }
+    api.setJoinStatus('signed-in');
     state.workspaceRole = role;
     refreshUserBadge();
     showScreen('app');

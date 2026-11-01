@@ -4,7 +4,7 @@
    Workspace (startSync, once an approved user signs in):
      people (allowlist), profiles, roles, my projects, my notifications,
      project requests, meta/workspace, and — for admins — access requests
-     and the newest 300 log entries.
+     the newest 300 log entries and who's trying to get in.
    Current project (switchProject, whenever a project is opened):
      its tickets, sprints, templates and settings.
 
@@ -104,6 +104,11 @@ export function startSync({ isAdmin }){
       emit(EVENTS.LOGS_CHANGED);
     }, 'Logs', { quiet: true });
 
+    listen(W, refs.joinStatus(), snap => {
+      state.joinStatus = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emit(EVENTS.JOIN_STATUS_CHANGED);
+    }, 'Join status', { quiet: true });
+
     listen(W, refs.requests(), snap => {
       state.accessRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       emit(EVENTS.REQUESTS_CHANGED);
@@ -164,7 +169,7 @@ export function stopSync(){
   workspaceUnsubs = [];
   projectUnsubs = [];
   Object.assign(state, {
-    allowlist: [], accessRequests: [], profiles: {}, roles: {}, projects: [], projectRequests: [], logs: [],
+    allowlist: [], accessRequests: [], profiles: {}, roles: {}, projects: [], projectRequests: [], logs: [], joinStatus: [],
     notifications: [], workspaceMeta: null,
     projectId: null, project: null, tickets: [], settings: null, sprints: [], templates: null, ticketsLoaded: false
   });

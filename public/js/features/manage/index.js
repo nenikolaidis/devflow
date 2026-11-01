@@ -12,7 +12,7 @@ import { icon } from '../../core/icons.js';
 import { on, EVENTS } from '../../core/events.js';
 import { isAdmin, can } from '../../core/permissions.js';
 import { renderOverview } from './overview.js';
-import { renderMembers } from './members.js';
+import { renderMembers, stuckPeople } from './members.js';
 import { renderProjects } from './projects.js';
 import { renderRoles } from './roles.js';
 import { renderLogs, unseenProblems } from './logs.js';
@@ -26,7 +26,7 @@ const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: 'home', visible: () => true, render: renderOverview,
     events: [EVENTS.WORKSPACE_CHANGED, EVENTS.PROJECTS_CHANGED, EVENTS.REQUESTS_CHANGED, EVENTS.PROJECT_REQUESTS_CHANGED, EVENTS.TICKETS_CHANGED] },
   { id: 'members', label: 'Members', icon: 'users', visible: () => isAdmin() || can('manageMembers'), render: renderMembers,
-    events: [EVENTS.PROJECTS_CHANGED, EVENTS.TEAM_CHANGED, EVENTS.REQUESTS_CHANGED, EVENTS.ROLES_CHANGED, EVENTS.PROFILES_CHANGED] },
+    events: [EVENTS.PROJECTS_CHANGED, EVENTS.TEAM_CHANGED, EVENTS.REQUESTS_CHANGED, EVENTS.ROLES_CHANGED, EVENTS.PROFILES_CHANGED, EVENTS.JOIN_STATUS_CHANGED] },
   { id: 'projects', label: 'Projects', icon: 'folder', visible: () => isAdmin() || can('requestProjects'), render: renderProjects,
     events: [EVENTS.PROJECTS_CHANGED, EVENTS.PROJECT_REQUESTS_CHANGED] },
   { id: 'roles', label: 'Roles', icon: 'key', visible: () => isAdmin(), render: renderRoles,
@@ -72,7 +72,7 @@ export function renderManage(){
 
 function badge(id){
   const n = !isAdmin() ? 0
-    : id === 'members' ? state.accessRequests.length
+    : id === 'members' ? state.accessRequests.length + stuckPeople().length
     : id === 'projects' ? state.projectRequests.length
     : id === 'logs' && state.manageSection !== 'logs' ? unseenProblems() : 0;
   return n ? html`<span class="nav-badge">${n}</span>` : '';
