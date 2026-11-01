@@ -114,6 +114,8 @@ tests/firestore.rules.test.js   security-rules tests (Firestore emulator)
 tests/e2e/app.e2e.test.js       end-to-end test: headless Chrome against the emulators
 tests/e2e/demo.e2e.test.js      the public demo works, and never contacts Firebase
 scripts/weekly-summary.mjs      the Monday Discord summary (run by GitHub Actions)
+scripts/admin-alerts.mjs        admin alerts on Discord, every 15 minutes (run by GitHub Actions)
+tests/admin-alerts.test.js      the alert message, and a dry run against the emulator
 scripts/admin.mjs               admin tool: check / list / set-password / verify / disable / enable / delete accounts
 tests/e2e/admin-tool.e2e.test.js the admin tool against the emulators, and the app's "choose your own password" screen
 tests/e2e/google-signin.e2e.test.js Continue with Google: new users, linking to a password account, errors
@@ -230,7 +232,8 @@ Subcollections:
 | `projects/{pid}/config/settings` | `labels[{name, color}]`, `types[{key, label, icon, color, enabled}]` (*manage content*); `staleDays`, `wipLimits{status: n}`, `dodItems[{id, text}]`, `dodRequired[id]` (*manage workflow*); `discordWebhookUrl`, `weeklySummary` (*manage integrations*); `updatedBy`, `updatedAt` | by permission group |
 | `projects/{pid}/sprints/{autoId}` | `name`, `goal`, `start`, `end`, `status` (`planned`·`active`·`closed`), `createdBy`, `createdAt` | *manage sprints* |
 | `projects/{pid}/templates/{autoId}` | `name`, `type`, `priority`, `labels`, `reviewers`, `description`, `order`, `enabled`, `updatedBy`, `updatedAt`. None saved = the built-in `DEFAULT_TEMPLATES` | *manage content* |
-| `joinStatus/{email}` | `stage` (`confirm-email`·`choose-password`·`waiting-approval`·`signed-in`), `detail`, `browser`, `emailVerified` (must match the token), `updatedAt` | the person themselves, at each step of the sign-in gate (`api.setJoinStatus`); admins read (Members → *Trying to get in*) and dismiss |
+| `joinStatus/{email}` | `stage` (`confirm-email`·`choose-password`·`waiting-approval`·`signed-in`), `detail`, `browser`, `emailVerified` (must match the token), `since` (when they reached this stage — kept while they stay on it), `updatedAt` | the person themselves, at each step of the sign-in gate (`api.setJoinStatus`); they can read their own; admins read (Members → *Trying to get in*) and dismiss |
+| `adminConfig/alerts` | `discordWebhookUrl`, `enabled`, `updatedBy`, `updatedAt` | workspace admins only (Manage → Integrations → Admin alerts); read by `scripts/admin-alerts.mjs` with the read-only key |
 | `passwordResets/{email}` | `requiredAt`, `by` | created only by `scripts/admin.mjs` (server key); the person reads it and deletes it after choosing a password |
 | `logs/{autoId}` | `kind` (`problem`·`admin`), `type` (e.g. `offline`, `js-error`, `error-shown`, `sync-error`, `reconnected`; `member-added`, `role-changed`…), `message`, `detail`, `email`, `projectId`, `target`, `page`, `browser`, `count`, `occurredAt`, `createdAt` (server time), `expiresAt` (TTL) | problems: anyone verified, as themselves; admin actions: approved people (written by `data/log.js`). Only admins read or delete; nobody edits |
 | `notifications/{autoId}` | `to`, `by`, `type` (`mention`), `projectId`, `ticketFid`, `ticketId`, `ticketTitle`, `text`, `createdAt`, `read` | sender creates (as themselves, to a teammate); only the recipient reads, marks read or deletes. Index in `firestore.indexes.json` |
@@ -351,7 +354,7 @@ unusual).
 ```bash
 npm install            # dev tools only — nothing here is deployed
 npm test               # both suites below
-npm run test:rules     # 62 security-rules tests against the Firestore emulator
+npm run test:rules     # 65 security-rules tests + 6 for the admin alerts against the Firestore emulator
 npm run test:e2e       # end-to-end: headless Chrome drives the real app against the emulators
 npm run emulators      # local Auth + Firestore (throwaway data, project "demo-devflow")
 npm run serve          # serves public/ at http://localhost:5050
@@ -405,6 +408,7 @@ demo test fails; add it to `backend.js`. Sample data lives in `demo/seed.js`.
 | `deploy.yml` | push to `main` | runs both test suites; deploys hosting only if they pass |
 | `firebase-hosting-pull-request.yml` | pull request | runs both test suites; posts a preview link (not for Dependabot) |
 | `weekly-summary.yml` | Mondays 07:00 UTC, or manually | posts the weekly summary to Discord |
+| `admin-alerts.yml` | every 15 minutes, or manually | posts new access requests, people stuck getting in and new problems to the admins' Discord channel; "new" = since its last successful run (asked from GitHub), so it stores nothing |
 
 Firestore rules and indexes are deployed by hand (`npm run deploy:rules`).
 Dependabot (`.github/dependabot.yml`) groups dependency updates into one

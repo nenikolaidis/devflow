@@ -72,7 +72,8 @@ export const COLLECTIONS = {
   TEMPLATES: 'templates',
   LOGS: 'logs',                  // problems and admin actions (Manage → Logs)
   PASSWORD_RESETS: 'passwordResets', // doc id = email; set by scripts/admin.mjs after a temporary password
-  JOIN_STATUS: 'joinStatus'      // doc id = email; which step of getting in someone is at
+  JOIN_STATUS: 'joinStatus',     // doc id = email; which step of getting in someone is at
+  ADMIN_CONFIG: 'adminConfig'    // adminConfig/alerts: Discord webhook for admin alerts (admins only)
 };
 export const DOCS = {
   COUNTERS: 'counters',        // projects/{pid}/meta/counters  → { ticketNumber }

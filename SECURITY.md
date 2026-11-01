@@ -30,7 +30,7 @@ allowed.
 
 | Layer | Protects against | Where |
 |---|---|---|
-| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 62 automated tests |
+| **Firestore security rules** | Reading or changing data you shouldn't; malformed or oversized data; skipping the workflow | `firestore.rules` — covered by 65 automated tests |
 | **Verified email + allowlist** | Someone registering a teammate's address before they do; strangers signing up and reading data | Rules (`email_verified`, `allowlist`) + `features/auth.js` |
 | **Escaping everywhere** | Cross-site scripting from ticket titles, comments, names, links | `core/html.js` (auto-escaping templates), `core/markdown.js` (escapes before formatting), `safeUrl()` (only `http(s)` links) |
 | **Content-Security-Policy** | Injected scripts, data sent to unknown servers, the app being framed | `firebase.json` headers |
@@ -53,7 +53,8 @@ allowed.
 - **Settings:** each group of project settings needs its own permission — labels, types and templates (*manage content*), Definition of Done, WIP and stale limits (*manage workflow*), Discord and the weekly summary (*manage integrations*). Webhooks must be Discord URLs.
 - **The upgrade:** copying the old board into the first project is only allowed for an admin while that project is marked as migrating; the old single-board data is read-only afterwards.
 - **Profiles:** you can only write your own, and every field is size-limited.
-- **"Trying to get in":** each signed-in account (confirmed email or not) can write only its own one-line status (`joinStatus/{email}`: which step it's at), with a server timestamp and a "confirmed" flag that must match the truth; only workspace admins read or dismiss them.
+- **Admin alerts:** the admins' Discord webhook (`adminConfig/alerts`) is readable and writable only by workspace admins, must be a Discord URL, and records who saved it. The GitHub Action that posts alerts reads it with the weekly summary's **read-only** key — it never writes to the database.
+- **"Trying to get in":** each signed-in account (confirmed email or not) can write only its own one-line status (`joinStatus/{email}`: which step it's at, and since when — never in the future), with a server timestamp and a "confirmed" flag that must match the truth; only workspace admins read or dismiss them.
 - **Temporary passwords:** the marker that makes someone choose a new password (`passwordResets/{email}`) is created only by the admin tool, which uses a server key; in the app, only that person can see or clear it.
 - **Logs:** anyone signed in with a confirmed email can add a *problem* entry, as themselves only (so people still waiting for approval can report why they're stuck); admin-action entries need an approved account. Every field is size-limited, the time is set by the server, entries expire within 60 days and can never be edited. Only workspace admins read or clear them. Entries never contain passwords, ticket text or webhook addresses. The admin-action log is recorded by the app after each action, so it's a helpful trail, not tamper-proof evidence — that would need a server.
 

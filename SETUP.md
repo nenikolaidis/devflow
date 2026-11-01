@@ -214,6 +214,17 @@ Commands:
 
 Every change appears in **Manage → Logs → Admin actions**. Temporary passwords are printed once and stored nowhere.
 
+### 14. (Recommended) Admin alerts on Discord
+
+A message in an **admins-only** Discord channel when someone asks for access, gets stuck getting in (email not confirmed, waiting without asking, temporary password not replaced), or runs into a problem (Manage → Logs). A GitHub Action checks every 15 minutes, for free.
+
+1. **The read-only key.** Admin alerts use the same key as the weekly summary. If you haven't yet, do step 11, parts 1–2 (the `WEEKLY_SUMMARY_SERVICE_ACCOUNT` secret). You don't need to switch the weekly summary on.
+2. **A channel for admins.** In Discord, make a private channel only admins can see → **Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL**. Use a different channel from your projects'.
+3. **In devflow:** **Manage → Integrations → Admin alerts** → paste the URL → **Send test** → tick **Send admin alerts** → **Save admin alerts**.
+4. **Try it now** (optional): GitHub → **Actions → Admin alerts → Run workflow**. With nothing new it just says so.
+
+Each thing is announced once. Someone who reloads while still stuck isn't announced again; they are when they reach a different step. GitHub sometimes starts scheduled jobs a few minutes late, and stops schedules in a repository with no commits for 60 days (a commit or **Run workflow** restarts them).
+
 ---
 
 ## Upgrading from the single-board version

@@ -481,7 +481,33 @@ describe('"trying to get in" status', () => {
     await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), `joinStatus/${U.outsider}`), { stage: 'confirm-email', emailVerified: false, updatedAt: Timestamp.now() }));
     await assertSucceeds(getDocs(collection(as('admin'), 'joinStatus')));
     await assertFails(getDocs(collection(as('pm'), 'joinStatus')));
-    await assertFails(getDoc(doc(as('outsider'), `joinStatus/${U.outsider}`)));
+    await assertFails(getDoc(doc(as('dev'), `joinStatus/${U.outsider}`)));
+    await assertFails(deleteDoc(doc(as('outsider'), `joinStatus/${U.outsider}`)));
     await assertSucceeds(deleteDoc(doc(as('admin'), `joinStatus/${U.outsider}`)));
+  });
+});
+
+/* ------------------------------------------------------------------ */
+describe('admin alerts settings', () => {
+  const alerts = (extra = {}) => ({ discordWebhookUrl: WEBHOOK, enabled: true, updatedBy: U.admin, updatedAt: serverTimestamp(), ...extra });
+
+  it('only workspace admins see or change the admin-alerts webhook', async () => {
+    await assertSucceeds(setDoc(doc(as('admin'), 'adminConfig/alerts'), alerts()));
+    await assertSucceeds(getDoc(doc(as('admin'), 'adminConfig/alerts')));
+    await assertFails(getDoc(doc(as('pm'), 'adminConfig/alerts')));
+    await assertFails(setDoc(doc(as('pm'), 'adminConfig/alerts'), alerts({ updatedBy: U.pm })));
+  });
+  it('the webhook must be Discord, and nothing else goes in', async () => {
+    const db = as('admin');
+    await assertFails(setDoc(doc(db, 'adminConfig/alerts'), alerts({ discordWebhookUrl: 'https://evil.example.com/hook' })));
+    await assertFails(setDoc(doc(db, 'adminConfig/alerts'), alerts({ extra: 1 })));
+    await assertFails(setDoc(doc(db, 'adminConfig/other'), alerts()));
+    await assertFails(setDoc(doc(db, 'adminConfig/alerts'), alerts({ updatedBy: U.dev })));
+  });
+  it('people can read their own "trying to get in" step, and its start time can\'t be in the future', async () => {
+    await assertSucceeds(setDoc(doc(as('outsider'), `joinStatus/${U.outsider}`), { stage: 'waiting-approval', emailVerified: true, since: serverTimestamp(), updatedAt: serverTimestamp() }));
+    await assertSucceeds(getDoc(doc(as('outsider'), `joinStatus/${U.outsider}`)));
+    await assertFails(getDoc(doc(as('dev'), `joinStatus/${U.outsider}`)));
+    await assertFails(setDoc(doc(as('outsider'), `joinStatus/${U.outsider}`), { stage: 'waiting-approval', emailVerified: true, since: Timestamp.fromMillis(Date.now() + 86400000), updatedAt: serverTimestamp() }));
   });
 });

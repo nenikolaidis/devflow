@@ -11,7 +11,9 @@ import { STATUSES, DEFAULT_SETTINGS, LIMITS } from '../../core/constants.js';
 import { getSettings } from '../../core/settings.js';
 import { showToast } from '../../core/ui.js';
 import { sendTestMessage, isValidWebhookUrl } from '../../integrations/discord.js';
-import { sectionHead, noProject, saveProjectSettings } from './common.js';
+import { sectionHead, noProject, saveProjectSettings, attempt, trackDirty } from './common.js';
+import { isAdmin } from '../../core/permissions.js';
+import * as api from '../../data/api.js';
 
 /* ---------------- WORKFLOW ---------------- */
 
@@ -93,13 +95,88 @@ export function renderWorkflow(root){
 
 /* ---------------- INTEGRATIONS ---------------- */
 
+/** Show/Hide and "Send test" for a webhook field. */
+function wireWebhook(root, input, toggle, test){
+  root.querySelector(toggle).addEventListener('click', e => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    e.currentTarget.setAttribute('aria-pressed', String(show));
+    e.currentTarget.lastChild.textContent = show ? 'Hide' : 'Show';
+  });
+  root.querySelector(test).addEventListener('click', async () => {
+    const url = input.value.trim();
+    if(!isValidWebhookUrl(url)){ showToast('Paste a Discord webhook URL first'); return; }
+    const ok = await sendTestMessage(url);
+    showToast(ok ? 'Test message sent — check your Discord channel' : 'Discord rejected the test message — check the URL', ok ? 'success' : 'error');
+  });
+}
+
+/* Admin alerts (workspace admins): a Discord channel for admins, posted to
+   every 15 minutes by .github/workflows/admin-alerts.yml when someone asks
+   for access, gets stuck getting in, or runs into a problem. */
+function adminAlertsHtml(){
+  return html`
+    <div class="card-section" id="adminAlertsCard">
+      <h3>Admin alerts <span class="scope-chip">Workspace · admins only</span></h3>
+      <p class="field-hint">A message in an admins-only Discord channel when someone asks for access, gets stuck getting in, or runs into a problem — checked every 15 minutes. Needs the one-time setup in SETUP.md (Admin alerts). Use a different channel from the project's.</p>
+      <div class="field">
+        <label for="alertsWebhook">Webhook URL for the admins' channel</label>
+        <div class="add-row flush">
+          <input type="password" id="alertsWebhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" spellcheck="false">
+          <button type="button" id="toggleAlertsWebhook" aria-pressed="false">${icon('eye', 14)}Show</button>
+          <button type="button" id="testAlertsWebhook">Send test</button>
+        </div>
+        <p class="field-hint" id="alertsSaved"></p>
+      </div>
+      <label class="toggle-row" for="alertsEnabled">
+        <input type="checkbox" id="alertsEnabled">
+        <span><strong>Send admin alerts</strong>
+          <span class="field-hint">New access requests, people stuck getting in (each new step once), and new problems from Manage → Logs.</span></span>
+      </label>
+      <div class="modal-actions"><button type="button" class="primary" id="saveAdminAlerts">Save admin alerts</button></div>
+    </div>`;
+}
+
+async function wireAdminAlerts(root){
+  const card = root.querySelector('#adminAlertsCard');
+  if(!card) return;
+  const input = card.querySelector('#alertsWebhook');
+  wireWebhook(card, input, '#toggleAlertsWebhook', '#testAlertsWebhook');
+  try{
+    const saved = await api.loadAdminAlerts();
+    if(root.dataset.dirty) return; // they started typing before it loaded
+    input.value = saved.discordWebhookUrl || '';
+    card.querySelector('#alertsEnabled').checked = !!saved.enabled;
+    card.querySelector('#alertsSaved').textContent = saved.discordWebhookUrl ? `Saved · ends in …${saved.discordWebhookUrl.slice(-6)}${saved.enabled ? '' : ' · switched off'}` : 'Not set up yet.';
+  }catch(e){ card.querySelector('#alertsSaved').textContent = `Couldn't load: ${e.message}`; }
+  card.querySelector('#saveAdminAlerts').addEventListener('click', async () => {
+    const url = input.value.trim();
+    const enabled = card.querySelector('#alertsEnabled').checked;
+    if(url && !isValidWebhookUrl(url)){ showToast('That doesn\'t look like a Discord webhook URL (https://discord.com/api/webhooks/…)', 'error'); return; }
+    if(enabled && !url){ showToast('Add the webhook first, then switch admin alerts on', 'error'); return; }
+    const ok = await attempt('Could not save admin alerts', async () => { await api.saveAdminAlerts({ discordWebhookUrl: url, enabled }); return true; });
+    if(ok){
+      delete root.dataset.dirty;
+      input.type = 'password';
+      card.querySelector('#alertsSaved').textContent = url ? `Saved · ends in …${url.slice(-6)}${enabled ? '' : ' · switched off'}` : 'Not set up yet.';
+      showToast(`Admin alerts ${enabled ? 'on' : 'saved (off)'}`, 'success');
+    }
+  });
+}
+
 export function renderIntegrations(root){
-  if(!state.project){ root.innerHTML = html`${sectionHead('Integrations', '')}${noProject()}`.toString(); return; }
+  if(!state.project){
+    root.innerHTML = html`${sectionHead('Integrations', '')}${isAdmin() ? adminAlertsHtml() : ''}${noProject()}`.toString();
+    trackDirty(root);
+    wireAdminAlerts(root);
+    return;
+  }
   const s = getSettings();
   root.innerHTML = html`
-    ${sectionHead('Integrations', 'Where this project\'s notifications go.')}
+    ${sectionHead('Integrations', 'Where notifications go.')}
+    ${isAdmin() ? adminAlertsHtml() : ''}
     <div class="card-section">
-      <h3>Discord</h3>
+      <h3>Discord <span class="scope-chip">${state.project.key} · ${state.project.name}</span></h3>
       <div class="field">
         <label for="webhook">Webhook URL</label>
         <p class="field-hint">Stored in the database, not in the site's code. Treat it like a password: anyone with it can post to your channel.</p>
@@ -115,22 +192,13 @@ export function renderIntegrations(root){
         <span><strong>Weekly summary</strong>
           <span class="field-hint">Every Monday morning, post this project's week — done, in progress, blocked, overdue, sprint progress — to the channel above. Needs the one-time setup in SETUP.md.</span></span>
       </label>
-    </div>
-    <div class="modal-actions"><button type="button" class="primary" id="saveIntegrations">Save integrations</button></div>`.toString();
+      <div class="modal-actions"><button type="button" class="primary" id="saveIntegrations">Save integrations</button></div>
+    </div>`.toString();
 
+  trackDirty(root); // a teammate's change never wipes a webhook you're pasting
+  wireAdminAlerts(root);
   const input = root.querySelector('#webhook');
-  root.querySelector('#toggleWebhook').addEventListener('click', e => {
-    const show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    e.currentTarget.setAttribute('aria-pressed', String(show));
-    e.currentTarget.lastChild.textContent = show ? 'Hide' : 'Show';
-  });
-  root.querySelector('#testWebhook').addEventListener('click', async () => {
-    const url = input.value.trim();
-    if(!isValidWebhookUrl(url)){ showToast('Paste a Discord webhook URL first'); return; }
-    const ok = await sendTestMessage(url);
-    showToast(ok ? 'Test message sent — check your Discord channel' : 'Discord rejected the test message — check the URL', ok ? 'success' : 'error');
-  });
+  wireWebhook(root, input, '#toggleWebhook', '#testWebhook');
   root.querySelector('#saveIntegrations').addEventListener('click', async () => {
     const url = input.value.trim();
     if(url && !isValidWebhookUrl(url)){ showToast('That doesn\'t look like a Discord webhook URL (https://discord.com/api/webhooks/…)', 'error'); return; }

@@ -188,15 +188,33 @@ service cloud.firestore {
     // a different spelling of their address… One document per email,
     // written only by that person (confirmed email or not), small and
     // server-timestamped; the confirmed flag must be the truth.
+    // `since` is when they reached this step (kept while they stay on it), so
+    // the admin alerts announce each new step once.
     match /joinStatus/{email} {
       allow read, delete: if isAdmin();
+      allow read: if isSignedIn() && myEmail() == email;
       allow create, update: if isSignedIn() && myEmail() == email
-        && request.resource.data.keys().hasOnly(['stage', 'detail', 'browser', 'emailVerified', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['stage', 'detail', 'browser', 'emailVerified', 'since', 'updatedAt'])
+        && (!('since' in request.resource.data) || (request.resource.data.since is timestamp && request.resource.data.since <= request.time))
         && request.resource.data.stage in ['confirm-email', 'choose-password', 'waiting-approval', 'signed-in']
         && request.resource.data.emailVerified == (request.auth.token.email_verified == true)
         && optString(request.resource.data, 'detail', 300)
         && optString(request.resource.data, 'browser', 300)
         && request.resource.data.updatedAt == request.time;
+    }
+
+    // Workspace settings only admins can see — today the Discord webhook for
+    // admin alerts (people asking for access or stuck getting in, new
+    // problems), read every 15 minutes by .github/workflows/admin-alerts.yml.
+    match /adminConfig/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && docId == 'alerts'
+        && request.resource.data.keys().hasOnly(['discordWebhookUrl', 'enabled', 'updatedBy', 'updatedAt'])
+        && request.resource.data.get('enabled', false) is bool
+        && optString(request.resource.data, 'discordWebhookUrl', 300)
+        && (request.resource.data.get('discordWebhookUrl', '') == ''
+            || request.resource.data.discordWebhookUrl.matches('^https://(ptb[.]|canary[.])?(discord|discordapp)[.]com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$'))
+        && (!('updatedBy' in request.resource.data) || request.resource.data.updatedBy == myEmail());
     }
 
     // "Choose a new password": set by the admin tool (scripts/admin.mjs, which

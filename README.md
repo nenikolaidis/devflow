@@ -54,6 +54,7 @@ I built devflow to run day-to-day work on a development team: tickets move throu
 **Work together**
 - Live sync: every change appears for everyone instantly
 - **@mentions** in comments, with an in-app notification bell
+- **Admin alerts** on Discord when someone asks for access, gets stuck getting in or hits a problem
 - Optional **Discord** messages per project (new, assigned, ready for review, blocked, mentions) and a **weekly summary** posted every Monday
 - Optional **email** to a ticket's new owner
 
@@ -73,10 +74,10 @@ All rules that matter — who can do what, and what the workflow allows — are 
 | **Front end** | Plain HTML, CSS and JavaScript modules — no framework, no build step |
 | **Data & sync** | Cloud Firestore with live listeners |
 | **Sign-in** | Firebase Authentication: **Continue with Google**, or email + password with a verified email |
-| **Security** | Firestore security rules — 62 automated tests cover them, project by project and role by role |
+| **Security** | Firestore security rules — 65 automated tests cover them, project by project and role by role |
 | **Hosting** | Firebase Hosting with a strict Content-Security-Policy and other security headers |
-| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (40 steps, including the upgrade to projects, losing the connection, the logs and people stuck getting in, plus 11 for the admin tool, 7 for Google sign-in and 9 for the public demo) on every push and pull request; deploys only when they pass |
-| **Scheduled jobs** | A GitHub Actions cron job for the weekly Discord summary (no paid Firebase plan needed) |
+| **CI/CD** | GitHub Actions: security-rules tests and end-to-end browser tests (41 steps, including the upgrade to projects, losing the connection, the logs, people stuck getting in and admin alerts, plus 11 for the admin tool, 7 for Google sign-in and 9 for the public demo) on every push and pull request; deploys only when they pass |
+| **Scheduled jobs** | GitHub Actions cron jobs for the weekly Discord summary and the admin alerts every 15 minutes (no paid Firebase plan needed) |
 
 The code is organised in layers — `core/` (no database code), `data/` (all Firestore access), `features/` (one file per screen) — and every piece of user content goes through an auto-escaping HTML template, so it can never run as code.
 

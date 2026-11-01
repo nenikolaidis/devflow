@@ -558,6 +558,30 @@ describe('devflow end to end — projects', { concurrency: false }, () => {
     await until(admin, sel => !document.querySelector(sel), row('john.doe@gmail.com'));
   });
 
+  it('an admin switches on admin alerts in Integrations; project managers don\'t see them', async () => {
+    await manage(admin, 'integrations');
+    await admin.waitForSelector('#adminAlertsCard');
+    await until(admin, () => document.querySelector('#alertsSaved').textContent === 'Not set up yet.');
+    await admin.evaluate(() => {
+      const input = document.querySelector('#alertsWebhook');
+      input.value = 'https://discord.com/api/webhooks/123456/abcDEF_-123';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#alertsEnabled').checked = true;
+      document.querySelector('#saveAdminAlerts').click();
+    });
+    await toastSays(admin, 'Admin alerts on');
+    const saved = await (await fetch(`${FIRESTORE}/adminConfig/alerts`, { headers: OWNER })).json();
+    assert.equal(saved.fields.enabled.booleanValue, true);
+    assert.match(await text(admin, '#alertsSaved'), /ends in …F_-123$/);
+    // Someone stuck getting in carries the time they reached that step (for the alerts).
+    const lost = await (await fetch(`${FIRESTORE}/joinStatus/unverified@team.dev`, { headers: OWNER })).json();
+    assert.ok(lost.fields.since.timestampValue, 'joinStatus has a since time');
+
+    await manage(pm, 'integrations');
+    await pm.waitForSelector('#webhook');
+    assert.equal(await pm.$('#adminAlertsCard'), null);
+  });
+
   it('when the database can\'t be reached, a clear screen keeps retrying, switches connection, and lets them in once it\'s back', async () => {
     const ctx = await browser.createBrowserContext();
     contexts.push(ctx);

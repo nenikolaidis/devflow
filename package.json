@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:rules && npm run test:e2e",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-devflow \"node --test tests/*.test.js\"",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-devflow \"node --test --test-concurrency=1 tests/*.test.js\"",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-devflow",
     "serve": "http-server public -p 5050 -c-1 -s",
     "deploy": "firebase deploy --only hosting",

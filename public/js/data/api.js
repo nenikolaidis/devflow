@@ -465,13 +465,32 @@ export async function mustChoosePassword(email){
  * people who are stuck (Manage → Members → "Trying to get in"). Best effort.
  * stage: 'confirm-email' | 'choose-password' | 'waiting-approval' | 'signed-in'
  */
-export function setJoinStatus(stage, detail = ''){
+export async function setJoinStatus(stage, detail = ''){
   const user = auth.currentUser;
   if(!user || !user.email) return;
-  refs.joinEntry(user.email).set({
-    stage, detail: String(detail).slice(0, 300), browser: navigator.userAgent.slice(0, 300),
-    emailVerified: !!user.emailVerified, updatedAt: serverTime()
-  }).catch(() => { /* e.g. offline: the next step reports again */ });
+  try{
+    // `since` = when they reached this step; kept while they stay on it, so
+    // the admin alerts announce each new step once (not every reload).
+    const before = await refs.joinEntry(user.email).get();
+    const same = before.exists && before.data().stage === stage && before.data().since;
+    await refs.joinEntry(user.email).set({
+      stage, detail: String(detail).slice(0, 300), browser: navigator.userAgent.slice(0, 300),
+      emailVerified: !!user.emailVerified, since: same ? before.data().since : serverTime(), updatedAt: serverTime()
+    });
+  }catch(e){ /* e.g. offline: the next step reports again */ }
+}
+
+/* ---------------- ADMIN ALERTS (workspace admins) ---------------- */
+
+/** The admin-alerts settings: { discordWebhookUrl, enabled }. */
+export async function loadAdminAlerts(){
+  const doc = await db.collection(COLLECTIONS.ADMIN_CONFIG).doc('alerts').get();
+  return doc.exists ? doc.data() : { discordWebhookUrl: '', enabled: false };
+}
+
+export async function saveAdminAlerts({ discordWebhookUrl, enabled }){
+  await db.collection(COLLECTIONS.ADMIN_CONFIG).doc('alerts').set({ discordWebhookUrl, enabled, updatedBy: normEmail(me()), updatedAt: serverTime() });
+  logAdmin('admin-alerts-changed', `Admin alerts ${enabled ? 'on' : 'off'}${discordWebhookUrl ? '' : ' (no webhook)'}`);
 }
 
 /** Admins: removes someone from the "Trying to get in" list. */

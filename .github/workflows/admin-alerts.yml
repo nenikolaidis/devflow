@@ -1,0 +1,48 @@
+# Tells workspace admins on Discord when someone asks for access, gets
+# stuck getting in, or runs into a problem — checked every 15 minutes.
+#
+# One-time setup (SETUP.md → "Admin alerts"):
+#   1. The read-only key from the weekly summary, saved as the repository
+#      secret WEEKLY_SUMMARY_SERVICE_ACCOUNT (SETUP.md step 11, 1–2).
+#   2. In the app: Manage → Integrations → Admin alerts → webhook → on.
+# Until then the job runs, finds nothing to do, and succeeds quietly.
+#
+# "New" means since this workflow's last successful run, which it asks
+# GitHub for — so nothing has to be stored anywhere.
+name: Admin alerts
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 minutes (GitHub may start it a few minutes late)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: admin-alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: When did this last succeed?
+        id: last
+        run: |
+          since=$(gh api "repos/${{ github.repository }}/actions/workflows/admin-alerts.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].run_started_at // ""' || true)
+          echo "since=$since" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: node scripts/admin-alerts.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.WEEKLY_SUMMARY_SERVICE_ACCOUNT }}
+          SINCE: ${{ steps.last.outputs.since }}

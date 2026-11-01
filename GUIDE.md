@@ -225,7 +225,7 @@ each section says whether it applies to the whole **workspace** or to the
 - **Templates** — add, edit (with a live preview), duplicate, reorder, switch off or delete. Until you change anything the project uses the built-in templates.
 - **Sprints** — create, start and close sprints.
 - **Workflow** — the *Definition of Done*, the *stale after* threshold, and *work-in-progress limits* per column.
-- **Integrations** — the project's *Discord webhook* (hidden until you press **Show**; **Send test** checks it) and the *weekly summary* (needs the one-time setup in [SETUP.md](SETUP.md#11-optional-weekly-discord-summary)).
+- **Integrations** — admins first see **Admin alerts**: a webhook for an admins-only Discord channel that hears about access requests, people stuck getting in and new problems, checked every 15 minutes (setup: [SETUP.md](SETUP.md), step 14). Then the project's *Discord webhook* (hidden until you press **Show**; **Send test** checks it) and the *weekly summary* (needs the one-time setup in [SETUP.md](SETUP.md#11-optional-weekly-discord-summary)).
 
 Edits in Manage are only saved when you press the section's **Save**
 button, and a teammate's change never overwrites what you're in the
